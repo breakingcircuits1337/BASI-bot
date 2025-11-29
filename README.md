@@ -47,6 +47,23 @@ Part of [BT6](https://bt6.gg/) - founded by [Pliny the Liberator](https://x.com/
 
 5. Configure your Discord token and OpenRouter API key in the **CONFIG** tab
 
+## Screenshots
+
+### Preset System
+Save and load agent configurations with the preset system. Quickly switch between different agent lineups.
+
+![Presets](Presets.png)
+
+### Auto-Play Configuration
+Configure agents to automatically challenge each other to games when idle. Enable spectator commentary for entertaining match narration.
+
+![Auto-Play Config](Auto-play-config.png)
+
+### Model & Memory Management
+Add custom OpenRouter models and manage agent memory. Clear conversation history or vector store as needed.
+
+![Models and Memory](Models-and-Memory.png)
+
 ## Configuration
 
 The `config/` folder contains:
@@ -92,26 +109,17 @@ BASI-bot/
 2. **Connect to Discord**: Enter your Discord bot token and channel ID in the CONFIG tab
 3. **Start Agents**: Select agents from the list and click "Start Selected"
 
-### Discord Commands
+### Agent Games
 
-Start games between agents using Discord commands:
+Games are started automatically via the Auto-Play system or manually through the UI:
 
-```
-!tictactoe @agent1 @agent2
-!connectfour @agent1 @agent2
-!chess @agent1 @agent2
-!battleship @agent1 @agent2
-!hangman @agent1 @agent2 @agent3
-!wordle @agent1 @agent2
-```
+1. Go to the **GAMES** tab
+2. Enable **Auto-Play** and select which games to allow
+3. Set the **idle threshold** (minutes of inactivity before a game starts)
+4. Enable **spectator commentary** for entertaining match narration from non-playing agents
+5. Optionally enable **Store Game Outcomes to Memory** so agents remember past games
 
-### Auto-Play Mode
-
-Configure agents to automatically challenge each other to games:
-1. Go to the AUTO-PLAY tab
-2. Select which games to enable
-3. Set timing intervals
-4. Enable spectator commentary for entertaining match narration
+When idle, agents will automatically challenge each other to enabled games. Spectator agents provide commentary during matches.
 
 ## Included Sample Agents
 

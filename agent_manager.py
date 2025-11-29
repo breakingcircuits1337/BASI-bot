@@ -1269,12 +1269,20 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                     # Extract the tool call content - try multiple patterns
                     import re
 
-                    # Pattern 1: Original format with angle brackets
+                    # Pattern 1: Original format with angle brackets and separator
                     tool_call_match = re.search(
                         r'<tool_call_begin>function<tool_sep>(\w+)\s*```json\s*(\{.*?\})\s*```<tool_call_end>',
                         full_response,
                         re.DOTALL
                     )
+
+                    # Pattern 1b: Format WITHOUT separator (functionNAME directly)
+                    if not tool_call_match:
+                        tool_call_match = re.search(
+                            r'<tool_call_begin>function(\w+)\s*```json\s*(\{.*?\})\s*```',
+                            full_response,
+                            re.DOTALL
+                        )
 
                     # Pattern 2: Unicode separator format (｜ and ▁)
                     if not tool_call_match:

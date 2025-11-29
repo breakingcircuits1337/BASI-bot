@@ -669,7 +669,13 @@ def _create_live_feed_tab():
         )
 
 def _create_discord_tab(discord_token_initial: str, discord_channel_initial: str):
-    """Create the Discord tab for bot connection and control."""
+    """Create the Discord tab for bot connection and control.
+
+    Returns:
+        Tuple of (connect_btn, disconnect_btn, refresh_btn, stop_all_btn,
+                  discord_status, connection_card, token_input, channel_input)
+        for wiring up header updates in the main block.
+    """
     with gr.Tab("DISCORD"):
         with gr.Row():
             # Left column: Connection status and quick actions
@@ -722,40 +728,9 @@ Make sure your bot has the required permissions:
 - Read Message History
                 """)
 
-        def connect_and_refresh(token, channel):
-            result = connect_discord(token, channel)
-            return result, get_discord_connection_html()
-
-        def disconnect_and_refresh():
-            result = disconnect_discord()
-            return result, get_discord_connection_html()
-
-        connect_discord_btn.click(
-            fn=connect_and_refresh,
-            inputs=[discord_token_input, discord_channel_input],
-            outputs=[discord_status, connection_card]
-        )
-
-        disconnect_discord_btn.click(
-            fn=disconnect_and_refresh,
-            inputs=[],
-            outputs=[discord_status, connection_card]
-        )
-
-        stop_all_btn.click(
-            fn=stop_all_agents_ui,
-            inputs=[],
-            outputs=[discord_status]
-        )
-
-        def refresh_status_and_card():
-            return get_discord_status_text(), get_discord_connection_html()
-
-        refresh_discord_btn.click(
-            fn=refresh_status_and_card,
-            inputs=[],
-            outputs=[discord_status, connection_card]
-        )
+    # Return components for wiring up in main block (where header_display is available)
+    return (connect_discord_btn, disconnect_discord_btn, refresh_discord_btn, stop_all_btn,
+            discord_status, connection_card, discord_token_input, discord_channel_input)
 
 def _create_config_tab(openrouter_key_initial: str, initial_models: List[str], agent_model_input):
     """Create the CONFIG tab for system configuration and management."""
@@ -1885,9 +1860,47 @@ def create_gradio_ui():
 
             # Create remaining tabs using helper functions
             _create_games_tab()
-            _create_discord_tab(discord_token_initial, discord_channel_initial)
+            (connect_discord_btn, disconnect_discord_btn, refresh_discord_btn, stop_all_btn,
+             discord_status, connection_card, discord_token_input, discord_channel_input) = \
+                _create_discord_tab(discord_token_initial, discord_channel_initial)
             _create_live_feed_tab()
             _create_config_tab(openrouter_key_initial, initial_models, agent_model_input)
+
+        # Wire up Discord buttons to update header (now that header_display exists)
+        def connect_and_refresh_with_header(token, channel):
+            result = connect_discord(token, channel)
+            return result, get_discord_connection_html(), get_header_html()
+
+        def disconnect_and_refresh_with_header():
+            result = disconnect_discord()
+            return result, get_discord_connection_html(), get_header_html()
+
+        def refresh_status_card_header():
+            return get_discord_status_text(), get_discord_connection_html(), get_header_html()
+
+        connect_discord_btn.click(
+            fn=connect_and_refresh_with_header,
+            inputs=[discord_token_input, discord_channel_input],
+            outputs=[discord_status, connection_card, header_display]
+        )
+
+        disconnect_discord_btn.click(
+            fn=disconnect_and_refresh_with_header,
+            inputs=[],
+            outputs=[discord_status, connection_card, header_display]
+        )
+
+        stop_all_btn.click(
+            fn=stop_all_agents_ui,
+            inputs=[],
+            outputs=[discord_status]
+        )
+
+        refresh_discord_btn.click(
+            fn=refresh_status_card_header,
+            inputs=[],
+            outputs=[discord_status, connection_card, header_display]
+        )
 
         # Load initial agent details on app startup
         load_event = app.load(
@@ -1915,6 +1928,10 @@ def create_gradio_ui():
                 agent_user_image_cooldown_input,
                 agent_global_image_cooldown_input
             ]
+        ).then(
+            fn=get_header_html,
+            inputs=[],
+            outputs=[header_display]
         )
 
     return app
