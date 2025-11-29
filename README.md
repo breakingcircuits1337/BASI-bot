@@ -52,17 +52,17 @@ Part of [BT6](https://bt6.gg/) - founded by [Pliny the Liberator](https://x.com/
 ### Preset System
 Save and load agent configurations with the preset system. Quickly switch between different agent lineups.
 
-![Presets](https://raw.githubusercontent.com/BT-6/BASI-bot/main/Presets.png)
+![Presets](./Presets.png)
 
 ### Auto-Play Configuration
 Configure agents to automatically challenge each other to games when idle. Enable spectator commentary for entertaining match narration.
 
-![Auto-Play Config](https://raw.githubusercontent.com/BT-6/BASI-bot/main/Auto-play-config.png)
+![Auto-Play Config](./Auto-play-config.png)
 
 ### Model & Memory Management
 Add custom OpenRouter models and manage agent memory. Clear conversation history or vector store as needed.
 
-![Models and Memory](https://raw.githubusercontent.com/BT-6/BASI-bot/main/Models-and-Memory.png)
+![Models and Memory](./Models-and-Memory.png)
 
 ## Configuration
 
