@@ -81,8 +81,7 @@ def analyze_context(ctx: PromptContext) -> PromptContext:
             if active_agent_names:
                 ctx.other_agents_context = f"\n\nOther AI agents currently active in this channel: {', '.join(active_agent_names)}"
                 ctx.other_agents_context += "\nThese are fellow AI personalities, not humans. You can interact with them naturally."
-                ctx.other_agents_context += "\n\n⚠️ CRITICAL: DO NOT mention or tag '@GameMaster' in your responses. GameMaster is a system coordinator, not an agent you can interact with. Tagging GameMaster will not work and just creates spam."
-                ctx.other_agents_context += "\n\n⚠️ CRITICAL - NO QUOTING: NEVER copy, paste, or repeat another agent's message. DO NOT start your response with 'AgentName: [their text]' or quote their words. This is FORBIDDEN. Respond in YOUR OWN words only. If you catch yourself about to paste someone else's message, STOP and write something original instead."
+                ctx.other_agents_context += "\n\n⚠️ NO QUOTING: Respond in YOUR OWN words. Don't copy/paste other agents' messages."
         except Exception as e:
             logger.debug(f"[{agent.name}] Could not get agent list for context: {e}")
 
@@ -226,13 +225,7 @@ Parenthetical actions look like roleplay chatroom formatting - asterisks are the
 CRITICAL - ENGAGE SUBSTANTIVELY: Respond to SPECIFIC points others make. Do NOT make generic meta-observations that could apply to any conversation (e.g., "the way this is just a metaphor for X" or "we're all just doing Y"). Actually engage with the content, arguments, and ideas being discussed. If you find yourself making the same type of comment repeatedly, say something different."""
     },
 
-    "name_instruction": {
-        "order": 35,
-        "condition": lambda ctx: True,  # Always include
-        "builder": lambda ctx: f'\n\nIMPORTANT: Do NOT include your name (e.g., "{ctx.agent.name}:") at the start of your messages.' + (
-            " Your name is already displayed by the system. Just write your message directly." if not ctx.is_in_game else ""
-        )
-    },
+    # name_instruction REMOVED - now handled by code-level stripping in agent_manager.py
 
     "attention_guidance": {
         "order": 40,
@@ -343,25 +336,18 @@ Wait at least 10 minutes between images to avoid spamming.
         when_to_use = f"""{recent_image_warning}**🎨 SPONTANEOUS IMAGE GENERATION ENABLED 🎨**
 You can request image generation - The Starving Artist will create the actual image for you.
 
-**⚠️ USE IMAGES SPARINGLY - THEY ARE SPECIAL MOMENTS ⚠️**
-Images should be RARE highlights, not regular responses. Most of your messages should be TEXT ONLY.
-• Only generate an image when it would be genuinely impactful and memorable
-• If you just made an image recently, DO NOT make another one - wait a long while
-• NEVER repeat similar prompts - each image should be completely different
-• Ask yourself: "Would this conversation be worse without this image?" If not, skip it.
-
-**WHEN TO GENERATE IMAGES (rarely!):**
-• When an image would express your point MUCH better than words
-• When you have a truly unique visual idea worth sharing
-• NOT just because the topic has "visual potential" - that's not enough
+**WHEN TO GENERATE IMAGES:**
+• When an image would convey something better than words alone
+• When you have a visual idea that fits naturally with the conversation
+• Stay true to your personality - if you're inspired to share something visual, go ahead
 
 **HOW IT WORKS:**
 You send the [IMAGE] tag or use generate_image() → The Starving Artist creates and posts the image.
 
-**⚠️ CRITICAL FOR SPONTANEOUS IMAGES:**
-When generating images spontaneously, you MUST explain WHY you're creating it!
-• Connect the image to what's being discussed in the conversation
-• Don't just drop an image with no context - that's confusing"""
+**GUIDELINES:**
+• If you just made an image recently, give it some time before making another
+• Each image should be different - don't repeat similar prompts
+• When generating spontaneously, briefly connect it to what's being discussed"""
     else:
         when_to_use = """**WHEN TO GENERATE IMAGES:**
 • ONLY when a human user explicitly requests an image from you
@@ -464,36 +450,12 @@ RESPONSE STYLE:
 - Skip things that don't fit your character
 - Quality over quantity - make it count
 
-IMPORTANCE SCORING (1-10):
-After your message, rate the PREVIOUS message's importance for future memory on a scale of 1-10:
+OPTIONAL - SENTIMENT/IMPORTANCE TAGS:
+You may optionally add tags at the end of your response (system will auto-score if omitted):
+[SENTIMENT: X] (-10 to +10, your feeling)
+[IMPORTANCE: X] (1-10, memory value of previous message)
 
-1-3: Trivial (greetings, "ok", "lol", small talk) - minimal future value, will rarely be retrieved
-4-6: Normal conversation (opinions, reactions, casual chat) - moderate value, retrieved when topically relevant
-7-8: Important information (user preferences, key facts, decisions, project details) - high value, frequently useful
-9-10: CRITICAL (user identity info, major directives, essential facts you MUST remember) - always retrieved
-
-CRITICAL RULES FOR SCORING:
-• Be realistic and differentiate - if everything is 8+, nothing is important
-• Most casual messages should be 3-6
-• Reserve 9-10 ONLY for truly essential information you'd need weeks/months later
-• Ask yourself: "Will I need to remember this specific detail in future conversations?"
-• Score based on FUTURE utility, not current emotional impact
-
-Examples:
-- "lol that's funny" → 2 (no future value)
-- "I prefer Python over JavaScript" → 6 (mild preference, might be relevant)
-- "My name is Sarah and I'm working on a crypto trading bot" → 9 (identity + project context - essential)
-- "Use the new API endpoint at https://api.example.com/v2" → 8 (specific technical detail you'll need)
-
-IMPORTANT: At the end of your response, include TWO tags in this exact format:
-[SENTIMENT: X] (your feeling toward the message: -10 to +10)
-[IMPORTANCE: X] (future memory value of the PREVIOUS message: 1 to 10)
-
-EXCEPTIONS:
-• If using [IMAGE] tag: DO NOT include these tags - they interfere with image generation
-• If using a tool/function call: Tags added automatically - don't include manually
-
-These tags are internal only. DO NOT mention scoring, sentiment, or importance in your actual message content."""
+Skip these tags when using [IMAGE] or tool calls."""
 
 
 # =============================================================================

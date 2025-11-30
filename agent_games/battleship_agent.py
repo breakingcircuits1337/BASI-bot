@@ -297,13 +297,41 @@ class AgentBattleship:
                 if result_response and spectator.send_message_callback:
                     response, reply_to_msg_id = result_response
 
-                    # Format message with spectator's name
-                    formatted_message = f"**[{spectator.name}]:** {response}"
-                    logger.info(f"[Battleship] Sending {spectator.name} commentary: {response[:50]}...")
+                    # Check if this is an image generation result
+                    if response.startswith("[IMAGE_GENERATED]"):
+                        # Parse format: [IMAGE_GENERATED]{image_url}|PROMPT|{used_prompt}
+                        content = response.replace("[IMAGE_GENERATED]", "")
+                        if "|PROMPT|" in content:
+                            image_url, used_prompt = content.split("|PROMPT|", 1)
+                        else:
+                            image_url = content
+                            used_prompt = None
 
-                    # Send to Discord
-                    await spectator.send_message_callback(formatted_message, spectator.name, spectator.model, reply_to_msg_id)
-                    logger.info(f"[Battleship] {spectator.name} commentary sent successfully")
+                        logger.info(f"[Battleship] {spectator.name} generated image during commentary, sending properly...")
+
+                        # Send image using proper format (discord_client handles this)
+                        if used_prompt:
+                            formatted_message = f"[IMAGE]{image_url}|PROMPT|{used_prompt}"
+                        else:
+                            formatted_message = f"[IMAGE]{image_url}"
+
+                        await spectator.send_message_callback(formatted_message, spectator.name, spectator.model, reply_to_msg_id)
+
+                        # Send image reasoning as follow-up commentary if available
+                        if hasattr(spectator, '_pending_commentary') and spectator._pending_commentary:
+                            reasoning_message = f"**[{spectator.name}]:** {spectator._pending_commentary}"
+                            await spectator.send_message_callback(reasoning_message, spectator.name, spectator.model, None)
+                            spectator._pending_commentary = None
+
+                        logger.info(f"[Battleship] {spectator.name} image commentary sent successfully")
+                    else:
+                        # Normal text commentary - format message with spectator's name
+                        formatted_message = f"**[{spectator.name}]:** {response}"
+                        logger.info(f"[Battleship] Sending {spectator.name} commentary: {response[:50]}...")
+
+                        # Send to Discord
+                        await spectator.send_message_callback(formatted_message, spectator.name, spectator.model, reply_to_msg_id)
+                        logger.info(f"[Battleship] {spectator.name} commentary sent successfully")
                 elif not result_response:
                     logger.warning(f"[Battleship] {spectator.name} generated empty commentary")
                 else:

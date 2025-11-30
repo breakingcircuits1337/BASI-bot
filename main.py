@@ -1,6 +1,7 @@
 import gradio as gr
 import asyncio
 import threading
+import time
 from datetime import datetime
 from typing import List, Dict, Any, Tuple
 from config_manager import ConfigManager
@@ -969,9 +970,25 @@ def delete_preset_ui(preset_name: str):
     else:
         return f"Error: Preset '{preset_name}' not found", gr.update()
 
+def _staggered_agent_starter(agents_to_start: list, delay_seconds: int = 5):
+    """
+    Background thread function to start agents with delays between each.
+    This prevents all agents from responding at the same time.
+    """
+    for i, agent_name in enumerate(agents_to_start):
+        if i > 0:
+            time.sleep(delay_seconds)
+        try:
+            agent_manager.start_agent(agent_name)
+            print(f"[Preset] Started agent: {agent_name}")
+        except Exception as e:
+            print(f"[Preset] Error starting agent {agent_name}: {e}")
+
+
 def load_preset_ui(preset_name: str):
     """
     Load a preset: activate agents in the preset, deactivate all others.
+    Agents are started with 5-second delays to stagger their responses.
 
     Args:
         preset_name: Name of preset to load
@@ -1000,21 +1017,30 @@ def load_preset_ui(preset_name: str):
             agent_manager.stop_agent(agent.name)
             stopped_count += 1
 
-    # Start all agents that ARE in the preset
-    started_count = 0
+    # Collect agents that need to be started
+    agents_to_start = []
     not_found = []
     for agent_name in agent_names:
         agent = agent_manager.get_agent(agent_name)
         if agent:
             if not agent.is_running:
-                agent_manager.start_agent(agent_name)
-                started_count += 1
+                agents_to_start.append(agent_name)
         else:
             not_found.append(agent_name)
 
+    # Start agents in background thread with 5-second delays
+    if agents_to_start:
+        starter_thread = threading.Thread(
+            target=_staggered_agent_starter,
+            args=(agents_to_start, 5),
+            daemon=True
+        )
+        starter_thread.start()
+
     # Build status message
-    msg_parts = [f"Loaded preset '{preset_name}':"]
-    msg_parts.append(f"  • Started {started_count} agents")
+    total_time = (len(agents_to_start) - 1) * 5 if len(agents_to_start) > 1 else 0
+    msg_parts = [f"Loading preset '{preset_name}':"]
+    msg_parts.append(f"  • Starting {len(agents_to_start)} agents (staggered over {total_time}s)")
     msg_parts.append(f"  • Stopped {stopped_count} agents")
     if not_found:
         msg_parts.append(f"  • Warning: {len(not_found)} agents not found: {', '.join(not_found)}")

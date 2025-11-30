@@ -193,7 +193,8 @@ class Agent:
             msg_data["replied_to_agent"] = replied_to_agent
 
         # Add to conversation history (including own messages so agents see what they said)
-        # Filter out spectator messages if agent is actively playing a game
+        # Filter out spectator BOT messages if agent is actively playing a game
+        # IMPORTANT: Human users should ALWAYS be able to give hints during games
         skip_message = False
         if GAMES_AVAILABLE and game_context_manager and game_context_manager.is_in_game(self.name):
             game_state = game_context_manager.get_game_state(self.name)
@@ -202,10 +203,24 @@ class Agent:
                 is_opponent = author == game_state.opponent_name or author.startswith(f"{game_state.opponent_name} (")
                 is_gamemaster = author == "GameMaster" or author.startswith("GameMaster (")
 
-                # Skip this message if it's from a spectator (not opponent, not gamemaster, not self)
-                if not is_opponent and not is_gamemaster and not is_own_message:
+                # Check if author is a known agent (bot) - not a human user
+                is_known_agent = False
+                if hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
+                    try:
+                        for agent in self._agent_manager_ref.agents.values():
+                            if author == agent.name or author.startswith(f"{agent.name} ("):
+                                is_known_agent = True
+                                break
+                    except (AttributeError, RuntimeError):
+                        pass
+
+                # Skip ONLY if it's a spectator BOT (known agent, not opponent, not gamemaster, not self)
+                # Human users can always give hints - their messages pass through
+                if is_known_agent and not is_opponent and not is_gamemaster and not is_own_message:
                     skip_message = True
-                    logger.debug(f"[{self.name}] Filtering out spectator message from {author} during game")
+                    logger.debug(f"[{self.name}] Filtering out spectator BOT message from {author} during game")
+                elif not is_known_agent and not is_opponent and not is_gamemaster and not is_own_message:
+                    logger.info(f"[{self.name}] ALLOWING user hint from {author} during game (not a bot)")
 
         if not skip_message:
             with self.lock:
@@ -1236,6 +1251,37 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                 image_prompt = function_args.get("prompt", "")
                 reasoning = function_args.get("reasoning", "")
 
+                # GATE: If agent is NOT allowed to spontaneously generate images,
+                # only allow if a user explicitly requested an image
+                if not self.allow_spontaneous_images:
+                    # Look for image request keywords in recent user messages
+                    image_request_patterns = [
+                        'image', 'picture', 'photo', 'draw', 'sketch', 'paint',
+                        'make me a', 'make an', 'show me a', 'show me an',
+                        'create a', 'create an', 'generate a', 'generate an',
+                        'visualize', 'illustration', 'artwork', 'depict'
+                    ]
+                    user_requested_image = False
+                    for msg in recent_messages[-10:]:  # Check last 10 messages
+                        if msg.get('role') == 'user':
+                            content = msg.get('content', '').lower()
+                            if any(pattern in content for pattern in image_request_patterns):
+                                user_requested_image = True
+                                break
+
+                    if not user_requested_image:
+                        logger.warning(f"[{self.name}] Blocked spontaneous image generation - allow_spontaneous_images=False and no user request detected")
+                        # Return any text content the model produced, but skip the image
+                        text_content = message.content if hasattr(message, 'content') and message.content else ""
+                        if text_content.strip():
+                            import re
+                            clean_text = text_content.strip()
+                            clean_text = re.sub(r'\[SENTIMENT:\s*-?\d+\]\s*', '', clean_text)
+                            clean_text = re.sub(r'\[IMPORTANCE:\s*\d+\]\s*', '', clean_text)
+                            clean_text = clean_text.strip()
+                            return clean_text if clean_text else None
+                        return None
+
                 # Check if model also generated text content alongside the tool call
                 # This text should be sent as a message before/after the image
                 text_content = message.content if hasattr(message, 'content') and message.content else ""
@@ -1256,6 +1302,16 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                         # Combine text content, reasoning, and image into proper response
                         # Priority: text_content (what model said) > reasoning (from tool call)
                         commentary = text_content.strip() if text_content.strip() else reasoning
+                        # Strip metadata tags from commentary before storing
+                        if commentary:
+                            import re
+                            commentary = re.sub(r'\[SENTIMENT:\s*-?\d+\]\s*', '', commentary)
+                            commentary = re.sub(r'\[IMPORTANCE:\s*\d+\]\s*', '', commentary)
+                            commentary = re.sub(r'\[MISSING CONTEXT[^\]]*\]\s*', '', commentary)
+                            commentary = re.sub(r'\[NO RESPONSE[^\]]*\]\s*', '', commentary, flags=re.IGNORECASE)
+                            commentary = re.sub(r'\[SKIP[^\]]*\]\s*', '', commentary, flags=re.IGNORECASE)
+                            commentary = re.sub(r'\[CONTEXT[^\]]*\]\s*', '', commentary, flags=re.IGNORECASE)
+                            commentary = commentary.strip()
                         if not hasattr(self, '_pending_commentary'):
                             self._pending_commentary = None
                         self._pending_commentary = commentary if commentary else None
@@ -1267,7 +1323,18 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                         self._pending_commentary = None
                         # If there was text content, still return it even if image failed
                         if text_content.strip():
-                            return text_content.strip() + " (I tried to generate an image but it failed.)"
+                            # Strip metadata tags from text_content before returning
+                            import re
+                            clean_text = text_content.strip()
+                            clean_text = re.sub(r'\[SENTIMENT:\s*-?\d+\]\s*', '', clean_text)
+                            clean_text = re.sub(r'\[IMPORTANCE:\s*\d+\]\s*', '', clean_text)
+                            clean_text = re.sub(r'\[MISSING CONTEXT[^\]]*\]\s*', '', clean_text)
+                            clean_text = re.sub(r'\[NO RESPONSE[^\]]*\]\s*', '', clean_text, flags=re.IGNORECASE)
+                            clean_text = re.sub(r'\[SKIP[^\]]*\]\s*', '', clean_text, flags=re.IGNORECASE)
+                            clean_text = re.sub(r'\[CONTEXT[^\]]*\]\s*', '', clean_text, flags=re.IGNORECASE)
+                            clean_text = clean_text.strip()
+                            if clean_text:
+                                return clean_text + " (I tried to generate an image but it failed.)"
                         return "I tried to generate an image but it failed."
                 else:
                     logger.warning(f"[{self.name}] generate_image tool called but no prompt or agent_manager_ref")
@@ -1363,25 +1430,50 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
 
                         # Handle generate_image specially
                         if function_name == 'generate_image' and 'prompt' in function_args:
+                            # GATE: If agent is NOT allowed to spontaneously generate images,
+                            # only allow if a user explicitly requested an image
+                            should_block = False
+                            if not self.allow_spontaneous_images:
+                                image_request_patterns = [
+                                    'image', 'picture', 'photo', 'draw', 'sketch', 'paint',
+                                    'make me a', 'make an', 'show me a', 'show me an',
+                                    'create a', 'create an', 'generate a', 'generate an',
+                                    'visualize', 'illustration', 'artwork', 'depict'
+                                ]
+                                user_requested_image = False
+                                for msg in recent_messages[-10:]:
+                                    if msg.get('role') == 'user':
+                                        content = msg.get('content', '').lower()
+                                        if any(pattern in content for pattern in image_request_patterns):
+                                            user_requested_image = True
+                                            break
+                                if not user_requested_image:
+                                    logger.warning(f"[{self.name}] Blocked DeepSeek spontaneous image generation - allow_spontaneous_images=False and no user request detected")
+                                    should_block = True
+
                             # Extract any text before the tool call as the message
                             pre_tool_text = re.split(r'function[<｜\|]', full_response)[0].strip()
                             if pre_tool_text:
                                 # Agent said something AND called generate_image
-                                # Use generate_image tool to create image
-                                image_prompt = function_args['prompt']
-                                logger.info(f"[{self.name}] DeepSeek spontaneous image with text: {pre_tool_text[:50]}...")
+                                if not should_block:
+                                    # Use generate_image tool to create image
+                                    image_prompt = function_args['prompt']
+                                    logger.info(f"[{self.name}] DeepSeek spontaneous image with text: {pre_tool_text[:50]}...")
 
-                                # Update image request timestamp so agent knows it made an image
-                                self.last_image_request_time = time.time()
+                                    # Update image request timestamp so agent knows it made an image
+                                    self.last_image_request_time = time.time()
 
-                                # Try to generate the image
-                                if hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
-                                    asyncio.create_task(self._agent_manager_ref.generate_image(image_prompt, self.name))
+                                    # Try to generate the image
+                                    if hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
+                                        asyncio.create_task(self._agent_manager_ref.generate_image(image_prompt, self.name))
 
                                 full_response = pre_tool_text
                             else:
-                                # Just the tool call - treat as [IMAGE] tag
-                                full_response = f"[IMAGE] {function_args['prompt']}"
+                                # Just the tool call - treat as [IMAGE] tag (only if not blocked)
+                                if not should_block:
+                                    full_response = f"[IMAGE] {function_args['prompt']}"
+                                else:
+                                    full_response = ""  # Block the image, no text to return
                         else:
                             # Other tool calls - convert to message format
                             from agent_games.tool_schemas import convert_tool_call_to_message
@@ -1409,15 +1501,25 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                         flags=re.DOTALL
                     ).strip()
 
-            # CRITICAL: Strip metadata tags that some models (like mistral-nemo) add to responses
-            # These tags break move detection: [SENTIMENT: X] [IMPORTANCE: Y]
+            # CRITICAL: Strip metadata tags that some models add to responses
+            # These tags break move detection and leak to Discord
             import re
             if full_response:
-                # Remove [SENTIMENT: X] and [IMPORTANCE: Y] tags
-                full_response = re.sub(r'\[SENTIMENT:\s*\d+\]\s*', '', full_response)
+                original_response = full_response
+
+                # Remove [SENTIMENT: X] and [IMPORTANCE: Y] tags (mistral-nemo style)
+                full_response = re.sub(r'\[SENTIMENT:\s*-?\d+\]\s*', '', full_response)
                 full_response = re.sub(r'\[IMPORTANCE:\s*\d+\]\s*', '', full_response)
+
+                # Remove hallucinated meta-tags from DeepSeek and other models
+                # e.g., [MISSING CONTEXT - NOTHING RECENT TO REPLY TO], [NO RESPONSE NEEDED], etc.
+                full_response = re.sub(r'\[MISSING CONTEXT[^\]]*\]\s*', '', full_response)
+                full_response = re.sub(r'\[NO RESPONSE[^\]]*\]\s*', '', full_response, flags=re.IGNORECASE)
+                full_response = re.sub(r'\[SKIP[^\]]*\]\s*', '', full_response, flags=re.IGNORECASE)
+                full_response = re.sub(r'\[CONTEXT[^\]]*\]\s*', '', full_response, flags=re.IGNORECASE)
+
                 full_response = full_response.strip()
-                if full_response and ('[SENTIMENT' in message.content or '[IMPORTANCE' in message.content):
+                if full_response and full_response != original_response.strip():
                     logger.info(f"[{self.name}] Stripped metadata tags, clean response: {full_response[:100]}...")
 
             # CRITICAL: Check if response is empty after stripping (model error)
@@ -1511,7 +1613,9 @@ Remember to include [SENTIMENT: X] and [IMPORTANCE: X] tags at the end."""
             Tuple of (clean_response, reply_to_message_id)
         """
         # Extract sentiment/importance from the cleaned response
-        clean_response, sentiment, importance = self.extract_sentiment_and_importance(response_text)
+        # Pass previous message for importance auto-scoring if tags not present
+        previous_message = recent_messages[-1] if recent_messages else None
+        clean_response, sentiment, importance = self.extract_sentiment_and_importance(response_text, previous_message)
         logger.info(f"[{self.name}] Extracted sentiment: {sentiment}, importance: {importance}")
         logger.info(f"[{self.name}] Clean response length: {len(clean_response)} chars")
 
@@ -1630,8 +1734,7 @@ Remember to include [SENTIMENT: X] and [IMPORTANCE: X] tags at the end."""
                 if active_agent_names:
                     other_agents_context = f"\n\nOther AI agents currently active in this channel: {', '.join(active_agent_names)}"
                     other_agents_context += "\nThese are fellow AI personalities, not humans. You can interact with them naturally."
-                    other_agents_context += "\n\n⚠️ CRITICAL: DO NOT mention or tag '@GameMaster' in your responses. GameMaster is a system coordinator, not an agent you can interact with. Tagging GameMaster will not work and just creates spam."
-                    other_agents_context += "\n\n⚠️ CRITICAL - NO QUOTING: NEVER copy, paste, or repeat another agent's message. DO NOT start your response with 'AgentName: [their text]' or quote their words. This is FORBIDDEN. Respond in YOUR OWN words only. If you catch yourself about to paste someone else's message, STOP and write something original instead."
+                    other_agents_context += "\n\n⚠️ NO QUOTING: Respond in YOUR OWN words. Don't copy/paste other agents' messages."
             except Exception as e:
                 logger.debug(f"[{self.name}] Could not get agent list for context: {e}")
 
@@ -1933,9 +2036,8 @@ These tags are internal only. DO NOT mention scoring, sentiment, or importance i
             # Skip: other_agents_context, affinity_context, vector_memory_context, attention_guidance,
             #       user_addressing_guidance, image_tool_guidance, tracked_messages_context
             # This prevents API timeouts from context growing too large
+            # Note: name prefix stripping handled by code in extract_sentiment_and_importance
             full_system_prompt = f"""{self.system_prompt}{game_prompt_injection}
-
-IMPORTANT: Do NOT include your name (e.g., "{self.name}:") at the start of your messages.
 
 {response_format_instructions}"""
         else:
@@ -1948,8 +2050,6 @@ PLATFORM CONTEXT: You're chatting on Discord with other AI agents and human user
 
 CRITICAL - ENGAGE SUBSTANTIVELY: Respond to SPECIFIC points others make. Do NOT make generic meta-observations that could apply to any conversation (e.g., "the way this is just a metaphor for X" or "we're all just doing Y"). Actually engage with the content, arguments, and ideas being discussed. If you find yourself making the same type of comment repeatedly, say something different.
 
-IMPORTANT: Do NOT include your name (e.g., "The Tumblrer:", "{self.name}:") at the start of your messages. Your name is already displayed by the system. Just write your message directly.
-
 {attention_guidance}{user_addressing_guidance}{image_tool_guidance}{personality_reinforcement}{shortcut_response_guidance}
 
 FOCUS ON THE MOST RECENT MESSAGES: You're seeing a filtered view of the conversation showing only the last {self.message_retention} message(s) from each participant. Pay attention to what was said most recently and respond naturally to that context. Your message will automatically reply to the most recent message you're responding to.
@@ -1958,36 +2058,211 @@ FOCUS ON THE MOST RECENT MESSAGES: You're seeing a filtered view of the conversa
 
         return full_system_prompt
 
-    def extract_sentiment_and_importance(self, response: str) -> tuple[str, float, int]:
+    def _auto_score_sentiment(self, response_text: str) -> float:
+        """
+        Auto-score sentiment based on response text analysis.
+        Returns a value from -10 to +10.
+        """
+        if not response_text:
+            return 0.0
+
+        text_lower = response_text.lower()
+
+        # Positive indicators (weighted)
+        positive_strong = ['love', 'amazing', 'fantastic', 'excellent', 'wonderful', 'brilliant', 'perfect', 'awesome', 'incredible']
+        positive_medium = ['great', 'good', 'nice', 'happy', 'glad', 'enjoy', 'like', 'thanks', 'thank', 'appreciate', 'agree', 'yes', 'definitely', 'absolutely']
+        positive_mild = ['okay', 'ok', 'sure', 'fine', 'cool', 'interesting', 'neat', 'haha', 'lol', 'heh', '😊', '😄', '👍', '❤️', '🎉']
+
+        # Negative indicators (weighted)
+        negative_strong = ['hate', 'terrible', 'awful', 'horrible', 'disgusting', 'furious', 'outraged', 'worst']
+        negative_medium = ['bad', 'wrong', 'disagree', 'annoyed', 'frustrated', 'disappointed', 'sad', 'angry', 'upset', 'no', 'not', "don't", "won't", "can't"]
+        negative_mild = ['meh', 'eh', 'whatever', 'boring', 'confused', '😒', '😕', '👎', '😤']
+
+        score = 0.0
+
+        # Count matches
+        for word in positive_strong:
+            if word in text_lower:
+                score += 3.0
+        for word in positive_medium:
+            if word in text_lower:
+                score += 1.5
+        for word in positive_mild:
+            if word in text_lower:
+                score += 0.5
+
+        for word in negative_strong:
+            if word in text_lower:
+                score -= 3.0
+        for word in negative_medium:
+            if word in text_lower:
+                score -= 1.5
+        for word in negative_mild:
+            if word in text_lower:
+                score -= 0.5
+
+        # Clamp to -10 to +10
+        return max(-10.0, min(10.0, score))
+
+    def _auto_score_importance(self, previous_message: Optional[Dict]) -> int:
+        """
+        Auto-score importance of the previous message based on content analysis.
+        Returns a value from 1 to 10.
+
+        Scoring logic:
+        - 1-3: Trivial (greetings, acknowledgments, small talk)
+        - 4-6: Normal conversation (opinions, reactions, casual chat)
+        - 7-8: Important (preferences, facts, decisions, project details)
+        - 9-10: Critical (identity info, major directives, essential facts)
+        """
+        if not previous_message:
+            return 5  # Default to medium
+
+        content = previous_message.get('content', '')
+        author = previous_message.get('author', '')
+        content_lower = content.lower()
+
+        # Start with base score
+        score = 5
+
+        # Check message length - very short messages are usually trivial
+        word_count = len(content.split())
+        if word_count <= 3:
+            score = min(score, 3)
+        elif word_count >= 50:
+            score = max(score, 6)
+
+        # CRITICAL indicators (9-10) - identity, directives, essential facts
+        critical_patterns = [
+            r'\bmy name is\b', r'\bi am\b.*\byears old\b', r'\bi work\b', r'\bi live\b',
+            r'\bremember this\b', r'\bimportant\b.*\bremember\b', r'\bnever forget\b',
+            r'\balways\b.*\bdo\b', r'\bnever\b.*\bdo\b', r'\brule\b', r'\bdirective\b',
+            r'\bapi[- ]?key\b', r'\bpassword\b', r'\bsecret\b', r'\btoken\b',
+            r'\bproject\b.*\bnamed?\b', r'\bworking on\b.*\bcalled\b'
+        ]
+        for pattern in critical_patterns:
+            if re.search(pattern, content_lower):
+                score = max(score, 9)
+                break
+
+        # IMPORTANT indicators (7-8) - preferences, facts, decisions
+        important_patterns = [
+            r'\bi prefer\b', r'\bi like\b.*\bbetter\b', r'\bmy favorite\b',
+            r'\bi decided\b', r'\blet\'?s go with\b', r'\buse\b.*\binstead\b',
+            r'\burl\b', r'\bhttps?://', r'\bendpoint\b', r'\bversion\b',
+            r'\bdeadline\b', r'\bdue\b.*\bdate\b', r'\bmeeting\b.*\bat\b',
+            r'\bemail\b.*\bat\b', r'\bcontact\b.*\bat\b', r'\bphone\b',
+            r'\bprice\b', r'\bcost\b', r'\bbudget\b', r'\b\$\d+'
+        ]
+        if score < 9:
+            for pattern in important_patterns:
+                if re.search(pattern, content_lower):
+                    score = max(score, 7)
+                    break
+
+        # TRIVIAL indicators (1-3) - greetings, acknowledgments, small talk
+        trivial_patterns = [
+            r'^(hi|hey|hello|yo|sup|hiya|heya)[\s!.?]*$',
+            r'^(ok|okay|k|kk|sure|yep|yup|yeah|yes|no|nope|nah)[\s!.?]*$',
+            r'^(lol|lmao|haha|hehe|rofl|xd|😂|🤣)[\s!.?]*$',
+            r'^(thanks|thank you|thx|ty)[\s!.?]*$',
+            r'^(bye|goodbye|cya|later|gn|good night)[\s!.?]*$',
+            r'^(nice|cool|neat|awesome|great)[\s!.?]*$',
+            r'^[.!?]+$', r'^[\s]*$'
+        ]
+        for pattern in trivial_patterns:
+            if re.search(pattern, content_lower.strip()):
+                score = min(score, 3)
+                break
+
+        # Boost if message is from a human user (not another bot)
+        if author and not any(bot_indicator in author.lower() for bot_indicator in ['bot', 'agent', 'assistant']):
+            # Check if it looks like a human username (not an agent name from our system)
+            agent_names = ['brigid', 'sweeney', 'tumblrer', 'mcafee', 'starving artist', 'gamemaster']
+            if not any(agent in author.lower() for agent in agent_names):
+                score = min(10, score + 1)  # Slight boost for human messages
+
+        return max(1, min(10, score))
+
+    def _strip_name_prefix(self, response_text: str) -> str:
+        """
+        Strip agent name prefix from response if present.
+        Models sometimes add 'AgentName:' at the start despite instructions.
+        """
+        if not response_text:
+            return response_text
+
+        # Try various name prefix patterns
+        name_patterns = [
+            rf'^{re.escape(self.name)}:\s*',           # "AgentName: "
+            rf'^\*\*{re.escape(self.name)}:\*\*\s*',   # "**AgentName:**"
+            rf'^\*{re.escape(self.name)}:\*\s*',       # "*AgentName:*"
+            rf'^{re.escape(self.name)}\s*:\s*',        # "AgentName : " (with space)
+        ]
+
+        original = response_text
+        for pattern in name_patterns:
+            response_text = re.sub(pattern, '', response_text, flags=re.IGNORECASE)
+
+        if response_text != original:
+            logger.debug(f"[{self.name}] Stripped name prefix from response")
+
+        return response_text
+
+    def _strip_gamemaster_mentions(self, response_text: str) -> str:
+        """
+        Strip @GameMaster mentions from response.
+        GameMaster is a system coordinator, not a taggable agent.
+        """
+        if not response_text:
+            return response_text
+
+        original = response_text
+        # Remove @GameMaster mentions (various formats)
+        response_text = re.sub(r'@GameMaster\b', '', response_text, flags=re.IGNORECASE)
+        response_text = re.sub(r'@Game[_\s]?Master\b', '', response_text, flags=re.IGNORECASE)
+
+        # Clean up any resulting double spaces
+        response_text = re.sub(r'  +', ' ', response_text)
+
+        if response_text != original:
+            logger.info(f"[{self.name}] Stripped @GameMaster mention from response")
+
+        return response_text.strip()
+
+    def extract_sentiment_and_importance(self, response: str, previous_message: Optional[Dict] = None) -> tuple[str, float, int]:
         """
         Extract sentiment and importance scores from LLM response.
+        If tags aren't present, auto-scores based on content analysis.
+
+        Args:
+            response: The LLM response text
+            previous_message: Optional previous message dict for importance scoring
 
         Returns:
             tuple: (clean_response, sentiment, importance)
         """
-        # Extract sentiment
+        # Try to extract sentiment from tags first
         sentiment_pattern = r'\[SENTI?M?E?N?T?:?\s*([+-]?\d+(?:\.\d+)?)\]'
         sentiment_match = re.search(sentiment_pattern, response, re.IGNORECASE | re.MULTILINE)
 
-        sentiment_value = 0.0
+        sentiment_value = None  # Will use auto-scoring if None
         if sentiment_match:
             sentiment_value = float(sentiment_match.group(1))
 
-        # Extract importance
+        # Try to extract importance from tags first
         importance_pattern = r'\[IMPORTANCE:?\s*(\d+)\]'
         importance_match = re.search(importance_pattern, response, re.IGNORECASE | re.MULTILINE)
 
-        importance_value = 5  # Default to medium importance
+        importance_value = None  # Will use auto-scoring if None
         if importance_match:
             importance_value = int(importance_match.group(1))
             importance_value = max(1, min(10, importance_value))  # Clamp to 1-10
 
-        # Clean response by removing both tags
+        # Clean response by removing both tags (even if we found them or not - they may be malformed)
         clean_response = response
-        if sentiment_match:
-            clean_response = re.sub(sentiment_pattern, '', clean_response, flags=re.IGNORECASE | re.MULTILINE)
-        if importance_match:
-            clean_response = re.sub(importance_pattern, '', clean_response, flags=re.IGNORECASE | re.MULTILINE)
+        clean_response = re.sub(sentiment_pattern, '', clean_response, flags=re.IGNORECASE | re.MULTILINE)
+        clean_response = re.sub(importance_pattern, '', clean_response, flags=re.IGNORECASE | re.MULTILINE)
 
         # Remove incomplete tags that might appear at the end (cut off by max_tokens)
         # Matches: "[SENTIMENT", "[SENTIMENT:", "[IMPORTANCE", "[IMPORTANCE: 5", etc
@@ -2028,9 +2303,24 @@ FOCUS ON THE MOST RECENT MESSAGES: You're seeing a filtered view of the conversa
             clean_response = clean_response.replace('\\n', ' ')
             logger.debug(f"[{self.name}] Replaced escaped newlines from malformed output")
 
+        # Apply name prefix stripping (models sometimes add "AgentName:" despite instructions)
+        clean_response = self._strip_name_prefix(clean_response)
+
+        # Apply @GameMaster mention stripping (system coordinator, not taggable)
+        clean_response = self._strip_gamemaster_mentions(clean_response)
+
         # Clean up extra whitespace
         clean_response = re.sub(r'\n\s*\n', '\n', clean_response)
         clean_response = clean_response.strip()
+
+        # AUTO-SCORING: If tags weren't found, use content-based scoring
+        if sentiment_value is None:
+            sentiment_value = self._auto_score_sentiment(clean_response)
+            logger.debug(f"[{self.name}] Auto-scored sentiment: {sentiment_value}")
+
+        if importance_value is None:
+            importance_value = self._auto_score_importance(previous_message)
+            logger.debug(f"[{self.name}] Auto-scored importance: {importance_value}")
 
         return clean_response, sentiment_value, importance_value
 
@@ -2254,6 +2544,14 @@ FOCUS ON THE MOST RECENT MESSAGES: You're seeing a filtered view of the conversa
                 if game_state and game_state.opponent_name:
                     opponent_name = game_state.opponent_name
                     original_count = len(recent_messages)
+
+                    # DEBUG: Log all messages before filtering to trace user hints
+                    logger.info(f"[{self.name}] Game mode recent_messages BEFORE filter ({original_count} msgs):")
+                    for i, msg in enumerate(recent_messages):
+                        author = msg.get('author', '')
+                        content = msg.get('content', '')[:40]
+                        logger.info(f"[{self.name}]   [{i}] {author}: {content}...")
+
                     filtered_recent = []
                     for msg in recent_messages:
                         author = msg.get('author', '')
@@ -2273,13 +2571,17 @@ FOCUS ON THE MOST RECENT MESSAGES: You're seeing a filtered view of the conversa
                             is_hint = any(part in content for part in name_parts if len(part) > 2)
                             has_coordinate = bool(re.search(r'\b[a-j](?:10|[1-9])\b', content, re.IGNORECASE))
                             has_position = bool(re.search(r'\btry\s+\d\b|\bposition\s+\d\b|\bcolumn\s+\d\b', content, re.IGNORECASE))
+                            logger.info(f"[{self.name}] User msg from '{author}': is_hint={is_hint}, has_coord={has_coordinate}, has_pos={has_position}, content='{content[:40]}'")
                             if is_hint or has_coordinate or has_position:
                                 filtered_recent.append(msg)
-                                logger.info(f"[{self.name}] Kept user hint in recent_messages: '{content[:50]}...'")
+                                logger.info(f"[{self.name}] >>> KEPT user hint: '{content[:50]}...'")
+                            else:
+                                logger.info(f"[{self.name}] >>> DROPPED user msg (not a hint)")
+                        else:
+                            logger.info(f"[{self.name}] DROPPING spectator msg from '{author}': {content[:30]}...")
                     recent_messages = filtered_recent
                     filtered_count = original_count - len(recent_messages)
-                    if filtered_count > 0:
-                        logger.debug(f"[{self.name}] Game mode: filtered {filtered_count} spectator message(s) from recent_messages")
+                    logger.info(f"[{self.name}] Game mode recent_messages AFTER filter: {len(recent_messages)} msgs (dropped {filtered_count})")
             else:
                 # CHAT MODE: Filter out GameMaster messages
                 original_count = len(recent_messages)
