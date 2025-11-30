@@ -144,6 +144,14 @@ class AgentBattleship:
 
         tried_row = tried_coords[0]  # Row letter (1=A, 2=B, etc.)
         tried_col = tried_coords[1]  # Column number (1-10)
+        row_letter = chr(ord('A') + tried_row - 1)  # Convert row number to letter
+
+        # Check for untried cells in the same row
+        untried_in_row = []
+        for col in range(1, 11):  # Columns 1-10
+            coord = (tried_row, col)
+            if coord not in all_moves:
+                untried_in_row.append(self.coords_to_str(coord))
 
         # Check for untried cells in the same column
         untried_in_column = []
@@ -152,11 +160,17 @@ class AgentBattleship:
             if coord not in all_moves:
                 untried_in_column.append(self.coords_to_str(coord))
 
+        # Build suggestion message with both row and column options
+        suggestions = []
+        if untried_in_row:
+            suggestions.append(f"**Row {row_letter}:** {', '.join(untried_in_row)}")
         if untried_in_column:
-            # There are still untried cells in this column
-            return f"🎯 **Still available in column {tried_col}:** {', '.join(untried_in_column)}"
+            suggestions.append(f"**Column {tried_col}:** {', '.join(untried_in_column)}")
 
-        # Column is exhausted - find which columns still have untried cells
+        if suggestions:
+            return f"🎯 **Still available:**\n" + "\n".join(suggestions)
+
+        # Both row and column exhausted - find which columns still have untried cells
         columns_with_space = []
         for col in range(1, 11):
             for row in range(1, 11):
@@ -165,7 +179,7 @@ class AgentBattleship:
                     break  # Found at least one, move to next column
 
         if columns_with_space:
-            return f"🎯 **Column {tried_col} is fully explored.** Try columns: {', '.join(columns_with_space)}"
+            return f"🎯 **Row {row_letter} and column {tried_col} fully explored.** Try columns: {', '.join(columns_with_space)}"
 
         return ""
 

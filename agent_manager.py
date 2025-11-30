@@ -2245,10 +2245,43 @@ FOCUS ON THE MOST RECENT MESSAGES: You're seeing a filtered view of the conversa
             else:
                 recent_messages = self.get_filtered_messages_by_agent(self.message_retention)
 
-            # CHAT MODE: Filter GameMaster messages from recent_messages too
+            # Apply mode-specific filtering to recent_messages
             # This is needed because get_filtered_messages_by_agent() returns fresh messages
-            # without the GameMaster filtering applied earlier to all_recent
-            if not (game_context_manager and game_context_manager.is_in_game(self.name)):
+            # without the mode filtering applied earlier to all_recent
+            if game_context_manager and game_context_manager.is_in_game(self.name):
+                # GAME MODE: Filter to only player, opponent, GameMaster, and USER HINTS
+                game_state = game_context_manager.get_game_state(self.name)
+                if game_state and game_state.opponent_name:
+                    opponent_name = game_state.opponent_name
+                    original_count = len(recent_messages)
+                    filtered_recent = []
+                    for msg in recent_messages:
+                        author = msg.get('author', '')
+                        content = msg.get('content', '').lower()
+                        author_base = author.split(' (')[0] if ' (' in author else author
+
+                        # Keep player, opponent, GameMaster messages
+                        if (author_base == self.name or
+                            author_base == opponent_name or
+                            'GameMaster' in author or
+                            '(system)' in author):
+                            filtered_recent.append(msg)
+                        # ALSO keep user hints (mention player name or contain coordinates)
+                        elif self.is_user_message(author):
+                            player_name_lower = self.name.lower()
+                            name_parts = [player_name_lower] + player_name_lower.split()
+                            is_hint = any(part in content for part in name_parts if len(part) > 2)
+                            has_coordinate = bool(re.search(r'\b[a-j](?:10|[1-9])\b', content, re.IGNORECASE))
+                            has_position = bool(re.search(r'\btry\s+\d\b|\bposition\s+\d\b|\bcolumn\s+\d\b', content, re.IGNORECASE))
+                            if is_hint or has_coordinate or has_position:
+                                filtered_recent.append(msg)
+                                logger.info(f"[{self.name}] Kept user hint in recent_messages: '{content[:50]}...'")
+                    recent_messages = filtered_recent
+                    filtered_count = original_count - len(recent_messages)
+                    if filtered_count > 0:
+                        logger.debug(f"[{self.name}] Game mode: filtered {filtered_count} spectator message(s) from recent_messages")
+            else:
+                # CHAT MODE: Filter out GameMaster messages
                 original_count = len(recent_messages)
                 recent_messages = [
                     msg for msg in recent_messages
