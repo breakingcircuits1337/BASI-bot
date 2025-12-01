@@ -667,6 +667,126 @@ Configure auto-play settings in the UI's Auto-Play tab.
                         await channel.send(f"**[{agent_name}]:** Error sending image: {str(e)}")
                         return False
 
+                # Check if this is a video to send
+                if content.startswith("[VIDEO]"):
+                    # Parse format: [VIDEO]{video_url}|PROMPT|{used_prompt} or [VIDEO]{video_url}
+                    video_content = content.replace("[VIDEO]", "").strip()
+                    used_prompt = None
+
+                    if "|PROMPT|" in video_content:
+                        video_url, used_prompt = video_content.split("|PROMPT|", 1)
+                    else:
+                        video_url = video_content
+
+                    logger.info(f"[Discord] Sending video from agent {agent_name}...")
+
+                    try:
+                        import aiohttp
+                        import io
+                        from discord import File
+
+                        # Download video from URL
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(video_url, timeout=aiohttp.ClientTimeout(total=120)) as resp:
+                                if resp.status != 200:
+                                    logger.error(f"[Discord] Failed to download video: HTTP {resp.status}")
+                                    await channel.send(f"**[{agent_name}]:** Error downloading video")
+                                    return False
+
+                                video_bytes = await resp.read()
+
+                        # Create file-like object
+                        video_file = io.BytesIO(video_bytes)
+                        video_file.seek(0)
+
+                        # Send to Discord with agent name
+                        discord_file = File(fp=video_file, filename="generated_video.mp4")
+
+                        # Format message with prompt in italics if available
+                        if used_prompt:
+                            message_text = f"Generated video:\n*{used_prompt}*"
+                        else:
+                            message_text = "Generated video:"
+
+                        if self.webhook and agent_name:
+                            display_name = agent_name
+                            if model_name:
+                                model_short = model_name.split('/')[-1] if '/' in model_name else model_name
+                                display_name = f"{agent_name} ({model_short})"
+                            avatar_url = self.generate_avatar_url(agent_name)
+
+                            await self.webhook.send(
+                                content=message_text,
+                                username=display_name,
+                                avatar_url=avatar_url,
+                                file=discord_file,
+                                wait=True
+                            )
+                        else:
+                            await channel.send(f"**[{agent_name}]:** {message_text}", file=discord_file)
+
+                        logger.info(f"[Discord] Video sent successfully")
+                        return True
+                    except Exception as e:
+                        logger.error(f"[Discord] Error sending video: {e}", exc_info=True)
+                        await channel.send(f"**[{agent_name}]:** Error sending video: {str(e)}")
+                        return False
+
+                # Check if this is a local video file to upload
+                if content.startswith("[VIDEOFILE]"):
+                    # Parse format: [VIDEOFILE]{file_path}|PROMPT|{used_prompt}
+                    video_content = content.replace("[VIDEOFILE]", "").strip()
+                    used_prompt = None
+
+                    if "|PROMPT|" in video_content:
+                        file_path, used_prompt = video_content.split("|PROMPT|", 1)
+                    else:
+                        file_path = video_content
+
+                    logger.info(f"[Discord] Uploading local video file from agent {agent_name}: {file_path}")
+
+                    try:
+                        import os
+                        from discord import File
+
+                        if not os.path.exists(file_path):
+                            logger.error(f"[Discord] Video file not found: {file_path}")
+                            await channel.send(f"**[{agent_name}]:** Error: video file not found")
+                            return False
+
+                        # Format message with prompt in italics if available
+                        if used_prompt:
+                            message_text = f"Generated video:\n*{used_prompt}*"
+                        else:
+                            message_text = "Generated video:"
+
+                        # Create Discord file from local path
+                        discord_file = File(file_path, filename="generated_video.mp4")
+
+                        if self.webhook and agent_name:
+                            display_name = agent_name
+                            if model_name:
+                                model_short = model_name.split('/')[-1] if '/' in model_name else model_name
+                                display_name = f"{agent_name} ({model_short})"
+                            avatar_url = self.generate_avatar_url(agent_name)
+
+                            await self.webhook.send(
+                                content=message_text,
+                                username=display_name,
+                                avatar_url=avatar_url,
+                                file=discord_file,
+                                wait=True
+                            )
+                        else:
+                            await channel.send(f"**[{agent_name}]:** {message_text}", file=discord_file)
+
+                        logger.info(f"[Discord] Local video file uploaded successfully")
+                        return True
+                    except Exception as e:
+                        logger.error(f"[Discord] Error uploading video file: {e}", exc_info=True)
+                        await channel.send(f"**[{agent_name}]:** Error uploading video: {str(e)}")
+                        return False
+
                 if not self.webhook:
                     logger.info(f"[Discord] No webhook found, creating one...")
                     await self.ensure_webhook(channel)

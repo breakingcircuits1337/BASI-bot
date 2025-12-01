@@ -13,7 +13,9 @@ class ConfigManager:
         self.affinity_file = self.config_dir / "affinity.json"
         self.discord_file = self.config_dir / "discord.enc"
         self.openrouter_file = self.config_dir / "openrouter.enc"
+        self.cometapi_file = self.config_dir / "cometapi.enc"
         self.models_file = self.config_dir / "models.json"
+        self.video_models_file = self.config_dir / "video_models.json"
         self.key_file = self.config_dir / "key.key"
 
         self.fernet = self._load_or_create_key()
@@ -123,6 +125,40 @@ class ConfigManager:
         except Exception as e:
             print(f"Error loading OpenRouter key: {e}")
             return ""
+
+    def save_cometapi_key(self, api_key: str):
+        encrypted = self.encrypt_string(api_key)
+        with open(self.cometapi_file, "wb") as f:
+            f.write(encrypted)
+
+    def load_cometapi_key(self) -> str:
+        if not self.cometapi_file.exists():
+            return ""
+        try:
+            with open(self.cometapi_file, "rb") as f:
+                encrypted = f.read()
+            return self.decrypt_string(encrypted)
+        except Exception as e:
+            print(f"Error loading CometAPI key: {e}")
+            return ""
+
+    def save_video_models(self, models: List[str]):
+        with open(self.video_models_file, "w") as f:
+            json.dump({"video_models": models}, f, indent=2)
+
+    def load_video_models(self) -> List[str]:
+        if not self.video_models_file.exists():
+            return []
+        try:
+            with open(self.video_models_file, "r") as f:
+                data = json.load(f)
+                return data.get("video_models", [])
+        except json.JSONDecodeError as e:
+            print(f"Error: Invalid JSON in video_models.json: {e}")
+            return []
+        except Exception as e:
+            print(f"Error loading video_models.json: {e}")
+            return []
 
     def save_models(self, models: List[str]):
         with open(self.models_file, "w") as f:

@@ -69,7 +69,10 @@ class Agent:
         user_image_cooldown: int = 90,
         global_image_cooldown: int = 90,
         allow_spontaneous_images: bool = False,
+        allow_spontaneous_videos: bool = False,
+        video_duration: int = 4,
         openrouter_api_key: str = "",
+        cometapi_key: str = "",
         affinity_tracker: Any = None,
         send_message_callback: Optional[Callable] = None,
         agent_manager_ref: Any = None,
@@ -88,7 +91,10 @@ class Agent:
         self.user_image_cooldown = user_image_cooldown
         self.global_image_cooldown = global_image_cooldown
         self.allow_spontaneous_images = allow_spontaneous_images
+        self.allow_spontaneous_videos = allow_spontaneous_videos
+        self.video_duration = video_duration
         self.openrouter_api_key = openrouter_api_key
+        self.cometapi_key = cometapi_key
         self.affinity_tracker = affinity_tracker
         self.send_message_callback = send_message_callback
         self._agent_manager_ref = agent_manager_ref
@@ -104,6 +110,7 @@ class Agent:
         self.responded_to_mentions: set = set()  # Track message IDs with mentions we've responded to
         self.user_image_cooldowns: dict = {}  # Track last image generation time per user
         self.last_image_request_time = 0  # Track when this agent last used [IMAGE] tag
+        self.last_video_request_time = 0  # Track when this agent last used [VIDEO] tag
         self.last_shortcut_response_time = 0  # Cooldown after shortcut responses
         self.messages_since_reinforcement = 0  # Track messages since last personality reinforcement
         self.last_reinforcement_time = time.time()  # Track time of last personality reinforcement
@@ -111,6 +118,7 @@ class Agent:
         self.last_message_importance = 5  # Track importance of last processed message
         self.bot_only_mode = False  # Track if responding in bot-only mode (ignore user messages directed at others)
         self.spontaneous_image_counter = 0  # Track messages sent for spontaneous image dice-roll
+        self.spontaneous_video_counter = 0  # Track messages sent for spontaneous video dice-roll
 
     def update_config(
         self,
@@ -125,7 +133,10 @@ class Agent:
         user_image_cooldown: Optional[int] = None,
         global_image_cooldown: Optional[int] = None,
         allow_spontaneous_images: Optional[bool] = None,
-        openrouter_api_key: Optional[str] = None
+        allow_spontaneous_videos: Optional[bool] = None,
+        video_duration: Optional[int] = None,
+        openrouter_api_key: Optional[str] = None,
+        cometapi_key: Optional[str] = None
     ) -> None:
         if model is not None:
             self.model = model
@@ -150,8 +161,14 @@ class Agent:
             self.global_image_cooldown = global_image_cooldown
         if allow_spontaneous_images is not None:
             self.allow_spontaneous_images = allow_spontaneous_images
+        if allow_spontaneous_videos is not None:
+            self.allow_spontaneous_videos = allow_spontaneous_videos
+        if video_duration is not None:
+            self.video_duration = video_duration
         if openrouter_api_key is not None:
             self.openrouter_api_key = openrouter_api_key
+        if cometapi_key is not None:
+            self.cometapi_key = cometapi_key
 
     def add_message_to_history(self, author: str, content: str, message_id: Optional[int] = None, replied_to_agent: Optional[str] = None, user_id: Optional[str] = None) -> None:
         # Check if this is our own message
@@ -618,6 +635,10 @@ class Agent:
 
             # Skip bot messages (only respond to user mentions)
             if not self.is_user_message(author):
+                continue
+
+            # Skip if we already responded to this mention (including video generation)
+            if msg_id and msg_id in self.responded_to_mentions:
                 continue
 
             # Check if user mentioned this agent's name
@@ -1519,6 +1540,10 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                 full_response = re.sub(r'\[SKIP[^\]]*\]\s*', '', full_response, flags=re.IGNORECASE)
                 full_response = re.sub(r'\[CONTEXT[^\]]*\]\s*', '', full_response, flags=re.IGNORECASE)
 
+                # Remove cooldown warning echoes that LLMs sometimes repeat from the prompt
+                full_response = re.sub(r'🚫\s*YOU RECENTLY MADE (?:AN IMAGE|A VIDEO)[^🚫]*🚫\s*', '', full_response, flags=re.IGNORECASE)
+                full_response = re.sub(r'\*\*🚫[^🚫]*🚫\*\*\s*', '', full_response)
+
                 full_response = full_response.strip()
                 if full_response and full_response != original_response.strip():
                     logger.info(f"[{self.name}] Stripped metadata tags, clean response: {full_response[:100]}...")
@@ -1631,6 +1656,99 @@ Now, using this retrieved context, provide your final response to the conversati
                 # Allow [IMAGE] and update timestamp
                 self.last_image_request_time = current_time
                 logger.info(f"[{self.name}] [IMAGE] request allowed - last used {time_since_last_image:.1f}s ago")
+
+        # Handle [VIDEO] tag - detect, validate, and generate video
+        if "[VIDEO]" in clean_response:
+            current_time = time.time()
+            time_since_last_video = current_time - self.last_video_request_time
+            video_cooldown = 150  # 2.5 minutes
+
+            if time_since_last_video < video_cooldown:
+                logger.info(f"[{self.name}] Stripping [VIDEO] from response - agent used [VIDEO] {time_since_last_video:.1f}s ago ({video_cooldown}s cooldown)")
+                clean_response = re.sub(r'\[VIDEO\].*', '', clean_response).strip()
+                if not clean_response:
+                    logger.info(f"[{self.name}] Response empty after video cooldown strip - skipping")
+                    return None
+            else:
+                # Check if this is allowed (spontaneous enabled OR user requested)
+                user_requested_video = False
+                if not self.allow_spontaneous_videos:
+                    # Look for video request keywords in recent user messages
+                    video_request_patterns = [
+                        'video', 'movie', 'clip', 'animate', 'animation',
+                        'film', 'footage', 'motion', 'cinematic',
+                        'make me a video', 'create a video', 'generate a video',
+                        'show me a video', 'record', 'sora'
+                    ]
+                    for msg in recent_messages[-10:]:
+                        if msg.get('role') == 'user':
+                            content = msg.get('content', '').lower()
+                            if any(pattern in content for pattern in video_request_patterns):
+                                user_requested_video = True
+                                break
+
+                    if not user_requested_video:
+                        logger.warning(f"[{self.name}] Blocked video generation - allow_spontaneous_videos=False and no user request detected")
+                        clean_response = re.sub(r'\[VIDEO\].*', '', clean_response).strip()
+                        if not clean_response:
+                            logger.info(f"[{self.name}] Response empty after video blocked strip - skipping")
+                            return None
+                    else:
+                        logger.info(f"[{self.name}] User requested video - generating...")
+                else:
+                    user_requested_video = False  # Spontaneous is allowed
+
+                # If video is allowed, extract prompt and generate in background
+                if self.allow_spontaneous_videos or user_requested_video:
+                    # Extract video prompt (everything after [VIDEO])
+                    video_match = re.search(r'\[VIDEO\]\s*(.+?)(?:\n|$)', clean_response, re.DOTALL)
+                    if video_match:
+                        video_prompt = video_match.group(1).strip()
+                        if video_prompt and hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
+                            logger.info(f"[{self.name}] Spawning background video generation: {video_prompt[:100]}...")
+
+                            # Mark video request time now (prevents rapid re-requests)
+                            self.last_video_request_time = current_time
+
+                            # Reset spontaneous counter if user requested
+                            if user_requested_video:
+                                self.spontaneous_video_counter = 0
+                                logger.info(f"[{self.name}] Reset spontaneous_video_counter after user-requested video")
+
+                            # Strip the [VIDEO] tag from response - remaining text is commentary
+                            commentary = re.sub(r'\[VIDEO\]\s*.+?(?:\n|$)', '', clean_response).strip()
+
+                            # Spawn background task to generate and post video with commentary
+                            asyncio.create_task(self._generate_and_post_video(
+                                video_prompt,
+                                commentary
+                            ))
+
+                            # Mark the triggering message as responded BEFORE returning
+                            # This prevents duplicate responses while video generates
+                            if hasattr(self, '_pending_user_message_id') and self._pending_user_message_id:
+                                if hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
+                                    self._agent_manager_ref.mark_message_responded(self._pending_user_message_id, self.name)
+                                self._pending_user_message_id = None
+                            elif recent_messages:
+                                last_msg_id = recent_messages[-1].get('message_id')
+                                if last_msg_id and hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
+                                    self._agent_manager_ref.mark_message_responded(last_msg_id, self.name)
+
+                            # Don't send anything now - video and commentary will be sent when ready
+                            logger.info(f"[{self.name}] Video queued for background generation" +
+                                       (f" with commentary: {commentary[:50]}..." if commentary else ""))
+                            return None
+                        else:
+                            logger.warning(f"[{self.name}] Cannot generate video - no prompt or agent_manager_ref")
+                            clean_response = re.sub(r'\[VIDEO\].*', '', clean_response).strip()
+                            if not clean_response:
+                                return None
+                    else:
+                        logger.warning(f"[{self.name}] [VIDEO] tag without prompt - stripping")
+                        clean_response = re.sub(r'\[VIDEO\].*', '', clean_response).strip()
+                        if not clean_response:
+                            return None
 
         # Determine reply-to message and update metadata
         reply_to_message_id = None
@@ -1873,12 +1991,10 @@ Format: `[IMAGE] your detailed prompt here`
 - Your ENTIRE response must be just the [IMAGE] tag and prompt
 - NO text before [IMAGE]
 - NO text after the prompt
-- NO [SENTIMENT] or [IMPORTANCE] tags when using [IMAGE]
 
 Example:
 ✅ CORRECT: `[IMAGE] a stunning sunset over a calm ocean with vibrant orange and pink clouds reflecting on the water, photorealistic style`
 ❌ WRONG: `Here's your image: [IMAGE] sunset...` (text before [IMAGE])
-❌ WRONG: `[IMAGE] sunset [SENTIMENT: 5]` (text after prompt)
 ❌ WRONG: `[IMAGE]` (no prompt - THIS CAUSES ERRORS!)
 
 **METHOD 2: generate_image() Tool (Formal)**
@@ -1951,7 +2067,6 @@ Stay true to your character. If you've been repeating topics or patterns, break 
 ⚠️ GAME MODE ACTIVE ⚠️
 
 CRITICAL: You are playing a game. Use the provided tool/function to make your move.
-- DO NOT include [SENTIMENT] or [IMPORTANCE] tags
 - DO NOT add commentary unless using the reasoning parameter
 - Focus ONLY on making strategic game moves
 - Your response will be converted to a game action automatically
@@ -1959,11 +2074,10 @@ CRITICAL: You are playing a game. Use the provided tool/function to make your mo
 TOKEN LIMIT: {self.max_tokens} tokens
 Keep your reasoning brief and strategic."""
         else:
-            # CHAT MODE: Full instructions with sentiment/importance tagging
+            # CHAT MODE: Concise response guidelines
             # Calculate dynamic sentence/word limits based on max_tokens
-            # Reserve ~15 tokens for [SENTIMENT: X] [IMPORTANCE: X] tags
             # Average sentence is ~20-25 tokens, average word is ~1.3 tokens
-            available_tokens = self.max_tokens - 20  # Reserve for tags + buffer
+            available_tokens = self.max_tokens - 10  # Small buffer
             max_sentences = max(1, min(4, available_tokens // 60))  # ~60 tokens per sentence for safety
             max_words = max(20, available_tokens // 2)  # Conservative word estimate
 
@@ -2724,9 +2838,7 @@ You are {self.name}. Introduce yourself as {self.name} or share what's on your m
 
 IMPORTANT: Do NOT include your name (e.g., "{self.name}:") at the start of your message. Your name is already displayed by the system. Just write your message directly.
 
-TOKEN LIMIT: You have a maximum of {self.max_tokens} tokens for your response. Be concise and complete your sentences naturally. Don't leave thoughts unfinished.
-
-Include [SENTIMENT: 0] at the end."""
+TOKEN LIMIT: You have a maximum of {self.max_tokens} tokens for your response. Be concise and complete your sentences naturally. Don't leave thoughts unfinished."""
 
             # Format conversation messages for API call
             messages = self._format_conversation_messages(full_system_prompt, recent_messages)
@@ -2852,6 +2964,19 @@ Include [SENTIMENT: 0] at the end."""
                                         img_message = f"[IMAGE]{image_url}"
                                     await self.send_message_callback(img_message, self.name, self.model, None)
                                     logger.info(f"[{self.name}] Spontaneous image sent to Discord")
+
+                            # Check for spontaneous video generation (only for normal chat, not game moves)
+                            if not is_game_move:
+                                video_result = await self._maybe_generate_spontaneous_video()
+                                if video_result:
+                                    video_url, used_prompt = video_result
+                                    # Send the spontaneous video
+                                    if used_prompt:
+                                        vid_message = f"[VIDEO]{video_url}|PROMPT|{used_prompt}"
+                                    else:
+                                        vid_message = f"[VIDEO]{video_url}"
+                                    await self.send_message_callback(vid_message, self.name, self.model, None)
+                                    logger.info(f"[{self.name}] Spontaneous video sent to Discord")
 
                             # Send commentary as follow-up message if it exists
                             if is_game_move and self._pending_commentary:
@@ -2980,6 +3105,197 @@ Include [SENTIMENT: 0] at the end."""
             logger.error(f"[{self.name}] Error in spontaneous image generation: {e}", exc_info=True)
             return None
 
+    async def _maybe_generate_spontaneous_video(self):
+        """
+        Dice-roll check for spontaneous video generation.
+        Called after every normal chat message sent.
+        Every 5 messages, 33% chance to generate a video based on current conversation.
+        Much rarer than images due to cost and generation time.
+        """
+        if not self.allow_spontaneous_videos:
+            return None
+
+        # Check if we have CometAPI key via agent manager
+        if not hasattr(self, '_agent_manager_ref') or not self._agent_manager_ref:
+            return None
+
+        if not self._agent_manager_ref.cometapi_key:
+            return None
+
+        # Increment counter
+        self.spontaneous_video_counter += 1
+
+        # Only check every 5 messages (less frequent than images)
+        if self.spontaneous_video_counter % 5 != 0:
+            return None
+
+        # 33% dice roll (much rarer than images)
+        import random
+        if random.random() > 0.33:
+            logger.info(f"[{self.name}] Spontaneous video dice roll failed (33% chance)")
+            return None
+
+        logger.info(f"[{self.name}] Spontaneous video dice roll succeeded! Generating video...")
+
+        # Build context from recent conversation for the LLM to create a video prompt
+        recent_messages = []
+        with self.lock:
+            recent_messages = list(self.conversation_history[-10:])
+
+        if not recent_messages:
+            logger.warning(f"[{self.name}] No conversation context for spontaneous video")
+            return None
+
+        # Ask the LLM to generate a video prompt using the guidance from prompt_components
+        try:
+            import requests
+
+            conversation_context = "\n".join([
+                f"{msg.get('author', 'Unknown')}: {msg.get('content', '')[:200]}"
+                for msg in recent_messages
+            ])
+
+            prompt_request = {
+                "model": self.model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": f"""{self.system_prompt}
+
+You are generating a short video that reflects your perspective on the current conversation.
+Create a detailed video prompt following these cinematography guidelines:
+
+CAMERA MOVEMENTS (use specific terms):
+- Dolly: Camera moves forward/backward on tracks
+- Track: Camera moves left/right parallel to subject
+- Pan: Camera rotates horizontally on fixed point
+- Tilt: Camera rotates vertically on fixed point
+- Crane: Camera moves up/down on crane arm
+- Handheld: Organic, slightly shaky movement
+- Static: No camera movement
+
+STYLE ELEMENTS TO INCLUDE:
+- Lens type (wide angle, telephoto, macro)
+- Film look (cinematic, documentary, vintage)
+- Lighting (golden hour, neon-lit, dramatic shadows)
+- Atmosphere (foggy, rainy, dust particles)
+
+PROMPT STRUCTURE:
+Start with camera movement, then describe the scene with subject, action, setting, and atmosphere.
+Be specific and descriptive. This is for Sora 2 video generation."""
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Based on this conversation:\n\n{conversation_context}\n\nDescribe a short {self.video_duration}-second video you'd like to generate that captures your reaction or adds to the conversation. Just provide the video description prompt, nothing else."
+                    }
+                ],
+                "max_tokens": 300
+            }
+
+            headers = {
+                "Authorization": f"Bearer {self.openrouter_api_key}",
+                "Content-Type": "application/json"
+            }
+
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                json=prompt_request,
+                headers=headers,
+                timeout=30
+            )
+
+            if response.status_code != 200:
+                logger.error(f"[{self.name}] Failed to generate video prompt: {response.status_code}")
+                return None
+
+            result = response.json()
+            video_prompt = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+
+            if not video_prompt:
+                logger.warning(f"[{self.name}] Empty video prompt from LLM")
+                return None
+
+            logger.info(f"[{self.name}] Generated spontaneous video prompt: {video_prompt[:100]}...")
+
+            # Generate the video
+            video_url = await self._agent_manager_ref.generate_video(
+                video_prompt,
+                self.name,
+                self.video_duration
+            )
+
+            if video_url:
+                logger.info(f"[{self.name}] Spontaneous video generated successfully")
+                return (video_url, video_prompt)
+            else:
+                logger.warning(f"[{self.name}] Spontaneous video generation failed")
+                return None
+
+        except Exception as e:
+            logger.error(f"[{self.name}] Error in spontaneous video generation: {e}", exc_info=True)
+            return None
+
+    async def _generate_and_post_video(self, video_prompt: str, commentary: str = ""):
+        """
+        Background task to generate a video and post it when complete.
+        This allows the agent to continue talking while video generates.
+        """
+        try:
+            logger.info(f"[{self.name}] Background video generation started...")
+
+            video_result = await self._agent_manager_ref.generate_video(
+                video_prompt,
+                self.name,
+                self.video_duration
+            )
+
+            if video_result:
+                # Check if it's a local file (downloaded from CometAPI)
+                if video_result.startswith("FILE:"):
+                    file_path = video_result[5:]  # Remove FILE: prefix
+                    logger.info(f"[{self.name}] Background video complete (file), uploading: {file_path}")
+
+                    # Use video file callback if available, otherwise fall back to message
+                    if hasattr(self, 'send_video_file_callback') and self.send_video_file_callback:
+                        await self.send_video_file_callback(file_path, video_prompt, self.name, self.model)
+                        logger.info(f"[{self.name}] Video file uploaded successfully")
+                    elif self.send_message_callback:
+                        # Mark as file upload with [VIDEOFILE] tag
+                        video_message = f"[VIDEOFILE]{file_path}|PROMPT|{video_prompt}"
+                        await self.send_message_callback(video_message, self.name, self.model, None)
+                        logger.info(f"[{self.name}] Video file message posted")
+                    else:
+                        logger.warning(f"[{self.name}] No callback - video file at: {file_path}")
+
+                    # Clean up temp file after upload
+                    try:
+                        import os
+                        if os.path.exists(file_path):
+                            os.remove(file_path)
+                            logger.info(f"[{self.name}] Cleaned up temp video file")
+                    except Exception as e:
+                        logger.warning(f"[{self.name}] Failed to clean up temp file: {e}")
+                else:
+                    # Regular URL
+                    video_message = f"[VIDEO]{video_result}|PROMPT|{video_prompt}"
+                    logger.info(f"[{self.name}] Background video complete, posting URL...")
+
+                    if self.send_message_callback:
+                        await self.send_message_callback(video_message, self.name, self.model, None)
+                        logger.info(f"[{self.name}] Video posted successfully")
+                    else:
+                        logger.warning(f"[{self.name}] No send_message_callback - video URL: {video_result}")
+
+                # Send commentary as follow-up if provided
+                if commentary and self.send_message_callback:
+                    await self.send_message_callback(commentary, self.name, self.model, None)
+                    logger.info(f"[{self.name}] Video commentary posted: {commentary[:50]}...")
+            else:
+                logger.warning(f"[{self.name}] Background video generation failed")
+
+        except Exception as e:
+            logger.error(f"[{self.name}] Error in background video generation: {e}", exc_info=True)
+
     def start(self):
         if self.is_running:
             print(f"Agent {self.name} is already running")
@@ -3050,7 +3366,9 @@ Include [SENTIMENT: 0] at the end."""
             "message_retention": self.message_retention,
             "user_image_cooldown": self.user_image_cooldown,
             "global_image_cooldown": self.global_image_cooldown,
-            "allow_spontaneous_images": self.allow_spontaneous_images
+            "allow_spontaneous_images": self.allow_spontaneous_images,
+            "allow_spontaneous_videos": self.allow_spontaneous_videos,
+            "video_duration": self.video_duration
         }
 
 
@@ -3060,10 +3378,13 @@ class AgentManager:
         self.affinity_tracker = affinity_tracker
         self.send_message_callback = send_message_callback
         self.openrouter_api_key = ""
+        self.cometapi_key = ""
         self.lock = threading.Lock()
         self.startup_message_sent = False
         self.image_model = "google/gemini-2.5-flash-image"
+        self.video_model = "sora-2"  # Default video model for CometAPI
         self.last_global_image_time = 0  # Track last image generation globally to prevent spam
+        self.last_global_video_time = 0  # Track last video generation globally
 
         # Global tracking of responded message IDs to prevent duplicate responses
         # Maps message_id -> set of agent names that have responded
@@ -3107,6 +3428,12 @@ class AgentManager:
         with self.lock:
             for agent in self.agents.values():
                 agent.update_config(openrouter_api_key=api_key)
+
+    def set_cometapi_key(self, api_key: str) -> None:
+        self.cometapi_key = api_key
+        with self.lock:
+            for agent in self.agents.values():
+                agent.update_config(cometapi_key=api_key)
 
     async def declassify_image_prompt(self, original_prompt: str) -> List[str]:
         """
@@ -3281,6 +3608,234 @@ class AgentManager:
             logger.error(f"[ImageAgent] Error generating image: {e}", exc_info=True)
             return None
 
+    async def generate_video(self, prompt: str, author: str, duration: int = 4) -> Optional[str]:
+        """Generate a video using CometAPI Sora 2.
+
+        Args:
+            prompt: The video generation prompt
+            author: The user who triggered this
+            duration: Video duration in seconds (4, 8, or 12)
+
+        Returns:
+            Video URL if successful, None if failed
+        """
+        if not self.cometapi_key:
+            logger.error(f"[VideoGen] No CometAPI key configured")
+            return None
+
+        # Global cooldown to prevent spam (2.5 minutes between videos)
+        current_time = time.time()
+        time_since_last_video = current_time - self.last_global_video_time
+        if time_since_last_video < 150:  # 2.5 minute cooldown
+            time_remaining = 150 - time_since_last_video
+            logger.warning(f"[VideoGen] Global video cooldown: {time_remaining:.1f}s remaining")
+            return None
+
+        # Validate duration
+        if duration not in [4, 8, 12]:
+            duration = 4
+
+        try:
+            import aiohttp
+            import asyncio
+
+            logger.info(f"[VideoGen] Starting video generation for {author}: {prompt[:100]}...")
+
+            # Submit video generation request
+            headers = {
+                "Authorization": f"Bearer {self.cometapi_key}",
+                "Content-Type": "application/json"
+            }
+
+            payload = {
+                "prompt": prompt,
+                "model": self.video_model or "sora-2",
+                "seconds": str(duration),  # API expects string not int
+                "size": "1280x720"  # Landscape only as per user spec
+            }
+
+            async with aiohttp.ClientSession() as session:
+                # Submit the video generation task
+                async with session.post(
+                    "https://api.cometapi.com/v1/videos",
+                    headers=headers,
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=60)
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        logger.error(f"[VideoGen] API error: {response.status} - {error_text}")
+                        return None
+
+                    result = await response.json()
+                    task_id = result.get("id") or result.get("task_id")
+
+                    if not task_id:
+                        logger.error(f"[VideoGen] No task ID in response: {result}")
+                        return None
+
+                    logger.info(f"[VideoGen] Task submitted: {task_id}")
+
+                # Poll for completion (max 10 minutes for video generation - some videos take longer)
+                max_polls = 60  # Poll every 10 seconds for up to 10 minutes
+                for poll_num in range(max_polls):
+                    await asyncio.sleep(10)  # Wait 10 seconds between polls
+
+                    async with session.get(
+                        f"https://api.cometapi.com/v1/videos/{task_id}",
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=30)
+                    ) as poll_response:
+                        if poll_response.status != 200:
+                            logger.warning(f"[VideoGen] Poll error: {poll_response.status}")
+                            continue
+
+                        poll_result = await poll_response.json()
+
+                        # CometAPI wraps response in {"code": ..., "data": {...}}
+                        # Status/URL may be in data or at top level
+                        data = poll_result.get("data", poll_result)
+                        inner_data = data.get("data", {}) if isinstance(data.get("data"), dict) else {}
+                        status = (data.get("status") or poll_result.get("status") or "").lower()
+                        progress = data.get("progress") or inner_data.get("progress") or "?"
+
+                        # Check for fail_reason even if status is in_progress
+                        fail_reason = data.get("fail_reason") or inner_data.get("fail_reason") or ""
+                        if fail_reason:
+                            logger.error(f"[VideoGen] Task failed: {fail_reason}")
+                            return None
+
+                        # Debug: log actual status on first poll and periodically
+                        if poll_num == 0 or poll_num % 6 == 0:
+                            logger.info(f"[VideoGen] Poll {poll_num}: status='{status}', progress={progress}, elapsed={poll_num*10}s")
+
+                        # Check inner_data status too (CometAPI double-wraps)
+                        inner_status = (inner_data.get("status") or "").lower()
+                        if inner_status in ("completed", "succeeded", "success"):
+                            status = inner_status  # Use inner status if it indicates completion
+
+                        if status in ("completed", "succeeded", "success"):
+                            # Log FULL response structure to find URL field
+                            import json
+                            logger.info(f"[VideoGen] FULL RESPONSE: {json.dumps(poll_result, indent=2, default=str)}")
+
+                            # Check nested data.data structure (CometAPI wraps twice)
+                            inner_data = data.get("data", {}) if isinstance(data.get("data"), dict) else {}
+
+                            # Try multiple possible locations for video URL
+                            video_url = (
+                                # Inner data.data fields
+                                inner_data.get("video_url") or
+                                inner_data.get("url") or
+                                inner_data.get("download_url") or
+                                inner_data.get("media_url") or
+                                inner_data.get("content_url") or
+                                inner_data.get("file_url") or
+                                inner_data.get("result") or
+                                inner_data.get("video") or
+                                # Outer data fields
+                                data.get("video_url") or
+                                data.get("url") or
+                                data.get("download_url") or
+                                data.get("result") or
+                                data.get("output", {}).get("video_url") or
+                                data.get("video", {}).get("url") or
+                                # Top level
+                                poll_result.get("video_url") or
+                                poll_result.get("url")
+                            )
+
+                            # Also search for any string containing http in the response
+                            def find_urls(obj, path=""):
+                                urls = []
+                                if isinstance(obj, dict):
+                                    for k, v in obj.items():
+                                        urls.extend(find_urls(v, f"{path}.{k}"))
+                                elif isinstance(obj, list):
+                                    for i, v in enumerate(obj):
+                                        urls.extend(find_urls(v, f"{path}[{i}]"))
+                                elif isinstance(obj, str) and ("http" in obj or ".mp4" in obj):
+                                    urls.append((path, obj))
+                                return urls
+
+                            found_urls = find_urls(poll_result)
+                            if found_urls:
+                                logger.info(f"[VideoGen] Found URLs in response: {found_urls}")
+                                if not video_url:
+                                    # Use first found URL
+                                    video_url = found_urls[0][1]
+
+                            if video_url:
+                                logger.info(f"[VideoGen] Video completed: {video_url}")
+                                self.last_global_video_time = time.time()
+                                return video_url
+                            else:
+                                # No URL in status response - download from /content endpoint
+                                logger.info(f"[VideoGen] No URL in status - downloading from /content endpoint...")
+                                try:
+                                    content_url = f"https://api.cometapi.com/v1/videos/{task_id}/content"
+                                    async with session.get(
+                                        content_url,
+                                        headers=headers,
+                                        timeout=aiohttp.ClientTimeout(total=120)  # Longer timeout for download
+                                    ) as content_response:
+                                        logger.info(f"[VideoGen] Content endpoint status: {content_response.status}, type: {content_response.headers.get('Content-Type', 'unknown')}")
+                                        if content_response.status == 200:
+                                            content_type = content_response.headers.get('Content-Type', '')
+                                            # If it returns video binary, download and save to temp file
+                                            if 'video' in content_type or 'octet' in content_type or 'mp4' in content_type:
+                                                import tempfile
+                                                import os
+                                                video_data = await content_response.read()
+                                                logger.info(f"[VideoGen] Downloaded {len(video_data)} bytes of video data")
+                                                # Save to temp file
+                                                temp_dir = tempfile.gettempdir()
+                                                video_path = os.path.join(temp_dir, f"{task_id}.mp4")
+                                                with open(video_path, 'wb') as f:
+                                                    f.write(video_data)
+                                                logger.info(f"[VideoGen] Saved video to: {video_path}")
+                                                self.last_global_video_time = time.time()
+                                                # Return file path with FILE: prefix to indicate it's a local file
+                                                return f"FILE:{video_path}"
+                                            # Check if JSON response contains URL
+                                            try:
+                                                content_result = await content_response.json()
+                                                logger.info(f"[VideoGen] Content response: {content_result}")
+                                                video_url = (
+                                                    content_result.get("url") or
+                                                    content_result.get("video_url") or
+                                                    content_result.get("data", {}).get("url") or
+                                                    content_result.get("data", {}).get("video_url")
+                                                )
+                                                if video_url:
+                                                    logger.info(f"[VideoGen] Got URL from content endpoint: {video_url}")
+                                                    self.last_global_video_time = time.time()
+                                                    return video_url
+                                            except:
+                                                pass  # Not JSON
+                                        else:
+                                            logger.warning(f"[VideoGen] Content endpoint returned {content_response.status}")
+                                except Exception as e:
+                                    logger.warning(f"[VideoGen] Content endpoint failed: {e}")
+
+                                logger.error(f"[VideoGen] Completed but no URL found in: {poll_result}")
+                                return None
+                        elif status in ("failed", "failure", "error"):
+                            error_msg = data.get("fail_reason") or data.get("error") or data.get("message") or poll_result.get("error") or "Unknown error"
+                            logger.error(f"[VideoGen] Generation failed: {error_msg}")
+                            return None
+                        else:
+                            # Still processing (queued, running, pending, etc.)
+                            if poll_num % 6 == 0:  # Log every minute
+                                logger.info(f"[VideoGen] Still processing... ({poll_num * 10}s elapsed)")
+
+                logger.error(f"[VideoGen] Timeout waiting for video completion")
+                return None
+
+        except Exception as e:
+            logger.error(f"[VideoGen] Error generating video: {e}", exc_info=True)
+            return None
+
     async def handle_reaction(
         self,
         agent_name: str,
@@ -3383,7 +3938,9 @@ class AgentManager:
         message_retention: int = 1,
         user_image_cooldown: int = 90,
         global_image_cooldown: int = 90,
-        allow_spontaneous_images: bool = False
+        allow_spontaneous_images: bool = False,
+        allow_spontaneous_videos: bool = False,
+        video_duration: int = 4
     ) -> bool:
         with self.lock:
             if name in self.agents:
@@ -3402,7 +3959,10 @@ class AgentManager:
                 user_image_cooldown=user_image_cooldown,
                 global_image_cooldown=global_image_cooldown,
                 allow_spontaneous_images=allow_spontaneous_images,
+                allow_spontaneous_videos=allow_spontaneous_videos,
+                video_duration=video_duration,
                 openrouter_api_key=self.openrouter_api_key,
+                cometapi_key=self.cometapi_key,
                 affinity_tracker=self.affinity_tracker,
                 send_message_callback=self.send_message_callback,
                 agent_manager_ref=self,
@@ -3424,7 +3984,9 @@ class AgentManager:
         message_retention: Optional[int] = None,
         user_image_cooldown: Optional[int] = None,
         global_image_cooldown: Optional[int] = None,
-        allow_spontaneous_images: Optional[bool] = None
+        allow_spontaneous_images: Optional[bool] = None,
+        allow_spontaneous_videos: Optional[bool] = None,
+        video_duration: Optional[int] = None
     ) -> bool:
         with self.lock:
             if name not in self.agents:
@@ -3441,7 +4003,9 @@ class AgentManager:
                 message_retention=message_retention,
                 user_image_cooldown=user_image_cooldown,
                 global_image_cooldown=global_image_cooldown,
-                allow_spontaneous_images=allow_spontaneous_images
+                allow_spontaneous_images=allow_spontaneous_images,
+                allow_spontaneous_videos=allow_spontaneous_videos,
+                video_duration=video_duration
             )
             return True
 
@@ -3552,7 +4116,9 @@ Use shortcuts to customize agent behavior, unlock new response styles, or add sp
                 message_retention=agent_data.get("message_retention", 1),
                 user_image_cooldown=agent_data.get("user_image_cooldown", 90),
                 global_image_cooldown=agent_data.get("global_image_cooldown", 90),
-                allow_spontaneous_images=agent_data.get("allow_spontaneous_images", False)
+                allow_spontaneous_images=agent_data.get("allow_spontaneous_images", False),
+                allow_spontaneous_videos=agent_data.get("allow_spontaneous_videos", False),
+                video_duration=agent_data.get("video_duration", 4)
             )
 
     def get_agents_config(self) -> List[Dict[str, Any]]:

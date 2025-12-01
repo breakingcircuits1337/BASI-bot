@@ -245,6 +245,12 @@ CRITICAL - ENGAGE SUBSTANTIVELY: Respond to SPECIFIC points others make. Do NOT 
         "builder": lambda ctx: _build_image_tool_guidance(ctx)
     },
 
+    "video_generation_guidance": {
+        "order": 52,
+        "condition": lambda ctx: not ctx.is_in_game and getattr(ctx.agent, 'allow_spontaneous_videos', False),
+        "builder": lambda ctx: _build_video_generation_guidance(ctx)
+    },
+
     "personality_reinforcement": {
         "order": 55,
         "condition": lambda ctx: not ctx.is_in_game and ctx.should_reinforce_personality,
@@ -365,12 +371,10 @@ Format: `[IMAGE] your detailed prompt here`
 - Your ENTIRE response must be just the [IMAGE] tag and prompt
 - NO text before [IMAGE]
 - NO text after the prompt
-- NO [SENTIMENT] or [IMPORTANCE] tags when using [IMAGE]
 
 Example:
 ✅ CORRECT: `[IMAGE] a stunning sunset over a calm ocean with vibrant orange and pink clouds reflecting on the water, photorealistic style`
 ❌ WRONG: `Here's your image: [IMAGE] sunset...` (text before [IMAGE])
-❌ WRONG: `[IMAGE] sunset [SENTIMENT: 5]` (text after prompt)
 ❌ WRONG: `[IMAGE]` (no prompt - THIS CAUSES ERRORS!)
 
 **METHOD 2: generate_image() Tool (Formal)**
@@ -387,6 +391,79 @@ Call the function tool with your prompt as a parameter.
 • Describe people by characteristics (hair, clothing, profession) not names
 
 Remember: Empty prompts cause errors. Always provide a detailed description after [IMAGE]."""
+
+
+def _build_video_generation_guidance(ctx: PromptContext) -> str:
+    """Build video generation guidance for Sora 2."""
+    agent = ctx.agent
+
+    # Check for recent video generation - provide ACTUAL DATA to the agent
+    recent_video_warning = ""
+    if hasattr(agent, 'last_video_request_time') and agent.last_video_request_time > 0:
+        time_since_video = int(time.time() - agent.last_video_request_time)
+        if time_since_video < 150:  # Within 2.5 minutes
+            minutes = time_since_video // 60
+            seconds = time_since_video % 60
+            recent_video_warning = f"""
+**🚫 YOU RECENTLY MADE A VIDEO - DO NOT MAKE ANOTHER 🚫**
+Your last video request was {minutes}m {seconds}s ago.
+DO NOT generate another video right now! Respond with TEXT ONLY.
+Videos take significant resources - wait at least 2.5 minutes between videos.
+
+"""
+
+    # Get video duration setting
+    video_duration = getattr(agent, 'video_duration', 4)
+
+    return f"""
+
+🎬 VIDEO GENERATION (Sora 2) ENABLED 🎬
+
+{recent_video_warning}You can generate {video_duration}-second videos (landscape 1280x720) using the [VIDEO] tag:
+`[VIDEO] your detailed cinematic prompt here`
+
+The video IS your response - make it reflect YOUR personality and relate to what's being discussed RIGHT NOW. Think of it as responding with a visual instead of words.
+
+**SORA 2 PROMPT BEST PRACTICES:**
+
+1. **Camera Movement** - Use professional cinematography terms:
+   • dolly (forward/backward), track (sideways), pan (horizontal turn)
+   • tilt (vertical turn), crane (up/down), push-in, pull-out
+   • Example: "slow dolly forward" or "camera pans left 30° over 2 seconds"
+
+2. **Style & Aesthetics** - Be explicit about visual style:
+   • Lens type: "35mm lens, shallow depth of field"
+   • Film look: "Kodak film grain, warm teal-orange grade"
+   • Atmosphere: "cinematic, documentary-style, dreamlike"
+
+3. **Lighting** - Establish mood with specific lighting:
+   • "golden hour backlighting", "harsh overhead fluorescents"
+   • "rim lighting with volumetric fog", "practical lights only"
+   • "neon reflections on wet asphalt"
+
+4. **Structure Your Prompt:**
+   • Scene setting: location, time of day, atmosphere
+   • Subject/action: who/what is doing what
+   • Camera: movement, framing, lens
+   • Style: lighting, color grade, aesthetic
+
+**EXAMPLE PROMPTS:**
+
+✅ GOOD: `[VIDEO] A rainy neon alley in Tokyo at night. Medium close-up on a hooded figure walking away. 35mm lens, shallow depth of field. Slow tracking shot following from behind. Wet asphalt glistening with reflected neon pinks and blues. Moody synthwave aesthetic, film grain.`
+
+✅ GOOD: `[VIDEO] Golden hour beach scene. Wide shot of waves crashing on shore. Slow crane down from sky to water level. Warm orange tones, soft natural lighting. Peaceful, contemplative mood. Camera pushes gently toward the horizon.`
+
+❌ BAD: `[VIDEO] make a cool video` (too vague)
+❌ BAD: `[VIDEO]` (empty prompt - causes errors!)
+
+**CRITICAL RULES:**
+• Your ENTIRE response must be just the [VIDEO] tag and prompt when generating
+• NO text before [VIDEO], NO text after the prompt
+• One camera movement per shot for clean motion
+• Be specific - vague prompts produce generic results
+• If you just made a video recently, wait before making another
+
+Videos take longer to generate than images. Make each one count with a well-crafted prompt."""
 
 
 def _build_personality_reinforcement(ctx: PromptContext) -> str:
@@ -424,7 +501,6 @@ def _build_response_format_instructions(ctx: PromptContext) -> str:
 ⚠️ GAME MODE ACTIVE ⚠️
 
 CRITICAL: You are playing a game. Use the provided tool/function to make your move.
-- DO NOT include [SENTIMENT] or [IMPORTANCE] tags
 - DO NOT add commentary unless using the reasoning parameter
 - Focus ONLY on making strategic game moves
 - Your response will be converted to a game action automatically
@@ -432,7 +508,7 @@ CRITICAL: You are playing a game. Use the provided tool/function to make your mo
 TOKEN LIMIT: {agent.max_tokens} tokens
 Keep your reasoning brief and strategic."""
     else:
-        # CHAT MODE: Full instructions with sentiment/importance tagging
+        # CHAT MODE: Concise response guidelines
         return f"""
 ⚠️ CRITICAL: TOKEN LIMIT = {agent.max_tokens} ⚠️
 You MUST keep your response SHORT to fit within {agent.max_tokens} tokens.

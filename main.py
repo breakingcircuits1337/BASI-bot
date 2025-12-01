@@ -89,8 +89,16 @@ def load_initial_data():
     if openrouter_key and agent_manager:
         agent_manager.set_openrouter_key(openrouter_key)
 
+    cometapi_key = config_manager.load_cometapi_key()
+    if cometapi_key and agent_manager:
+        agent_manager.set_cometapi_key(cometapi_key)
+
     models = config_manager.load_models()
-    return models if models else []
+    video_models = config_manager.load_video_models()
+    return {
+        "models": models if models else [],
+        "video_models": video_models if video_models else []
+    }
 
 def save_all_data():
     if agent_manager:
@@ -108,7 +116,7 @@ def check_model_type(model: str) -> str:
         return "ℹ️ **IMAGE MODEL DETECTED** - Default system prompt has been loaded. This agent will only respond to [IMAGE] tags from users."
     return ""
 
-def add_agent_ui(name: str, model: str, system_prompt: str, freq: int, likelihood: int, max_tokens: int, user_attention: int, bot_awareness: int, message_retention: int, user_image_cooldown: int, global_image_cooldown: int, allow_spontaneous_images: bool):
+def add_agent_ui(name: str, model: str, system_prompt: str, freq: int, likelihood: int, max_tokens: int, user_attention: int, bot_awareness: int, message_retention: int, user_image_cooldown: int, global_image_cooldown: int, allow_spontaneous_images: bool, allow_spontaneous_videos: bool = False, video_duration: str = "4"):
     # For image models, use default prompt if empty
     if is_image_model(model):
         if not name or not model:
@@ -119,18 +127,20 @@ def add_agent_ui(name: str, model: str, system_prompt: str, freq: int, likelihoo
         if not name or not model or not system_prompt:
             return "Error: All fields are required", get_agent_list(), get_active_agents_display(), get_agent_names_for_preset()
 
-    if agent_manager.add_agent(name, model, system_prompt, freq, likelihood, max_tokens, user_attention, bot_awareness, message_retention, user_image_cooldown, global_image_cooldown, allow_spontaneous_images):
+    video_dur_int = int(video_duration) if video_duration else 4
+    if agent_manager.add_agent(name, model, system_prompt, freq, likelihood, max_tokens, user_attention, bot_awareness, message_retention, user_image_cooldown, global_image_cooldown, allow_spontaneous_images, allow_spontaneous_videos, video_dur_int):
         save_all_data()
         model_type_msg = " (Image Model)" if is_image_model(model) else ""
         return f"Agent '{name}' added successfully{model_type_msg}", get_agent_list(), get_active_agents_display(), get_agent_names_for_preset()
     else:
         return f"Error: Agent '{name}' already exists", get_agent_list(), get_active_agents_display(), get_agent_names_for_preset()
 
-def update_agent_ui(name: str, model: str, system_prompt: str, freq: int, likelihood: int, max_tokens: int, user_attention: int, bot_awareness: int, message_retention: int, user_image_cooldown: int, global_image_cooldown: int, allow_spontaneous_images: bool):
+def update_agent_ui(name: str, model: str, system_prompt: str, freq: int, likelihood: int, max_tokens: int, user_attention: int, bot_awareness: int, message_retention: int, user_image_cooldown: int, global_image_cooldown: int, allow_spontaneous_images: bool, allow_spontaneous_videos: bool = False, video_duration: str = "4"):
     if not name:
         return "Error: Select an agent to update", get_agent_list(), get_active_agents_display()
 
-    if agent_manager.update_agent(name, model, system_prompt, freq, likelihood, max_tokens, user_attention, bot_awareness, message_retention, user_image_cooldown, global_image_cooldown, allow_spontaneous_images):
+    video_dur_int = int(video_duration) if video_duration else 4
+    if agent_manager.update_agent(name, model, system_prompt, freq, likelihood, max_tokens, user_attention, bot_awareness, message_retention, user_image_cooldown, global_image_cooldown, allow_spontaneous_images, allow_spontaneous_videos, video_dur_int):
         save_all_data()
         return f"Agent '{name}' updated successfully", get_agent_list(), get_active_agents_display()
     else:
@@ -203,15 +213,17 @@ def get_agent_names_for_preset():
 
 def get_agent_details(name: str):
     if not name:
-        return "", "", "", 30, 50, 500, 50, 50, 1, 90, 90, False, "stopped"
+        return "", "", "", 30, 50, 500, 50, 50, 1, 90, 90, False, False, "4", "stopped"
 
     agent = agent_manager.get_agent(name)
     if agent:
         status_color = "running" if agent.status == "running" else ("error" if agent.status == "error" else "stopped")
-        allow_spontaneous = getattr(agent, 'allow_spontaneous_images', False)  # Default to False for existing agents
-        return agent.name, agent.model, agent.system_prompt, agent.response_frequency, agent.response_likelihood, agent.max_tokens, agent.user_attention, agent.bot_awareness, agent.message_retention, agent.user_image_cooldown, agent.global_image_cooldown, allow_spontaneous, f'<span class="status-{status_color}">{agent.status.upper()}</span>'
+        allow_spontaneous_images = getattr(agent, 'allow_spontaneous_images', False)
+        allow_spontaneous_videos = getattr(agent, 'allow_spontaneous_videos', False)
+        video_duration = str(getattr(agent, 'video_duration', 4))
+        return agent.name, agent.model, agent.system_prompt, agent.response_frequency, agent.response_likelihood, agent.max_tokens, agent.user_attention, agent.bot_awareness, agent.message_retention, agent.user_image_cooldown, agent.global_image_cooldown, allow_spontaneous_images, allow_spontaneous_videos, video_duration, f'<span class="status-{status_color}">{agent.status.upper()}</span>'
     else:
-        return "", "", "", 30, 50, 500, 50, 50, 1, 90, 90, False, "N/A"
+        return "", "", "", 30, 50, 500, 50, 50, 1, 90, 90, False, False, "4", "N/A"
 
 def get_active_agents_display():
     all_agents = agent_manager.get_all_agents()
@@ -570,6 +582,30 @@ def save_openrouter_key(api_key: str):
     agent_manager.set_openrouter_key(api_key)
     return "OpenRouter API key saved"
 
+def save_cometapi_key(api_key: str):
+    config_manager.save_cometapi_key(api_key)
+    agent_manager.set_cometapi_key(api_key)
+    return "CometAPI key saved"
+
+def add_video_model(model_name: str, current_models: List[str]):
+    if not model_name:
+        return "Error: Model name required", current_models
+    if model_name in current_models:
+        return f"Video model '{model_name}' already exists", current_models
+    current_models.append(model_name)
+    config_manager.save_video_models(current_models)
+    return f"Video model '{model_name}' added", current_models
+
+def delete_video_model(model_name: str, current_models: List[str]):
+    if not model_name:
+        return "Error: Select a model to delete", current_models
+    if model_name in current_models:
+        current_models.remove(model_name)
+        config_manager.save_video_models(current_models)
+        return f"Video model '{model_name}' deleted", current_models
+    else:
+        return f"Video model '{model_name}' not found", current_models
+
 def export_config(filepath: str):
     if not filepath:
         return "Error: Provide export filepath"
@@ -733,14 +769,13 @@ Make sure your bot has the required permissions:
     return (connect_discord_btn, disconnect_discord_btn, refresh_discord_btn, stop_all_btn,
             discord_status, connection_card, discord_token_input, discord_channel_input)
 
-def _create_config_tab(openrouter_key_initial: str, initial_models: List[str], agent_model_input):
+def _create_config_tab(openrouter_key_initial: str, cometapi_key_initial: str, initial_models: List[str], initial_video_models: List[str], agent_model_input):
     """Create the CONFIG tab for system configuration and management."""
     with gr.Tab("CONFIG"):
-        with gr.Row():
-            # Left column: API Keys & Models
+        # Row 1: API Keys (OpenRouter + CometAPI side by side)
+        with gr.Row(equal_height=True):
             with gr.Column(scale=1):
-                gr.HTML('<div class="panel-header"><h3>API Configuration</h3></div>')
-
+                gr.HTML('<div class="panel-header"><h3>OpenRouter Configuration</h3></div>')
                 openrouter_key_input = gr.Textbox(
                     label="OpenRouter API Key",
                     type="password",
@@ -756,14 +791,36 @@ def _create_config_tab(openrouter_key_initial: str, initial_models: List[str], a
                     outputs=[key_status]
                 )
 
-                gr.HTML('<div class="panel-header" style="margin-top: 20px;"><h3>Model Management</h3></div>')
+            with gr.Column(scale=1):
+                gr.HTML('<div class="panel-header"><h3>CometAPI Configuration</h3></div>')
+                gr.HTML('<p style="color: #666; font-size: 11px; margin: -10px 0 10px 0;">For video generation (Sora, Kling, Veo, Runway)</p>')
+                cometapi_key_input = gr.Textbox(
+                    label="CometAPI Key",
+                    type="password",
+                    value=cometapi_key_initial,
+                    placeholder="Enter CometAPI key (sk-xxxxx)..."
+                )
+                save_cometapi_btn = gr.Button("Save CometAPI Key", variant="primary")
+                cometapi_status = gr.Textbox(label="Status", interactive=False, lines=1)
 
+                save_cometapi_btn.click(
+                    fn=save_cometapi_key,
+                    inputs=[cometapi_key_input],
+                    outputs=[cometapi_status]
+                )
+
+        gr.HTML('<hr style="border-color: var(--border-dim); margin: 15px 0;">')
+
+        # Row 2: Models (OpenRouter + Video side by side)
+        with gr.Row(equal_height=True):
+            with gr.Column(scale=1):
+                gr.HTML('<div class="panel-header"><h3>OpenRouter Models</h3></div>')
                 model_name_input = gr.Textbox(label="Custom Model Name", placeholder="e.g., anthropic/claude-3.5-sonnet")
                 model_list_state = gr.State(initial_models)
 
                 with gr.Row():
-                    add_model_btn = gr.Button("Add Model")
-                    delete_model_btn = gr.Button("Delete", variant="stop")
+                    add_model_btn = gr.Button("Add Model", min_width=120)
+                    delete_model_btn = gr.Button("Delete", variant="stop", min_width=80)
 
                 model_selector = gr.Dropdown(label="Existing Models", choices=initial_models, interactive=True)
                 model_status = gr.Textbox(label="Status", interactive=False, lines=1)
@@ -788,18 +845,58 @@ def _create_config_tab(openrouter_key_initial: str, initial_models: List[str], a
                     outputs=[model_status, model_list_state, model_selector, agent_model_input]
                 )
 
-            # Right column: Import/Export & Memory
-            with gr.Column(scale=2):
+            with gr.Column(scale=1):
+                gr.HTML('<div class="panel-header"><h3>Video Models</h3></div>')
+                video_model_name_input = gr.Textbox(
+                    label="Video Model Name",
+                    placeholder="e.g., sora-2-pro, kling-v2-master"
+                )
+                video_model_list_state = gr.State(initial_video_models)
+
+                with gr.Row():
+                    add_video_model_btn = gr.Button("Add Model", min_width=120)
+                    delete_video_model_btn = gr.Button("Delete", variant="stop", min_width=80)
+
+                video_model_selector = gr.Dropdown(
+                    label="Available Models",
+                    choices=initial_video_models,
+                    interactive=True,
+                    info="sora-2-pro, kling-v2-master, veo3.1, gen4_aleph"
+                )
+                video_model_status = gr.Textbox(label="Status", interactive=False, lines=1)
+
+                def add_video_model_wrapper(model_name, current_models):
+                    status, updated_models = add_video_model(model_name, current_models.copy())
+                    return status, updated_models, gr.update(choices=updated_models)
+
+                def delete_video_model_wrapper(model_name, current_models):
+                    status, updated_models = delete_video_model(model_name, current_models.copy())
+                    return status, updated_models, gr.update(choices=updated_models)
+
+                add_video_model_btn.click(
+                    fn=add_video_model_wrapper,
+                    inputs=[video_model_name_input, video_model_list_state],
+                    outputs=[video_model_status, video_model_list_state, video_model_selector]
+                )
+
+                delete_video_model_btn.click(
+                    fn=delete_video_model_wrapper,
+                    inputs=[video_model_selector, video_model_list_state],
+                    outputs=[video_model_status, video_model_list_state, video_model_selector]
+                )
+
+        gr.HTML('<hr style="border-color: var(--border-dim); margin: 15px 0;">')
+
+        # Row 3: Import/Export + Memory Management
+        with gr.Row(equal_height=True):
+            with gr.Column(scale=1):
                 gr.HTML('<div class="panel-header"><h3>Import/Export</h3></div>')
-
                 with gr.Row():
-                    export_path_input = gr.Textbox(label="Export Path", placeholder="config_export.json")
-                    export_btn = gr.Button("Export")
-
+                    export_path_input = gr.Textbox(label="Export Path", placeholder="config_export.json", scale=3)
+                    export_btn = gr.Button("Export", min_width=80, scale=1)
                 with gr.Row():
-                    import_path_input = gr.Textbox(label="Import Path", placeholder="config_export.json")
-                    import_btn = gr.Button("Import")
-
+                    import_path_input = gr.Textbox(label="Import Path", placeholder="config_export.json", scale=3)
+                    import_btn = gr.Button("Import", min_width=80, scale=1)
                 export_status = gr.Textbox(label="Status", interactive=False, lines=1)
 
                 export_btn.click(
@@ -814,9 +911,10 @@ def _create_config_tab(openrouter_key_initial: str, initial_models: List[str], a
                     outputs=[export_status]
                 )
 
-                gr.HTML('<div class="panel-header" style="margin-top: 20px;"><h3>Memory Management</h3></div>')
-
-                clear_history_btn = gr.Button("Clear Conversation History")
+            with gr.Column(scale=1):
+                gr.HTML('<div class="panel-header"><h3>Memory Management</h3></div>')
+                with gr.Row():
+                    clear_history_btn = gr.Button("Clear Conversation History", min_width=200)
                 clear_status = gr.Textbox(label="Status", interactive=False, lines=1)
 
                 clear_history_btn.click(
@@ -825,13 +923,11 @@ def _create_config_tab(openrouter_key_initial: str, initial_models: List[str], a
                     outputs=[clear_status]
                 )
 
-                gr.HTML('<div class="panel-header" style="margin-top: 20px;"><h3>Vector Memory</h3></div>')
-
+                gr.HTML('<div class="panel-header" style="margin-top: 15px;"><h3>Vector Memory</h3></div>')
                 with gr.Row():
-                    get_stats_btn = gr.Button("View Stats")
-                    clear_memory_btn = gr.Button("Clear All", variant="stop")
-
-                clear_memory_status = gr.Textbox(label="Vector Status", interactive=False, lines=2)
+                    get_stats_btn = gr.Button("View Stats", min_width=100)
+                    clear_memory_btn = gr.Button("Clear All", variant="stop", min_width=100)
+                clear_memory_status = gr.Textbox(label="Vector Status", interactive=False, lines=1)
 
                 get_stats_btn.click(
                     fn=get_vector_memory_stats,
@@ -1594,13 +1690,16 @@ def create_gradio_ui():
     create_agent_manager()
     create_discord_client()
     create_game_orchestrator()
-    initial_models = load_initial_data()
+    initial_data = load_initial_data()
+    initial_models = initial_data["models"]
+    initial_video_models = initial_data["video_models"]
 
     initial_agent_names = [agent.name for agent in agent_manager.get_all_agents()]
 
     discord_token_initial = config_manager.load_discord_token()
     discord_channel_initial = config_manager.load_discord_channel()
     openrouter_key_initial = config_manager.load_openrouter_key()
+    cometapi_key_initial = config_manager.load_cometapi_key()
     with gr.Blocks(css=MATRIX_CSS, title="BASI BOT - Multi-Agent Discord LLM System") as app:
         # Modern header with logo and status
         header_display = gr.HTML(value=get_header_html())
@@ -1737,6 +1836,19 @@ def create_gradio_ui():
                         )
 
                         with gr.Row():
+                            agent_allow_spontaneous_videos_input = gr.Checkbox(
+                                label="Allow Spontaneous Videos",
+                                value=False,
+                                info="Agent can generate Sora 2 videos (requires CometAPI key)"
+                            )
+                            agent_video_duration_input = gr.Dropdown(
+                                label="Video Duration",
+                                choices=["4", "8", "12"],
+                                value="4",
+                                info="Video length in seconds"
+                            )
+
+                        with gr.Row():
                             add_agent_btn = gr.Button("Add New", variant="primary")
                             update_agent_btn = gr.Button("Save Changes")
                             delete_agent_btn = gr.Button("Delete", variant="stop")
@@ -1763,14 +1875,14 @@ def create_gradio_ui():
                 agent_dataset.select(
                     fn=on_agent_dataset_select,
                     inputs=[],
-                    outputs=[agent_selector, agent_name_input, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_status_display]
+                    outputs=[agent_selector, agent_name_input, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_allow_spontaneous_videos_input, agent_video_duration_input, agent_status_display]
                 )
 
                 # When agent is selected via dropdown, populate form
                 agent_selector.change(
                     fn=get_agent_details,
                     inputs=[agent_selector],
-                    outputs=[agent_name_input, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_status_display]
+                    outputs=[agent_name_input, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_allow_spontaneous_videos_input, agent_video_duration_input, agent_status_display]
                 )
 
                 # Update warning and prompt when model changes
@@ -1827,12 +1939,12 @@ def create_gradio_ui():
                     return gr.update(samples=[[name] for name in names] if names else [])
 
                 # Wrapper functions that return updated displays
-                def add_agent_wrapper(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont):
-                    status, selector_update, _, preset_update = add_agent_ui(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont)
+                def add_agent_wrapper(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, spont_vid, vid_dur):
+                    status, selector_update, _, preset_update = add_agent_ui(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, spont_vid, vid_dur)
                     return status, gr.update(choices=get_agent_choices(), value=name), get_stats_cards_html(), get_agent_dataset_samples(), preset_update
 
-                def update_agent_wrapper(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont):
-                    status, selector_update, _ = update_agent_ui(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont)
+                def update_agent_wrapper(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, spont_vid, vid_dur):
+                    status, selector_update, _ = update_agent_ui(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, spont_vid, vid_dur)
                     return status, gr.update(choices=get_agent_choices()), get_stats_cards_html(), get_agent_dataset_samples()
 
                 def delete_agent_wrapper(name):
@@ -1850,13 +1962,13 @@ def create_gradio_ui():
 
                 add_agent_btn.click(
                     fn=add_agent_wrapper,
-                    inputs=[agent_name_input, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input],
+                    inputs=[agent_name_input, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_allow_spontaneous_videos_input, agent_video_duration_input],
                     outputs=[agent_action_status, agent_selector, stats_display, agent_dataset, preset_agents_input]
                 )
 
                 update_agent_btn.click(
                     fn=update_agent_wrapper,
-                    inputs=[agent_selector, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input],
+                    inputs=[agent_selector, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_allow_spontaneous_videos_input, agent_video_duration_input],
                     outputs=[agent_action_status, agent_selector, stats_display, agent_dataset]
                 )
 
@@ -1890,7 +2002,7 @@ def create_gradio_ui():
              discord_status, connection_card, discord_token_input, discord_channel_input) = \
                 _create_discord_tab(discord_token_initial, discord_channel_initial)
             _create_live_feed_tab()
-            _create_config_tab(openrouter_key_initial, initial_models, agent_model_input)
+            _create_config_tab(openrouter_key_initial, cometapi_key_initial, initial_models, initial_video_models, agent_model_input)
 
         # Wire up Discord buttons to update header (now that header_display exists)
         def connect_and_refresh_with_header(token, channel):
@@ -1935,7 +2047,8 @@ def create_gradio_ui():
             outputs=[agent_name_input, agent_model_input, agent_prompt_input, agent_freq_input,
                     agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input,
                     agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input,
-                    agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_status_display]
+                    agent_global_image_cooldown_input, agent_allow_spontaneous_images_input,
+                    agent_allow_spontaneous_videos_input, agent_video_duration_input, agent_status_display]
         )
 
         # Chain the model warning update to set correct visibility
