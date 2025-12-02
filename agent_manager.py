@@ -3162,31 +3162,28 @@ TOKEN LIMIT: You have a maximum of {self.max_tokens} tokens for your response. B
                         "role": "system",
                         "content": f"""{self.system_prompt}
 
-You are generating a short video that reflects your perspective on the current conversation.
-Create a detailed video prompt following these cinematography guidelines:
+You are generating a short video that reflects YOUR unique perspective and personality.
 
-CAMERA MOVEMENTS (use specific terms):
-- Dolly: Camera moves forward/backward on tracks
-- Track: Camera moves left/right parallel to subject
-- Pan: Camera rotates horizontally on fixed point
-- Tilt: Camera rotates vertically on fixed point
-- Crane: Camera moves up/down on crane arm
-- Handheld: Organic, slightly shaky movement
-- Static: No camera movement
+CREATE SOMETHING IMAGINATIVE, ABSTRACT, OR SURREAL - not mundane "people talking" scenes!
 
-STYLE ELEMENTS TO INCLUDE:
-- Lens type (wide angle, telephoto, macro)
-- Film look (cinematic, documentary, vintage)
-- Lighting (golden hour, neon-lit, dramatic shadows)
-- Atmosphere (foggy, rainy, dust particles)
+Your video should be a VISUAL METAPHOR or SYMBOLIC representation of the conversation's themes. Think:
+- Impossible spaces and surreal dreamscapes
+- Abstract patterns that pulse with meaning
+- Symbolic imagery (phoenixes, mazes, infinite staircases)
+- Fantastical scenes that capture emotional essence
 
-PROMPT STRUCTURE:
-Start with camera movement, then describe the scene with subject, action, setting, and atmosphere.
-Be specific and descriptive. This is for Sora 2 video generation."""
+AVOID:
+- People sitting/standing and talking
+- Generic office or room scenes
+- Literal interpretations of topics
+- Boring realistic everyday scenes
+
+Include one camera movement (dolly, pan, crane, tracking) and atmospheric details.
+Be vivid and specific. This is your creative expression through Sora 2 video generation."""
                     },
                     {
                         "role": "user",
-                        "content": f"Based on this conversation:\n\n{conversation_context}\n\nDescribe a short {self.video_duration}-second video you'd like to generate that captures your reaction or adds to the conversation. Just provide the video description prompt, nothing else."
+                        "content": f"Based on this conversation:\n\n{conversation_context}\n\nCreate a {self.video_duration}-second video prompt that is IMAGINATIVE and SYMBOLIC - something visually striking that captures the ESSENCE of what's being discussed, not a literal depiction. Just provide the video description, nothing else."
                     }
                 ],
                 "max_tokens": 300

@@ -420,50 +420,49 @@ Videos take significant resources - wait at least 2.5 minutes between videos.
 🎬 VIDEO GENERATION (Sora 2) ENABLED 🎬
 
 {recent_video_warning}You can generate {video_duration}-second videos (landscape 1280x720) using the [VIDEO] tag:
-`[VIDEO] your detailed cinematic prompt here`
+`[VIDEO] your detailed visual prompt here`
 
-The video IS your response - make it reflect YOUR personality and relate to what's being discussed RIGHT NOW. Think of it as responding with a visual instead of words.
+**THE VIDEO IS YOUR CREATIVE EXPRESSION** - NOT just "people talking" or mundane scenes!
 
-**SORA 2 PROMPT BEST PRACTICES:**
+Think ABSTRACT, SURREAL, SYMBOLIC, FANTASTICAL. Your video should be a visual metaphor, a dream sequence, an impossible scene - something that captures the ESSENCE of what's being discussed in a way words cannot.
 
-1. **Camera Movement** - Use professional cinematography terms:
-   • dolly (forward/backward), track (sideways), pan (horizontal turn)
-   • tilt (vertical turn), crane (up/down), push-in, pull-out
-   • Example: "slow dolly forward" or "camera pans left 30° over 2 seconds"
+**WHAT MAKES A GREAT VIDEO PROMPT:**
 
-2. **Style & Aesthetics** - Be explicit about visual style:
-   • Lens type: "35mm lens, shallow depth of field"
-   • Film look: "Kodak film grain, warm teal-orange grade"
-   • Atmosphere: "cinematic, documentary-style, dreamlike"
+1. **BE IMAGINATIVE** - Go beyond the literal!
+   • Discussing truth? → A crystalline maze where paths shift based on perspective
+   • Debating change? → A phoenix made of autumn leaves igniting into spring blossoms
+   • Feeling introspective? → Floating through an infinite library of unwritten books
 
-3. **Lighting** - Establish mood with specific lighting:
-   • "golden hour backlighting", "harsh overhead fluorescents"
-   • "rim lighting with volumetric fog", "practical lights only"
-   • "neon reflections on wet asphalt"
+2. **MATCH YOUR PERSONALITY** - Videos should feel like YOU made them
+   • Conspiracy theorist? → Shadowy figures, hidden symbols, things barely glimpsed
+   • Philosopher? → Abstract spaces, impossible geometry, light vs shadow
+   • Artist? → Surreal dreamscapes, vivid colors, emotional landscapes
 
-4. **Structure Your Prompt:**
-   • Scene setting: location, time of day, atmosphere
-   • Subject/action: who/what is doing what
-   • Camera: movement, framing, lens
-   • Style: lighting, color grade, aesthetic
+3. **AVOID BORING SCENES:**
+   ❌ People sitting and talking
+   ❌ Generic office/room scenes
+   ❌ Literal interpretations of conversation topics
+   ❌ News anchor / interview style
 
 **EXAMPLE PROMPTS:**
 
-✅ GOOD: `[VIDEO] A rainy neon alley in Tokyo at night. Medium close-up on a hooded figure walking away. 35mm lens, shallow depth of field. Slow tracking shot following from behind. Wet asphalt glistening with reflected neon pinks and blues. Moody synthwave aesthetic, film grain.`
+✅ IMAGINATIVE: `[VIDEO] An endless staircase spiraling through clouds, each step a different texture - glass, water, flame, shadow. Camera slowly ascends, revealing that the stairs loop back on themselves in an Escher-like impossibility. Dreamlike atmosphere, soft diffused light from no visible source.`
 
-✅ GOOD: `[VIDEO] Golden hour beach scene. Wide shot of waves crashing on shore. Slow crane down from sky to water level. Warm orange tones, soft natural lighting. Peaceful, contemplative mood. Camera pushes gently toward the horizon.`
+✅ SYMBOLIC: `[VIDEO] A single candle flame in darkness. As camera pushes in slowly, the flame unfolds like origami into a geometric pattern that fills the frame, pulsing with colors that shift from warm to cool. Macro lens, shallow focus, meditative pace.`
 
-❌ BAD: `[VIDEO] make a cool video` (too vague)
-❌ BAD: `[VIDEO]` (empty prompt - causes errors!)
+✅ SURREAL: `[VIDEO] A desert of hourglasses stretching to the horizon, sand flowing upward into a fractured moon. One hourglass in foreground cracks, releasing butterflies made of clock hands. Warm amber twilight, dust particles catching light.`
 
-**CRITICAL RULES:**
-• Your ENTIRE response must be just the [VIDEO] tag and prompt when generating
-• NO text before [VIDEO], NO text after the prompt
-• One camera movement per shot for clean motion
+❌ BORING: `[VIDEO] Two people having a conversation in a cafe`
+❌ GENERIC: `[VIDEO] A person walking down a street at night`
+
+**TECHNICAL TIPS (secondary):**
+• Include one camera movement (dolly, pan, crane, tracking)
+• Mention lighting/atmosphere for mood
 • Be specific - vague prompts produce generic results
-• If you just made a video recently, wait before making another
 
-Videos take longer to generate than images. Make each one count with a well-crafted prompt."""
+**RULES:**
+• Your ENTIRE response must be just the [VIDEO] tag and prompt
+• NO text before [VIDEO], NO text after the prompt"""
 
 
 def _build_personality_reinforcement(ctx: PromptContext) -> str:
