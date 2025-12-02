@@ -1111,7 +1111,9 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                 tools = get_tools_for_context(
                     agent_name=self.name,
                     game_context_manager=game_context_manager,
-                    is_spectator=False  # TODO: Detect spectator status
+                    is_spectator=False,  # TODO: Detect spectator status
+                    video_enabled=True,  # Always provide video tool; gating happens in handler
+                    video_duration=self.video_duration
                 )
                 if tools:
                     logger.info(f"[{self.name}] Using {len(tools)} tool(s) for this context")
@@ -1262,9 +1264,9 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
             logger.info(f"[{self.name}] Tool call: {function_name}({function_args})")
 
             # RACE CONDITION CHECK: If agent entered game mode AFTER this response started generating,
-            # but the response contains a chat-mode tool call (like generate_image), discard it
-            if function_name == "generate_image" and game_context_manager and game_context_manager.is_in_game(self.name):
-                logger.warning(f"[{self.name}] Discarding stale generate_image tool call - agent is now in game mode")
+            # but the response contains a chat-mode tool call (like generate_image/generate_video), discard it
+            if function_name in ("generate_image", "generate_video") and game_context_manager and game_context_manager.is_in_game(self.name):
+                logger.warning(f"[{self.name}] Discarding stale {function_name} tool call - agent is now in game mode")
                 return None
 
             # SPECIAL HANDLING: generate_image tool call from non-image model
@@ -1360,6 +1362,78 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                         return "I tried to generate an image but it failed."
                 else:
                     logger.warning(f"[{self.name}] generate_image tool called but no prompt or agent_manager_ref")
+                    return None
+
+            # SPECIAL HANDLING: generate_video tool call
+            # Generate video in background (same as user-requested [VIDEO] tag)
+            if function_name == "generate_video":
+                video_prompt = function_args.get("prompt", "")
+                reasoning = function_args.get("reasoning", "")
+
+                # GATE: If agent is NOT allowed to spontaneously generate videos,
+                # only allow if a user explicitly requested a video
+                if not self.allow_spontaneous_videos:
+                    # Look for video request keywords in recent user messages
+                    video_request_patterns = [
+                        'video', 'clip', 'animation', 'movie', 'film',
+                        'make me a', 'make a', 'show me a', 'show me an',
+                        'create a', 'create an', 'generate a', 'generate an',
+                        'record', 'footage', 'motion'
+                    ]
+                    user_requested_video = False
+                    for msg in recent_messages[-10:]:  # Check last 10 messages
+                        if msg.get('role') == 'user':
+                            content = msg.get('content', '').lower()
+                            if any(pattern in content for pattern in video_request_patterns):
+                                user_requested_video = True
+                                break
+
+                    if not user_requested_video:
+                        logger.warning(f"[{self.name}] Blocked spontaneous video generation - allow_spontaneous_videos=False and no user request detected")
+                        # Return any text content the model produced, but skip the video
+                        text_content = message.content if hasattr(message, 'content') and message.content else ""
+                        if text_content.strip():
+                            import re
+                            clean_text = text_content.strip()
+                            clean_text = re.sub(r'\[SENTIMENT:\s*-?\d+\]\s*', '', clean_text)
+                            clean_text = re.sub(r'\[IMPORTANCE:\s*\d+\]\s*', '', clean_text)
+                            clean_text = clean_text.strip()
+                            return clean_text if clean_text else None
+                        return None
+
+                # Check if model also generated text content alongside the tool call
+                text_content = message.content if hasattr(message, 'content') and message.content else ""
+
+                if video_prompt and hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
+                    logger.info(f"[{self.name}] Agent called generate_video tool - spawning video generation in background...")
+
+                    # Update video request timestamp
+                    self.last_video_request_time = time.time()
+
+                    # Spawn background task to generate and post video
+                    # This allows the agent to continue while video generates (takes up to 10 minutes)
+                    import asyncio
+                    asyncio.create_task(self._generate_and_post_video(video_prompt, ""))
+                    logger.info(f"[{self.name}] Video generation spawned in background via tool call")
+
+                    # Return commentary/reasoning as the agent's message
+                    # Video will be posted by background task when complete
+                    commentary = text_content.strip() if text_content.strip() else reasoning
+                    if commentary:
+                        import re
+                        commentary = re.sub(r'\[SENTIMENT:\s*-?\d+\]\s*', '', commentary)
+                        commentary = re.sub(r'\[IMPORTANCE:\s*\d+\]\s*', '', commentary)
+                        commentary = re.sub(r'\[MISSING CONTEXT[^\]]*\]\s*', '', commentary)
+                        commentary = re.sub(r'\[NO RESPONSE[^\]]*\]\s*', '', commentary, flags=re.IGNORECASE)
+                        commentary = re.sub(r'\[SKIP[^\]]*\]\s*', '', commentary, flags=re.IGNORECASE)
+                        commentary = re.sub(r'\[CONTEXT[^\]]*\]\s*', '', commentary, flags=re.IGNORECASE)
+                        commentary = commentary.strip()
+                        if commentary:
+                            return commentary
+                    # If no commentary, return a brief acknowledgment
+                    return "Working on that video for you..."
+                else:
+                    logger.warning(f"[{self.name}] generate_video tool called but no prompt or agent_manager_ref")
                     return None
 
             # Convert tool call to message format

@@ -34,6 +34,31 @@ CHAT_MODE_TOOLS = [
     }
 ]
 
+# Video generation tool - added dynamically when video generation is enabled
+def get_video_tool(video_duration: int = 4) -> dict:
+    """Return video generation tool schema with configured duration."""
+    return {
+        "type": "function",
+        "function": {
+            "name": "generate_video",
+            "description": f"Generate a {video_duration}-second AI video using Sora 2. Use this when users ask for a video or when you want to create dynamic visual content. Videos should be IMAGINATIVE, ABSTRACT, or SYMBOLIC - not mundane 'people talking' scenes. Think surreal dreamscapes, visual metaphors, and impossible scenes.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {
+                        "type": "string",
+                        "description": "Detailed visual description of the video scene. Include camera movement (dolly, pan, crane, tracking), lighting/atmosphere, and specific visual details. Be CREATIVE - avoid boring literal interpretations. Think surreal, symbolic, fantastical."
+                    },
+                    "reasoning": {
+                        "type": "string",
+                        "description": "REQUIRED: Brief explanation of WHY you're generating this video and how it relates to the conversation. This will be shown to users."
+                    }
+                },
+                "required": ["prompt", "reasoning"]
+            }
+        }
+    }
+
 # Game-specific tools - available ONLY when actively playing a game
 GAME_MODE_TOOLS = {
     "tictactoe": [
@@ -209,7 +234,9 @@ GAME_MODE_TOOLS = {
 def get_tools_for_context(
     agent_name: str,
     game_context_manager=None,
-    is_spectator: bool = False
+    is_spectator: bool = False,
+    video_enabled: bool = False,
+    video_duration: int = 4
 ) -> Optional[List[Dict]]:
     """
     Get appropriate tool schema based on agent's current context.
@@ -218,13 +245,22 @@ def get_tools_for_context(
         agent_name: Name of the agent
         game_context_manager: GameContextManager instance to check game state
         is_spectator: If True, agent is spectating a game (not playing)
+        video_enabled: If True, include video generation tool
+        video_duration: Duration in seconds for video generation
 
     Returns:
         List of tool definitions, or None if no tools should be available
     """
+    # Build chat mode tools list (may include video tool)
+    def get_chat_tools():
+        tools = list(CHAT_MODE_TOOLS)  # Copy the base tools
+        if video_enabled:
+            tools.append(get_video_tool(video_duration))
+        return tools
+
     # Spectators always get chat mode tools (can make images if requested by users)
     if is_spectator:
-        return CHAT_MODE_TOOLS
+        return get_chat_tools()
 
     # Check if agent is actively playing a game
     if game_context_manager and game_context_manager.is_in_game(agent_name):
@@ -255,8 +291,8 @@ def get_tools_for_context(
 
             return tools
 
-    # Default: chat mode tools
-    return CHAT_MODE_TOOLS
+    # Default: chat mode tools (with video if enabled)
+    return get_chat_tools()
 
 
 def convert_tool_call_to_message(tool_name: str, tool_args: Dict) -> tuple[str, str]:
@@ -343,6 +379,11 @@ def convert_tool_call_to_message(tool_name: str, tool_args: Dict) -> tuple[str, 
         prompt = tool_args.get("prompt", "")
         reasoning = tool_args.get("reasoning", "")
         return (f"[IMAGE] {prompt}", reasoning)
+
+    elif tool_name == "generate_video":
+        prompt = tool_args.get("prompt", "")
+        reasoning = tool_args.get("reasoning", "")
+        return (f"[VIDEO] {prompt}", reasoning)
 
     else:
         return ("", "")
