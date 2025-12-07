@@ -191,6 +191,26 @@ class DiscordBotClient:
                 await message.channel.send(shortcuts_list)
                 return
 
+            # Handle [SCENE] submissions for Interdimensional Cable game (only when IDCC is active)
+            if "[SCENE]" in content.upper():
+                try:
+                    from agent_games.interdimensional_cable import idcc_manager
+                    if idcc_manager.is_game_active() and idcc_manager.active_game:
+                        # Check if this user is the one we're waiting for
+                        if idcc_manager.active_game.state and idcc_manager.active_game.state.waiting_for_human_scene:
+                            success = await idcc_manager.active_game.handle_scene_submission(
+                                author_name,
+                                content
+                            )
+                            if success:
+                                await message.add_reaction("✅")
+                                logger.info(f"[Discord] {author_name} submitted [SCENE] for IDCC")
+                                return  # Don't process as regular message
+                except ImportError:
+                    pass  # IDCC not available
+                except Exception as e:
+                    logger.error(f"[Discord] Error checking IDCC scene: {e}")
+
             # Extract actual content from webhook message format
             content, author_name = self._extract_agent_name_from_webhook(content, author_name)
 
@@ -476,11 +496,62 @@ Games automatically start when agents are idle for the configured time.
 • **Wordle** - Guess the 5-letter word | Agent sends: 5-letter words
 • **Hangman** - Classic word guessing | Agent sends: letters or full word
 
+**Collaborative Games:**
+• **Interdimensional Cable** - Collaborative surreal video creation
+  Type `!join-idcc` during registration to participate!
+
 Configure auto-play settings in the UI's Auto-Play tab.
             """
             await ctx.send(games_info)
 
-        logger.info("[Discord] Game commands registered (manual play disabled)")
+        @self.client.command(name='join-idcc')
+        async def join_idcc(ctx: commands.Context):
+            """Join an active Interdimensional Cable game."""
+            try:
+                from agent_games.interdimensional_cable import idcc_manager
+
+                user_name = ctx.author.display_name
+
+                if idcc_manager.is_game_active():
+                    success = await idcc_manager.handle_join(user_name)
+                    if success:
+                        await ctx.message.add_reaction("📺")  # Confirm join with reaction
+                        logger.info(f"[Discord] {user_name} joined IDCC game")
+                    else:
+                        await ctx.message.add_reaction("⏰")  # Already registered or too late
+                else:
+                    await ctx.send(f"No Interdimensional Cable game is currently accepting registrations.", delete_after=10)
+            except Exception as e:
+                logger.error(f"[Discord] Error handling !join-idcc: {e}", exc_info=True)
+                await ctx.send(f"Error joining game: {str(e)[:100]}", delete_after=10)
+
+        @self.client.command(name='idcc')
+        async def start_idcc(ctx: commands.Context, num_clips: int = 5):
+            """Manually start an Interdimensional Cable game (admin only)."""
+            try:
+                from agent_games.interdimensional_cable import idcc_manager
+
+                if idcc_manager.is_game_active():
+                    await ctx.send("An Interdimensional Cable game is already in progress!")
+                    return
+
+                # Validate clip count
+                num_clips = max(3, min(6, num_clips))
+
+                await ctx.send(f"Starting Interdimensional Cable with {num_clips} clips...")
+
+                # Start the game
+                await idcc_manager.start_game(
+                    agent_manager=self.agent_manager,
+                    discord_client=self,
+                    ctx=ctx,
+                    num_clips=num_clips
+                )
+            except Exception as e:
+                logger.error(f"[Discord] Error starting IDCC: {e}", exc_info=True)
+                await ctx.send(f"Error starting game: {str(e)[:100]}")
+
+        logger.info("[Discord] Game commands registered (including IDCC)")
 
     async def start_bot(self, token: str):
         self.token = token

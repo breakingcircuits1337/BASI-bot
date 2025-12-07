@@ -52,13 +52,15 @@ class GameOrchestrator:
 
         # Game metadata
         # Special value -1 means "all non-image agents"
+        # Special value -2 means "variable participants (handled separately)"
         self.GAME_PLAYER_COUNTS = {
             "tictactoe": 2,
             "connectfour": 2,
             "chess": 2,
             "battleship": 2,
             "wordle": 1,
-            "hangman": -1  # All non-image agents
+            "hangman": -1,  # All non-image agents
+            "interdimensional_cable": -2  # 3-6 participants, handled by IDCC game itself
         }
 
     def update_human_activity(self):
@@ -170,6 +172,18 @@ class GameOrchestrator:
                 if len(players) < 2:
                     logger.warning(f"[GameOrch] Not enough non-image agents for {game_name} ({len(players)} < 2)")
                     return False
+
+            elif player_count == -2:
+                # Variable participant games (like Interdimensional Cable)
+                # These games handle their own participant selection
+                # We just need to trigger them with enough available agents
+                if len(eligible_players) < 3:
+                    logger.warning(f"[GameOrch] Not enough agents for {game_name} (need 3+)")
+                    return False
+
+                # Pass all eligible players - game will handle selection
+                players = eligible_players
+                spectators = image_agents
             else:
                 # Regular games - select random players from eligible agents only
                 if len(eligible_players) < player_count:
@@ -279,17 +293,23 @@ class GameOrchestrator:
 
             ctx = MockContext(self.discord_client, channel)
 
-            # Put ONLY players into game mode (NOT spectators)
-            from .game_context import game_context_manager
-            for i, player in enumerate(players):
-                game_context_manager.enter_game_mode(
-                    player,
-                    game_name,
-                    opponent_name=player_names[1 - i] if len(player_names) == 2 else None
-                )
+            # IDCC is special - agents continue chatting normally with game context
+            # They don't enter strict game mode that suppresses chat
+            if game_name == "interdimensional_cable":
+                logger.info(f"[GameOrch] IDCC mode: agents will continue chatting during game")
+                # Don't put agents into game mode - IDCC handles this differently
+            else:
+                # Put ONLY players into game mode (NOT spectators)
+                from .game_context import game_context_manager
+                for i, player in enumerate(players):
+                    game_context_manager.enter_game_mode(
+                        player,
+                        game_name,
+                        opponent_name=player_names[1 - i] if len(player_names) == 2 else None
+                    )
 
-            logger.info(f"[GameOrch] Players in game mode: {[p.name for p in players]}")
-            logger.info(f"[GameOrch] Spectators (normal settings): {[s.name for s in spectators]}")
+                logger.info(f"[GameOrch] Players in game mode: {[p.name for p in players]}")
+                logger.info(f"[GameOrch] Spectators (normal settings): {[s.name for s in spectators]}")
 
             # Start the appropriate game
             game_instance = None
@@ -353,6 +373,32 @@ class GameOrchestrator:
                     players=players
                 )
                 await game_instance.start(ctx, timeout=300.0)
+
+            elif game_name == "interdimensional_cable":
+                # Interdimensional Cable runs as a BACKGROUND TASK
+                # Agents continue chatting normally while videos generate
+                from .interdimensional_cable import idcc_manager, idcc_config
+
+                # Start IDCC as background task - don't await it
+                async def run_idcc_background():
+                    try:
+                        await idcc_manager.start_game(
+                            agent_manager=self.agent_manager,
+                            discord_client=self.discord_client,
+                            ctx=ctx,
+                            num_clips=idcc_config.max_clips
+                        )
+                    except Exception as e:
+                        logger.error(f"[GameOrch] IDCC background task error: {e}", exc_info=True)
+                    finally:
+                        # Clear session when done
+                        self.active_session = None
+                        logger.info(f"[GameOrch] IDCC background task completed")
+
+                asyncio.create_task(run_idcc_background())
+                logger.info(f"[GameOrch] IDCC started as background task - agents can continue chatting")
+                # Return immediately - game runs in background
+                return True
 
             else:
                 logger.warning(f"[GameOrch] Game {game_name} not implemented or wrong player count")

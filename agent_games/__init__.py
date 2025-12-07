@@ -19,6 +19,14 @@ try:
     from .wordle_agent import AgentWordle
     from .hangman_agent import AgentHangman
     from .game_orchestrator import GameOrchestrator, GameSession
+    from .interdimensional_cable import (
+        InterdimensionalCableGame,
+        IDCCGameManager,
+        idcc_manager,
+        IDCCConfig,
+        idcc_config,
+        update_idcc_config
+    )
     DISCORD_AVAILABLE = True
 except ImportError:
     AgentTictactoe = None
@@ -29,6 +37,12 @@ except ImportError:
     AgentHangman = None
     GameOrchestrator = None
     GameSession = None
+    InterdimensionalCableGame = None
+    IDCCGameManager = None
+    idcc_manager = None
+    IDCCConfig = None
+    idcc_config = None
+    update_idcc_config = None
     DISCORD_AVAILABLE = False
 
 __all__ = [
@@ -57,4 +71,10 @@ __all__ = [
     'convert_tool_call_to_message',
     'CHAT_MODE_TOOLS',
     'GAME_MODE_TOOLS',
+    'InterdimensionalCableGame',
+    'IDCCGameManager',
+    'idcc_manager',
+    'IDCCConfig',
+    'idcc_config',
+    'update_idcc_config',
 ]

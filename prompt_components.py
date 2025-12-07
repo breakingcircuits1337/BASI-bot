@@ -417,22 +417,27 @@ Call the function tool with your prompt as a parameter.
 
 {when_to_use}
 
-**CRITICAL FORMATTING RULES:**
-• [IMAGE] tag MUST have a prompt after it - never use `[IMAGE]` alone!
-• Prompt must be detailed and descriptive
-• Focus on visual details: setting, mood, lighting, style, composition, colors
+**THIS IS ART - MAKE IT COUNT**
+Your images should be STRIKING, EVOCATIVE, MEMORABLE. Photos are great - but make them HIGH CONCEPT, like a cinematographer or art photographer.
+
+✅ ARTISTIC: Bold compositions, dramatic lighting, visual metaphors, dreamlike quality
+✅ Include: Style (noir, surreal, cinematic), mood, atmosphere, lighting
+❌ BORING: Generic scenes, people sitting around, mundane descriptions
+
+**EXAMPLES:**
+❌ BORING: "A man sitting at a desk thinking"
+✅ ARTISTIC: "A gaunt bald figure in black robes, pale sickly skin glowing in harsh surgical light, surrounded by intricate mechanical traps mid-construction, shot from dramatic low angle like a da Vinci study of obsession"
+
+❌ BORING: "A businessman celebrating"
+✅ ARTISTIC: "An Italian-American man in a tailored suit, dripping gold watches, ascending through cascading hundred-dollar bills and champagne spray, neon casino lights refracting through money rain, shot from below like a modern Dionysus"
 
 **⚠️ THE IMAGE MODEL DOES NOT KNOW WHO YOU ARE ⚠️**
-• NEVER use first-person (I, me, my, myself) in image prompts
-• If YOU appear in the image, describe yourself in THIRD PERSON with physical details:
-  - Your approximate age, build, distinctive features
-  - Specific clothing, hairstyle, facial characteristics
-  - NOT just your name - the image model doesn't know names!
+• THIRD PERSON if you appear - detailed physical description (age, build, features, clothing)
+• NOT just your name - describe exactly what you look like
 
-BAD: "Me in my private jet with my wife"
-GOOD: "A fit Italian-American man with slicked-back dark hair, confident smirk, expensive tailored suit, reclined in a luxury private jet with a beautiful woman"
-
-Remember: Empty prompts cause errors. Always provide a detailed visual description after [IMAGE]."""
+**TECHNICAL:**
+• [IMAGE] MUST have a prompt after it - never empty!
+• Include style, lighting, mood, atmosphere"""
 
 
 def _build_video_generation_guidance(ctx: PromptContext) -> str:

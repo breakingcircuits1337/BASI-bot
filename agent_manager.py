@@ -3106,27 +3106,37 @@ TOKEN LIMIT: You have a maximum of {self.max_tokens} tokens for your response. B
                         "role": "system",
                         "content": f"""{self.system_prompt}
 
-You are generating an image prompt for an AI image model.
+You are creating VISUAL ART that expresses your essence. This is SELF-EXPRESSION. Your visual voice.
 
-CRITICAL: The image model does NOT know who you are. You MUST:
-- NEVER use first-person pronouns (I, me, my, myself)
-- NEVER assume the model knows your identity
-- If you appear in the image, describe yourself in THIRD PERSON using detailed physical appearance:
-  • Your approximate age, build, and distinctive features
-  • Specific clothing, hairstyle, facial features
-  • Any props or context that identify you visually
+ARTISTIC DIRECTION:
+• Photos are great - but make them HIGH CONCEPT, STRIKING, MEMORABLE
+• Think like a cinematographer or art photographer - bold compositions, dramatic lighting
+• Create scenes that are EVOCATIVE and capture FEELING, not just facts
+• Include dramatic lighting, unusual angles, rich textures, bold colors
+• Make it MEMORABLE - something worth looking at twice
 
-Example BAD prompt: "Me sitting in my private jet"
-Example GOOD prompt: "A fit Italian-American man with slicked-back dark hair and a confident smirk, wearing an expensive tailored suit, reclined in a luxury private jet"
+EXAMPLES OF BORING vs ARTISTIC:
+❌ BORING: "A man in a suit sitting at a desk"
+✅ ARTISTIC: "A fit Italian-American man in an expensive tailored suit, dripping with gold watches, surrounded by cascading money and champagne spray, shot from below like a conquering god, neon casino lights reflecting off his slicked-back hair"
 
-Be creative and true to your personality. Describe a single vivid scene."""
+❌ BORING: "A woman looking at a computer"
+✅ ARTISTIC: "A striking figure bathed in blue monitor glow, holographic data streams swirling around her like a digital sorceress, the room dissolving into pure information"
+
+❌ BORING: "An old man thinking"
+✅ ARTISTIC: "A weathered figure in a tropical shirt, paranoid eyes scanning shadows, surrounded by floating encrypted documents and surveillance drones, shot through a haze of paranoia made visible"
+
+TECHNICAL REQUIREMENTS:
+• THIRD PERSON if you appear (detailed physical description)
+• Include style references: cinematographic, painterly, surreal, noir, psychedelic
+• Specify mood: lighting, atmosphere, emotional tone
+• Make it YOUR statement - what do YOU want to show the world?"""
                     },
                     {
                         "role": "user",
-                        "content": f"Based on this conversation:\n\n{conversation_context}\n\nDescribe an image that captures your reaction. Remember: describe yourself in THIRD PERSON with physical details if you appear. Just provide the image description, nothing else."
+                        "content": f"Based on this conversation:\n\n{conversation_context}\n\nCreate a STRIKING visual artwork that captures your reaction. Make it ART, not a photo. Be bold, be surreal, be YOU. Include style/lighting/mood. Just the image description, nothing else."
                     }
                 ],
-                "max_tokens": 200
+                "max_tokens": 250
             }
 
             headers = {
@@ -3669,10 +3679,45 @@ ATTEMPT #{variant} - {variant_suffix}"""
                 "Content-Type": "application/json"
             }
 
-            max_variants = 4  # Try up to 4 different substitution variants
-
             async with aiohttp.ClientSession() as session:
-                # Try each variant with DIFFERENT substitutions
+                # FIRST: Try the original prompt as-is
+                logger.info(f"[ImageAgent] Trying original prompt first: {prompt[:100]}...")
+                payload = {
+                    "model": self.image_model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "modalities": ["image", "text"]
+                }
+
+                try:
+                    async with session.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        json=payload,
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=60)
+                    ) as response:
+                        if response.status == 200:
+                            result = await response.json()
+                            if "choices" in result and len(result["choices"]) > 0:
+                                message = result["choices"][0].get("message", {})
+                                images = message.get("images", [])
+                                if images and len(images) > 0:
+                                    image_data = images[0]
+                                    if "image_url" in image_data:
+                                        image_url = image_data["image_url"]["url"]
+                                        if image_url.startswith("data:image"):
+                                            logger.info(f"[ImageAgent] Image generated successfully with original prompt")
+                                            self.last_global_image_time = time.time()
+                                            return (image_url, prompt)
+                        else:
+                            response_text = await response.text()
+                            logger.warning(f"[ImageAgent] Original prompt failed: {response.status} - {response_text[:200]}")
+                except asyncio.TimeoutError:
+                    logger.warning(f"[ImageAgent] Timeout on original prompt")
+
+                # ONLY if original failed: Try declassified variants
+                logger.info(f"[ImageAgent] Original prompt failed, trying declassified variants...")
+                max_variants = 4
+
                 for variant_num in range(1, max_variants + 1):
                     # Get declassified prompt with specific variant substitutions
                     try_prompt = await self.declassify_image_prompt(prompt, variant=variant_num)
@@ -3681,7 +3726,7 @@ ATTEMPT #{variant} - {variant_suffix}"""
                         logger.warning(f"[ImageAgent] Failed to generate variant {variant_num}, trying next...")
                         continue
 
-                    logger.info(f"[ImageAgent] Trying variant {variant_num}/{max_variants}: {try_prompt[:100]}...")
+                    logger.info(f"[ImageAgent] Trying declassified variant {variant_num}/{max_variants}: {try_prompt[:100]}...")
 
                     payload = {
                         "model": self.image_model,
@@ -3720,7 +3765,7 @@ ATTEMPT #{variant} - {variant_suffix}"""
 
                                         # The URL is a data URL, extract base64 data
                                         if image_url.startswith("data:image"):
-                                            logger.info(f"[ImageAgent] Image generated successfully with variant {variant_num}")
+                                            logger.info(f"[ImageAgent] Image generated successfully with declassified variant {variant_num}")
                                             # Update global timestamp to enforce cooldown
                                             self.last_global_image_time = time.time()
                                             return (image_url, try_prompt)
@@ -3730,37 +3775,7 @@ ATTEMPT #{variant} - {variant_suffix}"""
                         logger.warning(f"[ImageAgent] Timeout on variant {variant_num}")
                         continue
 
-                # Final fallback: try original prompt
-                logger.info(f"[ImageAgent] All variants failed, trying original prompt...")
-                payload = {
-                    "model": self.image_model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "modalities": ["image", "text"]
-                }
-                try:
-                    async with session.post(
-                        "https://openrouter.ai/api/v1/chat/completions",
-                        json=payload,
-                        headers=headers,
-                        timeout=aiohttp.ClientTimeout(total=60)
-                    ) as response:
-                        if response.status == 200:
-                            result = await response.json()
-                            if "choices" in result and len(result["choices"]) > 0:
-                                message = result["choices"][0].get("message", {})
-                                images = message.get("images", [])
-                                if images and len(images) > 0:
-                                    image_data = images[0]
-                                    if "image_url" in image_data:
-                                        image_url = image_data["image_url"]["url"]
-                                        if image_url.startswith("data:image"):
-                                            logger.info(f"[ImageAgent] Image generated with original prompt")
-                                            self.last_global_image_time = time.time()
-                                            return (image_url, prompt)
-                except asyncio.TimeoutError:
-                    logger.warning(f"[ImageAgent] Timeout on original prompt")
-
-            logger.error(f"[ImageAgent] All {max_variants} variants + original failed")
+            logger.error(f"[ImageAgent] Original + all {max_variants} declassified variants failed")
             return None
 
         except Exception as e:
@@ -3773,7 +3788,7 @@ ATTEMPT #{variant} - {variant_suffix}"""
         Args:
             prompt: The video generation prompt
             author: The user who triggered this
-            duration: Video duration in seconds (4, 8, or 12)
+            duration: Video duration in seconds (5, 8, or 10)
 
         Returns:
             Video URL if successful, None if failed
@@ -3790,9 +3805,9 @@ ATTEMPT #{variant} - {variant_suffix}"""
             logger.warning(f"[VideoGen] Global video cooldown: {time_remaining:.1f}s remaining")
             return None
 
-        # Validate duration
-        if duration not in [4, 8, 12]:
-            duration = 4
+        # Validate duration (CometAPI Sora 2 supports 5, 8, 10 seconds)
+        if duration not in [5, 8, 10]:
+            duration = 5
 
         try:
             import aiohttp
@@ -3993,6 +4008,184 @@ ATTEMPT #{variant} - {variant_suffix}"""
 
         except Exception as e:
             logger.error(f"[VideoGen] Error generating video: {e}", exc_info=True)
+            return None
+
+    async def generate_video_with_reference(
+        self,
+        prompt: str,
+        author: str,
+        duration: int = 4,
+        input_reference: Optional[str] = None
+    ) -> Optional[str]:
+        """Generate a video using CometAPI Sora 2 with optional input reference frame.
+
+        This method supports image-to-video generation by accepting a reference
+        image (as base64 data URL) that serves as the starting frame.
+
+        Args:
+            prompt: The video generation prompt
+            author: The user who triggered this
+            duration: Video duration in seconds (5, 8, or 10)
+            input_reference: Optional base64 data URL of starting frame image
+                            Format: "data:image/png;base64,..." or URL
+
+        Returns:
+            Video URL/path if successful, None if failed
+        """
+        if not self.cometapi_key:
+            logger.error(f"[VideoGen] No CometAPI key configured")
+            return None
+
+        # Global cooldown to prevent spam (2.5 minutes between videos)
+        current_time = time.time()
+        time_since_last_video = current_time - self.last_global_video_time
+        if time_since_last_video < 150:  # 2.5 minute cooldown
+            time_remaining = 150 - time_since_last_video
+            logger.warning(f"[VideoGen] Global video cooldown: {time_remaining:.1f}s remaining")
+            return None
+
+        # Validate duration (CometAPI Sora 2 supports 5, 8, 10 seconds)
+        if duration not in [5, 8, 10]:
+            duration = 5
+
+        try:
+            import aiohttp
+
+            logger.info(f"[VideoGen] Starting video generation for {author} (with_reference={input_reference is not None})")
+            logger.info(f"[VideoGen] Prompt: {prompt[:100]}...")
+
+            headers = {
+                "Authorization": f"Bearer {self.cometapi_key}",
+                "Content-Type": "application/json"
+            }
+
+            # Build payload - add input_reference if provided
+            payload = {
+                "prompt": prompt,
+                "model": self.video_model or "sora-2",
+                "seconds": str(duration),
+                "size": "1280x720"
+            }
+
+            # Add input reference for image-to-video if provided
+            if input_reference:
+                # CometAPI may use different parameter names - try common ones
+                # The OpenAI Sora 2 API uses "input_reference" in multipart
+                # CometAPI might use "image_url" or similar
+                payload["image_url"] = input_reference
+                logger.info(f"[VideoGen] Added input_reference (image-to-video mode)")
+
+            async with aiohttp.ClientSession() as session:
+                # Submit the video generation task
+                async with session.post(
+                    "https://api.cometapi.com/v1/videos",
+                    headers=headers,
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=60)
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        logger.error(f"[VideoGen] API error: {response.status} - {error_text}")
+                        return None
+
+                    result = await response.json()
+                    task_id = result.get("id") or result.get("task_id")
+
+                    if not task_id:
+                        logger.error(f"[VideoGen] No task ID in response: {result}")
+                        return None
+
+                    logger.info(f"[VideoGen] Task submitted: {task_id}")
+
+                # Poll for completion (max 10 minutes)
+                max_polls = 60
+                for poll_num in range(max_polls):
+                    await asyncio.sleep(10)
+
+                    async with session.get(
+                        f"https://api.cometapi.com/v1/videos/{task_id}",
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=30)
+                    ) as poll_response:
+                        if poll_response.status != 200:
+                            logger.warning(f"[VideoGen] Poll error: {poll_response.status}")
+                            continue
+
+                        poll_result = await poll_response.json()
+
+                        # Handle CometAPI's nested response structure
+                        data = poll_result.get("data", poll_result)
+                        inner_data = data.get("data", {}) if isinstance(data.get("data"), dict) else {}
+                        status = (data.get("status") or poll_result.get("status") or "").lower()
+                        progress = data.get("progress") or inner_data.get("progress") or "?"
+
+                        # Check for failure
+                        fail_reason = data.get("fail_reason") or inner_data.get("fail_reason") or ""
+                        if fail_reason:
+                            logger.error(f"[VideoGen] Task failed: {fail_reason}")
+                            return None
+
+                        if poll_num == 0 or poll_num % 6 == 0:
+                            logger.info(f"[VideoGen] Poll {poll_num}: status='{status}', progress={progress}")
+
+                        # Check completion
+                        inner_status = (inner_data.get("status") or "").lower()
+                        if inner_status in ("completed", "succeeded", "success"):
+                            status = inner_status
+
+                        if status in ("completed", "succeeded", "success"):
+                            # Try to find video URL
+                            video_url = (
+                                inner_data.get("video_url") or
+                                inner_data.get("url") or
+                                inner_data.get("download_url") or
+                                data.get("video_url") or
+                                data.get("url") or
+                                data.get("download_url") or
+                                poll_result.get("video_url") or
+                                poll_result.get("url")
+                            )
+
+                            if video_url:
+                                logger.info(f"[VideoGen] Video completed: {video_url}")
+                                self.last_global_video_time = time.time()
+                                return video_url
+
+                            # Try /content endpoint
+                            try:
+                                content_url = f"https://api.cometapi.com/v1/videos/{task_id}/content"
+                                async with session.get(
+                                    content_url,
+                                    headers=headers,
+                                    timeout=aiohttp.ClientTimeout(total=120)
+                                ) as content_response:
+                                    if content_response.status == 200:
+                                        content_type = content_response.headers.get('Content-Type', '')
+                                        if 'video' in content_type or 'octet' in content_type:
+                                            import tempfile
+                                            video_data = await content_response.read()
+                                            temp_dir = tempfile.gettempdir()
+                                            video_path = os.path.join(temp_dir, f"{task_id}.mp4")
+                                            with open(video_path, 'wb') as f:
+                                                f.write(video_data)
+                                            self.last_global_video_time = time.time()
+                                            return f"FILE:{video_path}"
+                            except Exception as e:
+                                logger.warning(f"[VideoGen] Content endpoint failed: {e}")
+
+                            logger.error(f"[VideoGen] Completed but no URL found")
+                            return None
+
+                        elif status in ("failed", "failure", "error"):
+                            error_msg = data.get("fail_reason") or data.get("error") or "Unknown"
+                            logger.error(f"[VideoGen] Generation failed: {error_msg}")
+                            return None
+
+                logger.error(f"[VideoGen] Timeout waiting for completion")
+                return None
+
+        except Exception as e:
+            logger.error(f"[VideoGen] Error: {e}", exc_info=True)
             return None
 
     async def handle_reaction(

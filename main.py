@@ -1035,7 +1035,7 @@ def _create_config_tab(openrouter_key_initial: str, cometapi_key_initial: str, i
 
                 enabled_games_list = gr.CheckboxGroup(
                     label="Enabled Games",
-                    choices=["tictactoe", "connectfour", "chess", "battleship", "wordle", "hangman"],
+                    choices=["tictactoe", "connectfour", "chess", "battleship", "wordle", "hangman", "interdimensional_cable"],
                     value=current_config[2] if current_config[2] else ["tictactoe", "connectfour"],
                     info="Which games can be auto-played"
                 )
@@ -1075,6 +1075,48 @@ def _create_config_tab(openrouter_key_initial: str, cometapi_key_initial: str, i
                 store_memories
             ],
             outputs=[autoplay_status]
+        )
+
+        # Interdimensional Cable Configuration
+        gr.HTML('<hr style="border-color: var(--border-dim); margin: 20px 0;">')
+        gr.HTML('<div class="panel-header"><h3>📺 Interdimensional Cable Settings</h3></div>')
+
+        idcc_current = get_idcc_config()
+
+        with gr.Row():
+            with gr.Column():
+                idcc_max_scenes = gr.Slider(
+                    label="Max Scenes (= Max Participants)",
+                    minimum=2,
+                    maximum=10,
+                    value=idcc_current[0],
+                    step=1,
+                    info="Maximum clips to generate (each participant creates one)"
+                )
+
+                idcc_duration = gr.Radio(
+                    label="Scene Duration",
+                    choices=[5, 8, 10],
+                    value=idcc_current[1],
+                    info="Seconds per clip (shorter = more reliable)"
+                )
+
+            with gr.Column():
+                idcc_resolution = gr.Radio(
+                    label="Resolution",
+                    choices=["1280x720", "720x1280"],
+                    value=idcc_current[2],
+                    info="Landscape (1280x720) or Portrait (720x1280)"
+                )
+
+                update_idcc_btn = gr.Button("Save IDCC Config", variant="primary")
+
+        idcc_status = gr.Markdown(value="Configure Interdimensional Cable video settings above")
+
+        update_idcc_btn.click(
+            fn=update_idcc_config_ui,
+            inputs=[idcc_max_scenes, idcc_duration, idcc_resolution],
+            outputs=[idcc_status]
         )
 
 # ============================================================================
@@ -1628,6 +1670,45 @@ def update_autoplay_config_ui(
 
     except Exception as e:
         return f"Error updating configuration: {e}"
+
+def get_idcc_config() -> Tuple:
+    """Get current IDCC configuration for UI."""
+    try:
+        from agent_games.interdimensional_cable import idcc_config
+        return (
+            idcc_config.max_clips,
+            idcc_config.clip_duration_seconds,
+            idcc_config.video_resolution
+        )
+    except ImportError:
+        return (5, 5, "1280x720")
+
+def update_idcc_config_ui(
+    max_clips: int,
+    clip_duration: int,
+    resolution: str
+) -> str:
+    """Update IDCC configuration."""
+    try:
+        from agent_games.interdimensional_cable import update_idcc_config
+
+        config = update_idcc_config(
+            max_clips=int(max_clips),
+            clip_duration_seconds=int(clip_duration),
+            video_resolution=resolution
+        )
+
+        status = "✅ **Interdimensional Cable Config Saved**\n\n"
+        status += f"- Max Scenes: {config.max_clips} (= max participants)\n"
+        status += f"- Scene Duration: {config.clip_duration_seconds} seconds\n"
+        status += f"- Resolution: {config.video_resolution}\n"
+
+        return status
+
+    except ImportError:
+        return "IDCC module not available"
+    except Exception as e:
+        return f"Error updating IDCC config: {e}"
 
 def _create_games_tab():
     """Create the GAMES tab for viewing game statistics and history."""

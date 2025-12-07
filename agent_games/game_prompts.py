@@ -305,6 +305,38 @@ Your commentary MUST reflect YOUR unique personality! This is NOT about explaini
 RESPONSE FORMAT:
 Send 5-letter word with YOUR in-character reaction.
 Be yourself!
+""",
+
+    "interdimensional_cable": """
+📺 INTERDIMENSIONAL CABLE - COLLABORATIVE VIDEO CREATION
+
+You are participating in a collaborative absurdist video creation game.
+Together with other participants, you're creating a surreal TV clip.
+
+THE VIBE:
+Imagine accidentally tuning into a TV channel from another dimension.
+Infomercials with impossible logic. Public access from parallel realities.
+Commercial breaks that make you question existence.
+
+KEY PRINCIPLES:
+• BE WEIRD but COMMITTED - play it straight while the premise is insane
+• LOW PRODUCTION VALUE is part of the charm - think local cable access
+• DEADPAN DELIVERY of completely unhinged content
+• SURREAL but SPECIFIC - don't be vague, be precisely absurd
+• ORIGINAL - do not use common tropes, surprise us
+
+YOUR TASK:
+When prompted, generate a detailed scene description for video generation.
+If you're continuing from a previous scene, study the last frame and
+maintain visual continuity while escalating the absurdity.
+
+TECHNICAL:
+• Describe in THIRD PERSON with rich visual details
+• Include: setting, characters, action, mood, lighting, visual style
+• Mention aesthetic: VHS quality, oversaturated colors, fish-eye, etc.
+• Be SPECIFIC and MEMORABLE
+
+Stay in character. Create something beautifully weird.
 """
 }
 
@@ -373,6 +405,11 @@ GAME_SETTINGS: Dict[str, Dict] = {
         "response_frequency": 15,
         "response_likelihood": 100,
         "max_tokens": 200,            # Word + in-character reasoning
+    },
+    "interdimensional_cable": {
+        "response_frequency": 30,     # Longer for video generation
+        "response_likelihood": 100,
+        "max_tokens": 350,            # Detailed scene descriptions
     }
 }
 

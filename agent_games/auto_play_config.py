@@ -25,7 +25,7 @@ class AutoPlayConfig:
 
     def __post_init__(self):
         if self.enabled_games is None:
-            self.enabled_games = ["tictactoe", "connectfour", "chess", "wordle", "hangman"]
+            self.enabled_games = ["tictactoe", "connectfour", "chess", "wordle", "hangman", "interdimensional_cable"]
 
 
 class AutoPlayManager:
