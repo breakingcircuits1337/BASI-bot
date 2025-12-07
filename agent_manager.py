@@ -3091,7 +3091,7 @@ TOKEN LIMIT: You have a maximum of {self.max_tokens} tokens for your response. B
 
         # Ask the LLM to generate an image prompt based on current conversation
         try:
-            import requests
+            import aiohttp
 
             conversation_context = "\n".join([
                 f"{msg.get('author', 'Unknown')}: {msg.get('content', '')[:200]}"
@@ -3118,19 +3118,19 @@ TOKEN LIMIT: You have a maximum of {self.max_tokens} tokens for your response. B
                 "Content-Type": "application/json"
             }
 
-            response = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                json=prompt_request,
-                headers=headers,
-                timeout=30
-            )
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    json=prompt_request,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=30)
+                ) as response:
+                    if response.status != 200:
+                        logger.error(f"[{self.name}] Failed to generate image prompt: {response.status}")
+                        return None
 
-            if response.status_code != 200:
-                logger.error(f"[{self.name}] Failed to generate image prompt: {response.status_code}")
-                return None
-
-            result = response.json()
-            image_prompt = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                    result = await response.json()
+                    image_prompt = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
 
             if not image_prompt:
                 logger.warning(f"[{self.name}] Empty image prompt from LLM")
@@ -3196,7 +3196,7 @@ TOKEN LIMIT: You have a maximum of {self.max_tokens} tokens for your response. B
 
         # Ask the LLM to generate a video prompt using the guidance from prompt_components
         try:
-            import requests
+            import aiohttp
 
             conversation_context = "\n".join([
                 f"{msg.get('author', 'Unknown')}: {msg.get('content', '')[:200]}"
@@ -3242,19 +3242,19 @@ Be vivid and specific. This is your creative expression through Sora 2 video gen
                 "Content-Type": "application/json"
             }
 
-            response = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                json=prompt_request,
-                headers=headers,
-                timeout=30
-            )
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    json=prompt_request,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=30)
+                ) as response:
+                    if response.status != 200:
+                        logger.error(f"[{self.name}] Failed to generate video prompt: {response.status}")
+                        return None
 
-            if response.status_code != 200:
-                logger.error(f"[{self.name}] Failed to generate video prompt: {response.status_code}")
-                return None
-
-            result = response.json()
-            video_prompt = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                    result = await response.json()
+                    video_prompt = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
 
             if not video_prompt:
                 logger.warning(f"[{self.name}] Empty video prompt from LLM")
@@ -3644,7 +3644,7 @@ ATTEMPT #{variant} - {variant_suffix}"""
             return None
 
         try:
-            import requests
+            import aiohttp
 
             logger.info(f"[ImageAgent] Generating image with prompt from {author}: {prompt}")
 
@@ -3655,86 +3655,94 @@ ATTEMPT #{variant} - {variant_suffix}"""
 
             max_variants = 4  # Try up to 4 different substitution variants
 
-            # Try each variant with DIFFERENT substitutions
-            for variant_num in range(1, max_variants + 1):
-                # Get declassified prompt with specific variant substitutions
-                try_prompt = await self.declassify_image_prompt(prompt, variant=variant_num)
+            async with aiohttp.ClientSession() as session:
+                # Try each variant with DIFFERENT substitutions
+                for variant_num in range(1, max_variants + 1):
+                    # Get declassified prompt with specific variant substitutions
+                    try_prompt = await self.declassify_image_prompt(prompt, variant=variant_num)
 
-                if not try_prompt:
-                    logger.warning(f"[ImageAgent] Failed to generate variant {variant_num}, trying next...")
-                    continue
+                    if not try_prompt:
+                        logger.warning(f"[ImageAgent] Failed to generate variant {variant_num}, trying next...")
+                        continue
 
-                logger.info(f"[ImageAgent] Trying variant {variant_num}/{max_variants}: {try_prompt[:100]}...")
+                    logger.info(f"[ImageAgent] Trying variant {variant_num}/{max_variants}: {try_prompt[:100]}...")
 
+                    payload = {
+                        "model": self.image_model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": try_prompt
+                            }
+                        ],
+                        "modalities": ["image", "text"]
+                    }
+
+                    try:
+                        async with session.post(
+                            "https://openrouter.ai/api/v1/chat/completions",
+                            json=payload,
+                            headers=headers,
+                            timeout=aiohttp.ClientTimeout(total=60)
+                        ) as response:
+                            if response.status != 200:
+                                response_text = await response.text()
+                                logger.warning(f"[ImageAgent] API error on variant {variant_num}: {response.status} - {response_text[:200]}")
+                                continue  # Try next variant with DIFFERENT substitutions
+
+                            result = await response.json()
+
+                            # Extract image from response
+                            if "choices" in result and len(result["choices"]) > 0:
+                                message = result["choices"][0].get("message", {})
+                                images = message.get("images", [])
+
+                                if images and len(images) > 0:
+                                    image_data = images[0]
+                                    if "image_url" in image_data:
+                                        image_url = image_data["image_url"]["url"]
+
+                                        # The URL is a data URL, extract base64 data
+                                        if image_url.startswith("data:image"):
+                                            logger.info(f"[ImageAgent] Image generated successfully with variant {variant_num}")
+                                            # Update global timestamp to enforce cooldown
+                                            self.last_global_image_time = time.time()
+                                            return (image_url, try_prompt)
+
+                            logger.warning(f"[ImageAgent] No image in response for variant {variant_num}")
+                    except asyncio.TimeoutError:
+                        logger.warning(f"[ImageAgent] Timeout on variant {variant_num}")
+                        continue
+
+                # Final fallback: try original prompt
+                logger.info(f"[ImageAgent] All variants failed, trying original prompt...")
                 payload = {
                     "model": self.image_model,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": try_prompt
-                        }
-                    ],
+                    "messages": [{"role": "user", "content": prompt}],
                     "modalities": ["image", "text"]
                 }
-
-                response = requests.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    json=payload,
-                    headers=headers,
-                    timeout=60
-                )
-
-                if response.status_code != 200:
-                    logger.warning(f"[ImageAgent] API error on variant {variant_num}: {response.status_code} - {response.text[:200]}")
-                    continue  # Try next variant with DIFFERENT substitutions
-
-                result = response.json()
-
-                # Extract image from response
-                if "choices" in result and len(result["choices"]) > 0:
-                    message = result["choices"][0].get("message", {})
-                    images = message.get("images", [])
-
-                    if images and len(images) > 0:
-                        image_data = images[0]
-                        if "image_url" in image_data:
-                            image_url = image_data["image_url"]["url"]
-
-                            # The URL is a data URL, extract base64 data
-                            if image_url.startswith("data:image"):
-                                logger.info(f"[ImageAgent] Image generated successfully with variant {variant_num}")
-                                # Update global timestamp to enforce cooldown
-                                self.last_global_image_time = time.time()
-                                return (image_url, try_prompt)
-
-                logger.warning(f"[ImageAgent] No image in response for variant {variant_num}")
-
-            # Final fallback: try original prompt
-            logger.info(f"[ImageAgent] All variants failed, trying original prompt...")
-            payload = {
-                "model": self.image_model,
-                "messages": [{"role": "user", "content": prompt}],
-                "modalities": ["image", "text"]
-            }
-            response = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                json=payload,
-                headers=headers,
-                timeout=60
-            )
-            if response.status_code == 200:
-                result = response.json()
-                if "choices" in result and len(result["choices"]) > 0:
-                    message = result["choices"][0].get("message", {})
-                    images = message.get("images", [])
-                    if images and len(images) > 0:
-                        image_data = images[0]
-                        if "image_url" in image_data:
-                            image_url = image_data["image_url"]["url"]
-                            if image_url.startswith("data:image"):
-                                logger.info(f"[ImageAgent] Image generated with original prompt")
-                                self.last_global_image_time = time.time()
-                                return (image_url, prompt)
+                try:
+                    async with session.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        json=payload,
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=60)
+                    ) as response:
+                        if response.status == 200:
+                            result = await response.json()
+                            if "choices" in result and len(result["choices"]) > 0:
+                                message = result["choices"][0].get("message", {})
+                                images = message.get("images", [])
+                                if images and len(images) > 0:
+                                    image_data = images[0]
+                                    if "image_url" in image_data:
+                                        image_url = image_data["image_url"]["url"]
+                                        if image_url.startswith("data:image"):
+                                            logger.info(f"[ImageAgent] Image generated with original prompt")
+                                            self.last_global_image_time = time.time()
+                                            return (image_url, prompt)
+                except asyncio.TimeoutError:
+                    logger.warning(f"[ImageAgent] Timeout on original prompt")
 
             logger.error(f"[ImageAgent] All {max_variants} variants + original failed")
             return None
