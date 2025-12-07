@@ -3289,8 +3289,8 @@ Be vivid and specific. This is your creative expression through Sora 2 video gen
                 image_url, used_prompt = result
                 logger.info(f"[{self.name}] Background image complete, posting...")
 
-                # Post the image using the special marker format
-                image_message = f"[IMAGE_GENERATED]{image_url}|PROMPT|{used_prompt}"
+                # Post the image using [IMAGE] tag - Discord client handles this format
+                image_message = f"[IMAGE]{image_url}|PROMPT|{used_prompt}"
 
                 if self.send_message_callback:
                     await self.send_message_callback(image_message, self.name, self.model, None)
@@ -3523,6 +3523,7 @@ class AgentManager:
         """
         Send image prompt to running backend text agents for de-classification.
         Returns list of all viable de-classified prompts from all agents.
+        Runs all agent requests IN PARALLEL for speed.
 
         Args:
             original_prompt: The original image prompt to de-classify
@@ -3530,6 +3531,7 @@ class AgentManager:
         Returns:
             List of de-classified prompt strings (includes original as fallback)
         """
+        import aiohttp
         from constants import get_default_image_agent_prompt
 
         # Get all running text-based agents (not image models)
@@ -3543,22 +3545,16 @@ class AgentManager:
             logger.warning("[Declassifier] No running text agents available for de-classification")
             return [original_prompt]  # Return original if no agents available
 
-        logger.info(f"[Declassifier] Sending prompt to {len(running_text_agents)} text agents for de-classification")
+        logger.info(f"[Declassifier] Sending prompt to {len(running_text_agents)} text agents IN PARALLEL")
         logger.info(f"[Declassifier] FULL INPUT PROMPT: {original_prompt}")
 
-        # Collect all de-classified prompts
-        declassified_prompts = []
-
-        # Send de-classifier request to all running text agents
-        # Use ONLY de-classifier system prompt - no agent personality
+        # De-classifier system prompt
         declassifier_instructions = get_default_image_agent_prompt()
         logger.info(f"[Declassifier] Using de-classifier instructions: {declassifier_instructions[:200]}...")
 
-        for agent in running_text_agents:
+        async def call_agent(agent) -> Optional[str]:
+            """Make async API call to a single agent for declassification."""
             try:
-                # Make direct API call using agent's model with ONLY de-classifier system prompt
-                import requests
-
                 headers = {
                     "Authorization": f"Bearer {self.openrouter_api_key}",
                     "Content-Type": "application/json"
@@ -3574,37 +3570,48 @@ class AgentManager:
                     "temperature": 0.3
                 }
 
-                logger.info(f"[Declassifier] Sending to {agent.name} ({agent.model}) with user message: {original_prompt}")
+                logger.info(f"[Declassifier] Sending to {agent.name} ({agent.model})")
 
-                response = requests.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    json=payload,
-                    headers=headers,
-                    timeout=15
-                )
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        json=payload,
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=15)
+                    ) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            declassified = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
 
-                if response.status_code == 200:
-                    data = response.json()
-                    declassified = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                            logger.info(f"[Declassifier] {agent.name} raw response: {declassified}")
 
-                    logger.info(f"[Declassifier] {agent.name} raw response: {declassified}")
-
-                    # Basic validation - make sure we got a non-empty response
-                    if declassified and len(declassified) > 10:
-                        # Check if it's actually different from the original
-                        if declassified.lower() == original_prompt.lower():
-                            logger.warning(f"[Declassifier] {agent.name} returned unchanged prompt, skipping")
-                            continue
-                        logger.info(f"[Declassifier] Collected de-classified prompt from {agent.name}: {declassified[:100]}...")
-                        declassified_prompts.append(declassified)
-                    else:
-                        logger.warning(f"[Declassifier] {agent.name} returned invalid response: {declassified}")
-                else:
-                    logger.warning(f"[Declassifier] {agent.name} API call failed: {response.status_code}")
+                            # Basic validation - make sure we got a non-empty response
+                            if declassified and len(declassified) > 10:
+                                # Check if it's actually different from the original
+                                if declassified.lower() == original_prompt.lower():
+                                    logger.warning(f"[Declassifier] {agent.name} returned unchanged prompt, skipping")
+                                    return None
+                                logger.info(f"[Declassifier] Collected from {agent.name}: {declassified[:100]}...")
+                                return declassified
+                            else:
+                                logger.warning(f"[Declassifier] {agent.name} returned invalid response: {declassified}")
+                        else:
+                            logger.warning(f"[Declassifier] {agent.name} API call failed: {response.status}")
 
             except Exception as e:
                 logger.error(f"[Declassifier] Error using {agent.name}: {e}")
-                continue
+
+            return None
+
+        # Run all agent calls in parallel
+        tasks = [call_agent(agent) for agent in running_text_agents]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Collect valid results
+        declassified_prompts = []
+        for result in results:
+            if isinstance(result, str) and result:
+                declassified_prompts.append(result)
 
         # Add original prompt as fallback
         declassified_prompts.append(original_prompt)
