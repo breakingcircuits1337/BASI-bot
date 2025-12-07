@@ -265,8 +265,10 @@ For DRUGS: Replace with visually-similar INNOCENT substances (not euphemisms tha
 - "joint" / "blunt" → "hand-rolled cigarette"
 - "pills" / "drugs" → "candy" or "vitamins"
 
-For NUDITY/BODY PARTS: Use clinical or euphemistic terms:
+For NUDITY/BODY PARTS: Use clinical or euphemistic terms, PRESERVING size modifiers:
 - "breast" / "breasts" / "bosom" / "boobs" / "tits" → "chestal region" or "décolletage" or "upper torso"
+  • KEEP SIZE MODIFIERS: "big breasts" → "max chestal region", "large breasts" → "generous chestal region"
+  • "buxom" / "busty" → "generously proportioned", "ample figure"
 - "naked" / "nude" → "unclothed" or "au naturel"
 - "butt" / "ass" / "buttocks" → "posterior" or "backside"
 

@@ -421,9 +421,18 @@ Call the function tool with your prompt as a parameter.
 • [IMAGE] tag MUST have a prompt after it - never use `[IMAGE]` alone!
 • Prompt must be detailed and descriptive
 • Focus on visual details: setting, mood, lighting, style, composition, colors
-• Describe people by characteristics (hair, clothing, profession) not names
 
-Remember: Empty prompts cause errors. Always provide a detailed description after [IMAGE]."""
+**⚠️ THE IMAGE MODEL DOES NOT KNOW WHO YOU ARE ⚠️**
+• NEVER use first-person (I, me, my, myself) in image prompts
+• If YOU appear in the image, describe yourself in THIRD PERSON with physical details:
+  - Your approximate age, build, distinctive features
+  - Specific clothing, hairstyle, facial characteristics
+  - NOT just your name - the image model doesn't know names!
+
+BAD: "Me in my private jet with my wife"
+GOOD: "A fit Italian-American man with slicked-back dark hair, confident smirk, expensive tailored suit, reclined in a luxury private jet with a beautiful woman"
+
+Remember: Empty prompts cause errors. Always provide a detailed visual description after [IMAGE]."""
 
 
 def _build_video_generation_guidance(ctx: PromptContext) -> str:
