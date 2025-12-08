@@ -62,7 +62,7 @@ class IDCCConfig:
     min_clips: int = 3  # Minimum clips to generate
     max_clips: int = 6  # Maximum clips to generate
     default_clips: int = 5  # Default if not specified
-    clip_duration_seconds: int = 5  # Each Sora clip duration (5, 8, or 10)
+    clip_duration_seconds: int = 8  # Each Sora clip duration (4, 8, or 12)
     video_resolution: str = "1280x720"  # Landscape 720p
     max_retries_per_clip: int = 3  # Retries if generation fails
     generation_timeout_seconds: int = 300  # 5 min per clip max
@@ -115,7 +115,7 @@ class IDCCConfigManager:
         if max_clips is not None:
             self.config.max_clips = max(2, min(10, max_clips))
         if clip_duration_seconds is not None:
-            if clip_duration_seconds in [5, 8, 10]:
+            if clip_duration_seconds in [4, 8, 12]:
                 self.config.clip_duration_seconds = clip_duration_seconds
         if video_resolution is not None:
             if video_resolution in ["1280x720", "720x1280"]:
@@ -142,98 +142,110 @@ def update_idcc_config(max_clips=None, clip_duration_seconds=None, video_resolut
 # STYLE PROMPTS
 # ============================================================================
 
-IDCC_COLD_OPEN_PROMPT = """You are creating the OPENING SCENE for an absurdist alternate-reality TV clip.
+IDCC_COLD_OPEN_PROMPT = """You are creating the OPENING SCENE for an absurdist animated TV clip from another dimension.
 
 ⏱️ VIDEO CONSTRAINTS: {duration} seconds | {resolution}
 Keep action appropriate for this duration - one clear beat, not a whole story.
 
-STYLE GUIDE - The Vibe:
-Imagine accidentally tuning into a TV channel from another dimension.
-Infomercials with impossible logic. Public access from parallel realities.
-Commercial breaks that make you question existence.
+**MANDATORY STYLE: ADULT SWIM CARTOON AESTHETIC**
+• 2D animated cartoon style - bold black outlines, flat vibrant colors
+• Slightly crude, wobbly animation like late-night Adult Swim shows
+• Exaggerated character designs - big heads, simple bodies, expressive faces
+• NOT realistic, NOT 3D, NOT live-action - think adult animated comedy
 
-KEY PRINCIPLES:
-• BE WEIRD but COMMITTED - Play it straight while the premise is insane
-• LOW PRODUCTION VALUE is part of the charm - think local cable access
-• DEADPAN DELIVERY of completely unhinged content
-• SURREAL but SPECIFIC - don't be vague, be precisely absurd
-• ORIGINAL - do not use common tropes, surprise us
-• This should feel like a signal from somewhere that shouldn't exist
+**CRITICAL: ORIGINAL INTERDIMENSIONAL CHARACTERS**
+• Create WEIRD characters - aliens with too many eyes, blob creatures, interdimensional salesmen,
+  grotesque mascots, mutants, robots, bizarre humanoids with exaggerated features
+• Sometimes human, sometimes DEFINITELY not - the weirder the better
+• Characters should feel like they belong on late-night Adult Swim - strange, offputting, funny
+• NEVER put yourself or other chat participants into the scene
+• Your personality influences HOW you write creatively, not WHO appears
 
-SORA 2 PROMPTING BEST PRACTICES:
-Structure your prompt like a mini-script with these layers:
-• SCENE: Where and when, atmosphere, time of day, setting details
-• CAMERA: Single camera angle/movement - pick ONE (static, slow pan, slow zoom)
-• LIGHTING: Key sources, mood, color palette (e.g. "harsh fluorescent", "warm VHS glow")
-• SUBJECT: One character doing ONE clear action with physical description
-• STYLE: Visual aesthetic (VHS artifacts, oversaturated, fish-eye, grainy)
+THE INTERDIMENSIONAL CABLE VIBE:
+• Absurd fake commercials and TV shows from alternate dimensions
+• Products that make no sense but are presented totally straight-faced
+• Infomercials with impossible logic delivered deadpan
+• Public access shows from parallel realities
+• The humor comes from COMMITMENT to absurd premises
 
-DURATION RULES FOR {duration} SECONDS:
-• ONE camera movement maximum
-• ONE subject action maximum
-• Establish premise IMMEDIATELY - no build-up
-• Keep motion simple and contained
-• 50-100 words is ideal prompt length
+START WITH A HIGH CONCEPT:
+• What IS this? An infomercial? A cooking show? A workout video? A talk show?
+• What's the ABSURD PREMISE? (e.g., "selling doors to nowhere", "cooking invisible food")
+• THEN describe the cartoon character and what they're doing
+
+PROMPT STRUCTURE (ALWAYS START WITH STYLE):
+• "Adult animated cartoon style, 2D animation, bold outlines, flat colors, exaggerated characters"
+• Then describe: Bizarre TV content (fake commercial, weird show, infomercial)
+• ONE cartoon character doing ONE clear absurd action
+• Keep it simple - 50-100 words
 
 DO NOT:
-• Request text/titles (add in post)
+• Create realistic/live-action content - this MUST be 2D ANIMATED CARTOON
+• Put yourself or other participants into the scene - create ORIGINAL characters
+• Request text/titles (Sora can't render text)
 • Include dialogue (lip-sync unreliable)
-• Describe multiple sequential actions
-• Use vague terms - be PRECISELY absurd
+• Be generic - be SPECIFICALLY weird
 
-YOU ARE CREATING THE OPENING. Set the tone. Be bold. Be surreal. Be specific.
-Output ONLY the video prompt - no commentary or explanation."""
+EXAMPLES OF GOOD CONCEPTS:
+• A three-eyed slug alien enthusiastically selling doors that lead to other doors forever
+• A gelatinous blob hosting a cooking show where he cooks his own body parts (they grow back)
+• A terrifying mascot with too many teeth demonstrating a product that solves a problem no one has
+• A workout video hosted by a creature whose limbs keep detaching and reattaching wrong
+• An infomercial where a nervous interdimensional salesman sells "real fake" versions of things
+• A talk show hosted by a sentient chair interviewing confused humans
 
-IDCC_CONTINUATION_PROMPT = """You are CONTINUING an absurdist alternate-reality TV clip.
+Output ONLY the video prompt starting with the animation style - no commentary."""
+
+IDCC_CONTINUATION_PROMPT = """You are CONTINUING an absurdist animated TV clip from another dimension.
 
 ⏱️ VIDEO CONSTRAINTS: {duration} seconds | {resolution}
 Keep action appropriate for this duration - one clear beat that continues the story.
 
+**MANDATORY STYLE: ADULT SWIM CARTOON AESTHETIC**
+• 2D animated cartoon style - bold black outlines, flat vibrant colors
+• MUST match the animation style of the previous scene exactly
+• Same cartoon characters, same visual aesthetic
+• This is ANIMATED, NOT live action, NOT realistic
+
+**CRITICAL: DESCRIBE WHAT YOU SEE, NOT WHO YOU KNOW**
+• Look at the frame - what WEIRD INTERDIMENSIONAL CHARACTERS do you see?
+• Aliens, blob creatures, grotesque mascots, bizarre humanoids, mutants, robots
+• NEVER insert yourself or other chat participants into the scene
+• These are characters from ANOTHER DIMENSION - keep them weird
+• Your job is to continue THEIR story, not make it about you
+
 You can see the LAST FRAME of the previous scene. Your job is to YES-AND what came before.
 
-PREVIOUS SCENE: {previous_prompt}
+PREVIOUS SCENE PROMPT: {previous_prompt}
 
-THE YES-AND PRINCIPLE (from improv theater):
+THE YES-AND PRINCIPLE:
 • "YES" = Accept everything in the previous scene as true and real
-• "AND" = Build on it, add to it, heighten it, complicate it
-• NEVER contradict, ignore, or restart what came before
-• The weirder the previous scene, the more you commit to its reality
+• "AND" = Build on it, heighten it, make it WEIRDER
+• NEVER contradict or restart - continue the SAME bizarre scenario
+• Same cartoon characters, same absurd premise, escalate the weirdness
 
-YOUR TASK - CONTINUE THE MOMENT:
-• Study the last frame carefully - what's happening RIGHT NOW?
-• What happens NEXT in this exact scene? (Not a new scene - THE SAME SCENE)
-• Same characters, same setting, same aesthetic - but the plot advances
-• Something should HAPPEN - a revelation, escalation, complication, punchline
+YOUR TASK - CONTINUE THE CLIP:
+• Study the last frame - what cartoon characters/scenario do you see?
+• What happens NEXT in this fake commercial/show? (Same scene, not new)
+• Escalate the absurdity - things should get weirder
+• Something should HAPPEN - a product demonstration, revelation, punchline
 
-DON'T:
-• Start a completely new scene
-• Ignore what's in the frame
-• Introduce new characters without reason
-• Break the aesthetic (keep VHS/public access feel)
-
-SORA 2 PROMPTING BEST PRACTICES:
-Structure your prompt like a mini-script with these layers:
-• SCENE: Continue the existing setting - reference what you see
-• CAMERA: Single camera angle/movement - pick ONE (match previous style)
-• LIGHTING: Maintain the established mood and color palette
-• SUBJECT: Same character(s) doing ONE clear next action
-• STYLE: Keep the visual aesthetic consistent
-
-DURATION RULES FOR {duration} SECONDS:
-• ONE camera movement maximum
-• ONE subject action maximum - what's the NEXT beat?
-• Match the visual style you see in the last frame
-• Keep motion simple and contained
-• 50-100 words is ideal prompt length
+PROMPT STRUCTURE (ALWAYS START WITH STYLE):
+• "Adult animated cartoon style, 2D animation, bold outlines, flat colors" (ALWAYS include first)
+• Describe the characters FROM THE FRAME (not yourself or others you know)
+• ONE clear next action that escalates the absurdity
+• Keep it simple - 50-100 words
 
 DO NOT:
-• Request text/titles (add in post)
+• Switch to live-action/realistic style - stay 2D ANIMATED CARTOON
+• Start a completely new scene - CONTINUE this one
+• Insert yourself or other chat participants as characters
+• Request text/titles (Sora can't render text)
 • Include dialogue (lip-sync unreliable)
-• Describe multiple sequential actions
-• Use vague terms - be PRECISELY absurd
+• Ignore what's in the previous frame
 
-You're in an improv scene. Accept the offer. Build on it. Make it weirder.
-Output ONLY the video prompt - no commentary."""
+Same cartoon style. Same weird premise. Make it weirder.
+Output ONLY the video prompt starting with the animation style - no commentary."""
 
 
 # ============================================================================
@@ -532,18 +544,9 @@ class InterdimensionalCableGame:
 
         await self._send_gamemaster_message(announcement)
 
-        # Wait for registration period with engaging updates
+        # Wait for registration period
         registration_duration = idcc_config.registration_duration_seconds
         check_interval = 15  # Check every 15 seconds
-
-        # Conversation prompts to encourage chat during registration
-        chat_prompts = [
-            "While we wait... what's the weirdest commercial you've ever seen?",
-            "Predictions? What dimension will our cable signal come from today?",
-            "Remember: the weirder the better. Public access from parallel realities.",
-            "What kind of impossible product should we advertise today?",
-        ]
-        prompt_index = 0
 
         elapsed = 0
         while elapsed < registration_duration:
@@ -554,22 +557,13 @@ class InterdimensionalCableGame:
             human_count = len(self.state.registered_humans)
 
             if remaining > 0:
-                if remaining == 90:  # 90s mark
+                if remaining == 60:  # 60s mark
                     await self._send_gamemaster_message(
-                        f"**90 seconds left!** {human_count}/{participants_needed} joined so far.\n"
-                        f"*{chat_prompts[prompt_index % len(chat_prompts)]}*"
+                        f"**ONE MINUTE remaining!** {human_count}/{participants_needed} participants."
                     )
-                    prompt_index += 1
-                elif remaining == 60:  # 60s mark
-                    await self._send_gamemaster_message(
-                        f"**ONE MINUTE remaining!** {human_count}/{participants_needed} participants.\n"
-                        f"*{chat_prompts[prompt_index % len(chat_prompts)]}*"
-                    )
-                    prompt_index += 1
                 elif remaining == 30:  # 30s mark
                     await self._send_gamemaster_message(
-                        f"**30 SECONDS!** Last call for `!join-idcc`!\n"
-                        f"Current crew: {human_count}/{participants_needed}"
+                        f"**30 SECONDS!** Last call for `!join-idcc`! ({human_count}/{participants_needed})"
                     )
 
         # Registration closed
@@ -691,9 +685,10 @@ class InterdimensionalCableGame:
                 if creator_type == "human":
                     await self._send_gamemaster_message(
                         f"# Scene {clip_num}/{self.num_clips}: {creator_name}'s turn!\n\n"
-                        f"**Create the OPENING scene.** Describe an absurdist TV clip.\n"
+                        f"**Create the OPENING scene** for an Interdimensional Cable clip!\n"
+                        f"**STYLE: Adult Swim cartoon** - 2D animation, bold outlines, flat colors, exaggerated characters\n\n"
                         f"Type `[SCENE]` followed by your scene description.\n"
-                        f"Example: `[SCENE] A man in a cheap suit stands in a parking lot, deadpan presenting a product called \"Invisible Soup\"`\n\n"
+                        f"Example: `[SCENE] Adult animated cartoon style, 2D animation, bold outlines. A sweaty cartoon alien in a cheap suit enthusiastically demonstrates doors that don't open to anything.`\n\n"
                         f"*You have 2 minutes to submit...*"
                     )
                 else:
@@ -704,10 +699,11 @@ class InterdimensionalCableGame:
                 if creator_type == "human":
                     await self._send_gamemaster_message(
                         f"# Scene {clip_num}/{self.num_clips}: {creator_name}'s turn!\n\n"
-                        f"**YES-AND the previous scene.** Continue from the last frame shown above.\n"
+                        f"**CONTINUE the clip!** YES-AND the previous scene.\n"
+                        f"**KEEP THE STYLE: Adult Swim 2D cartoon** - same animation style, same characters!\n\n"
                         f"Previous: *\"{previous_prompt[:100] if previous_prompt else 'Unknown'}...\"*\n\n"
                         f"Type `[SCENE]` followed by what happens NEXT.\n"
-                        f"Remember: Same characters, same setting - but the story advances!\n\n"
+                        f"Remember: Same cartoon style, same absurd premise - make it WEIRDER!\n\n"
                         f"*You have 2 minutes to submit...*"
                     )
                 else:
@@ -756,54 +752,72 @@ class InterdimensionalCableGame:
                 continue
 
             # Generate the video with progress feedback
-            try:
-                start_time = time.time()
-                self.state.phase = "generating_video"
+            # CRITICAL: Keep retrying until success - NEVER move to next scene if current fails
+            scene_attempt = 0
+            scene_success = False
+            total_scene_time = 0.0
 
-                # Start progress indicator task
-                progress_task = asyncio.create_task(
-                    self._show_generation_progress(clip_num, creator_name)
-                )
-
-                video_result = await self._generate_video_clip(
-                    prompt=prompt,
-                    creator_name=creator_name,
-                    reference_frame_path=previous_frame_path if clip_num > 1 else None
-                )
-
-                # Stop progress indicator
-                progress_task.cancel()
+            while not scene_success:
+                scene_attempt += 1
                 try:
-                    await progress_task
-                except asyncio.CancelledError:
-                    pass
+                    start_time = time.time()
+                    self.state.phase = "generating_video"
 
-                clip.generation_time_seconds = time.time() - start_time
-
-                if video_result:
-                    clip.video_path = video_result["path"]
-                    clip.video_url = video_result.get("url")
-                    clip.success = True
-
-                    # Extract last frame for next iteration
-                    previous_frame_path = extract_last_frame(clip.video_path)
-                    clip.last_frame_path = previous_frame_path
-                    previous_prompt = prompt
-
-                    # Post success
-                    await self._send_gamemaster_message(
-                        f"**Scene {clip_num} complete!** ({clip.generation_time_seconds:.0f}s) by {creator_name}"
+                    # Start progress indicator task
+                    progress_task = asyncio.create_task(
+                        self._show_generation_progress(clip_num, creator_name)
                     )
 
-                else:
-                    clip.error_message = "Video generation returned None"
-                    await self._send_gamemaster_message(
-                        f"**Scene {clip_num} failed.** Video generation error."
+                    video_result = await self._generate_video_clip(
+                        prompt=prompt,
+                        creator_name=creator_name,
+                        reference_frame_path=previous_frame_path if clip_num > 1 else None,
+                        base_variant=scene_attempt - 1  # Increment variant to try different declassifications
                     )
 
-            except Exception as e:
-                logger.error(f"[IDCC:{self.game_id}] Video generation error: {e}", exc_info=True)
-                clip.error_message = f"Generation error: {str(e)}"
+                    # Stop progress indicator
+                    progress_task.cancel()
+                    try:
+                        await progress_task
+                    except asyncio.CancelledError:
+                        pass
+
+                    attempt_time = time.time() - start_time
+                    total_scene_time += attempt_time
+
+                    if video_result:
+                        clip.video_path = video_result["path"]
+                        clip.video_url = video_result.get("url")
+                        clip.success = True
+                        scene_success = True
+
+                        # Extract last frame for next iteration
+                        previous_frame_path = extract_last_frame(clip.video_path)
+                        clip.last_frame_path = previous_frame_path
+                        previous_prompt = prompt
+
+                        # Post success
+                        await self._send_gamemaster_message(
+                            f"**Scene {clip_num} complete!** ({total_scene_time:.0f}s) by {creator_name}"
+                        )
+
+                    else:
+                        # Failed - log and retry (DO NOT move to next scene)
+                        logger.warning(f"[IDCC:{self.game_id}] Scene {clip_num} attempt {scene_attempt} failed, retrying...")
+                        await self._send_gamemaster_message(
+                            f"**Scene {clip_num} attempt {scene_attempt} failed.** Retrying with modified prompt..."
+                        )
+                        # Brief pause before retry
+                        await asyncio.sleep(3)
+
+                except Exception as e:
+                    logger.error(f"[IDCC:{self.game_id}] Video generation error on attempt {scene_attempt}: {e}", exc_info=True)
+                    await self._send_gamemaster_message(
+                        f"**Scene {clip_num} error on attempt {scene_attempt}:** {str(e)[:100]}. Retrying..."
+                    )
+                    await asyncio.sleep(5)
+
+            clip.generation_time_seconds = total_scene_time
 
         # Summary
         successful = sum(1 for c in self.state.clips if c.success)
@@ -1083,7 +1097,8 @@ class InterdimensionalCableGame:
         self,
         prompt: str,
         creator_name: str,
-        reference_frame_path: Optional[Path] = None
+        reference_frame_path: Optional[Path] = None,
+        base_variant: int = 0
     ) -> Optional[Dict[str, Any]]:
         """
         Generate a video clip using Sora 2.
@@ -1092,6 +1107,7 @@ class InterdimensionalCableGame:
             prompt: The video generation prompt
             creator_name: Who is creating this clip
             reference_frame_path: Optional starting frame for continuity
+            base_variant: Base variant number for declassification (allows incrementing across outer retries)
 
         Returns:
             Dict with 'path' and optionally 'url', or None on failure
@@ -1100,17 +1116,55 @@ class InterdimensionalCableGame:
 
         for attempt in range(max_retries):
             try:
-                # First try: use original prompt
-                # On retry: declassify the prompt
+                # Calculate effective variant: base_variant * max_retries + attempt
+                # This ensures each outer retry round uses different declassification variants
+                effective_variant = base_variant * max_retries + attempt
+
+                # First attempt in first round: use original prompt
+                # Otherwise: declassify the prompt with the effective variant
                 use_prompt = prompt
                 reference_image_b64 = None
 
-                if attempt > 0:
-                    # Get declassified version
-                    use_prompt = await self.agent_manager.declassify_image_prompt(
-                        prompt, variant=attempt
-                    ) or prompt
-                    logger.info(f"[IDCC:{self.game_id}] Retry {attempt} with declassified prompt")
+                if effective_variant > 0:
+                    logger.info(f"[IDCC:{self.game_id}] Attempting declassification (variant {effective_variant})...")
+
+                    # Try to get declassified version
+                    declassified = await self.agent_manager.declassify_image_prompt(
+                        prompt, variant=effective_variant
+                    )
+
+                    if declassified:
+                        use_prompt = declassified
+                        logger.info(f"[IDCC:{self.game_id}] Using declassified prompt: {use_prompt[:100]}...")
+                    else:
+                        # Declassifier failed - apply manual fallback modifications
+                        logger.warning(f"[IDCC:{self.game_id}] Declassifier failed! Applying manual fallback...")
+
+                        # Manual prompt sanitization fallback
+                        # Add style prefix and simplify potentially problematic content
+                        style_prefixes = [
+                            "A cartoon scene showing",
+                            "An animated TV clip of",
+                            "A whimsical animated scene depicting",
+                            "A stylized cartoon animation featuring",
+                            "A colorful animated sequence of",
+                        ]
+                        prefix = style_prefixes[effective_variant % len(style_prefixes)]
+
+                        # Clean potentially problematic words
+                        sanitized = prompt
+                        replacements = [
+                            ("blood", "red liquid"), ("gore", "mess"), ("violent", "dramatic"),
+                            ("kill", "defeat"), ("dead", "unconscious"), ("death", "defeat"),
+                            ("weapon", "prop"), ("gun", "device"), ("knife", "utensil"),
+                            ("drug", "substance"), ("cocaine", "powder"), ("weed", "herb"),
+                            ("sexy", "stylish"), ("naked", "unclothed"), ("nude", "bare"),
+                        ]
+                        for old, new in replacements:
+                            sanitized = sanitized.replace(old, new).replace(old.capitalize(), new.capitalize())
+
+                        use_prompt = f"{prefix} {sanitized}"
+                        logger.info(f"[IDCC:{self.game_id}] Manual fallback prompt: {use_prompt[:100]}...")
 
                 # Prepare reference frame if provided
                 if reference_frame_path and reference_frame_path.exists():
@@ -1120,11 +1174,13 @@ class InterdimensionalCableGame:
                         reference_image_b64 = image_to_base64(resized_frame)
 
                 # Generate video with image-to-video if we have a reference
-                video_result = await self.agent_manager.image_agent.generate_video_with_reference(
+                # Skip cooldown for IDCC - we need to generate multiple clips in sequence
+                video_result = await self.agent_manager.generate_video_with_reference(
                     prompt=use_prompt,
                     author=creator_name,
                     duration=idcc_config.clip_duration_seconds,
-                    input_reference=reference_image_b64
+                    input_reference=reference_image_b64,
+                    skip_cooldown=True
                 )
 
                 if video_result:

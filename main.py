@@ -1096,9 +1096,9 @@ def _create_config_tab(openrouter_key_initial: str, cometapi_key_initial: str, i
 
                 idcc_duration = gr.Radio(
                     label="Scene Duration",
-                    choices=[5, 8, 10],
+                    choices=[4, 8, 12],
                     value=idcc_current[1],
-                    info="Seconds per clip (shorter = more reliable)"
+                    info="Seconds per clip (4, 8, or 12 seconds)"
                 )
 
             with gr.Column():

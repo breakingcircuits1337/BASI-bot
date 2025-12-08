@@ -118,9 +118,17 @@ class GameOrchestrator:
             try:
                 await asyncio.sleep(30)  # Check every 30 seconds
 
-                # Skip if game already active
+                # Skip if game already active (check both orchestrator session and IDCC manager)
                 if self.active_session:
                     continue
+
+                # Also check IDCC manager directly (IDCC runs as background task)
+                try:
+                    from .interdimensional_cable import idcc_manager
+                    if idcc_manager and idcc_manager.is_game_active():
+                        continue
+                except ImportError:
+                    pass
 
                 # Check if should trigger
                 if self.is_idle_threshold_reached():

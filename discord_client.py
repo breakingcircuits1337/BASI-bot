@@ -232,6 +232,19 @@ class DiscordBotClient:
                     msg_data["replied_to_agent"] = replied_to_agent
                 self.message_history.append(msg_data)
 
+            # Check for status effect shortcuts and apply them BEFORE routing
+            # This ensures effects are active when agents process the message
+            shortcuts_found = self.shortcut_manager.find_shortcuts_in_message(content)
+            if shortcuts_found and not message.author.bot:
+                # Apply effects via AgentManager
+                applied = self.agent_manager.process_shortcuts_in_message(content, message.id)
+                if applied:
+                    # React to confirm effects applied
+                    try:
+                        await message.add_reaction("\U0001F9EA")  # test tube emoji
+                    except:
+                        pass
+
             # Route message to appropriate agents
             self._route_message_to_agents(author_name, content, message.id, replied_to_agent, str(message.author.id))
 

@@ -10,7 +10,7 @@ import threading
 import logging
 from vector_store import VectorStore
 from constants import AgentConfig, is_image_model, ReactionConfig
-from shortcuts_utils import load_shortcuts_data, expand_shortcuts_in_message, load_shortcuts
+from shortcuts_utils import load_shortcuts_data, load_shortcuts, StatusEffectManager, apply_message_shortcuts, strip_shortcuts_from_message
 
 # Game context management
 try:
@@ -933,15 +933,22 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
 
     def _find_unresponded_shortcut(self, all_recent: List[Dict]) -> Optional[Dict]:
         """
-        Find first unresponded message containing a shortcut.
+        Find first unresponded message containing a shortcut TARGETED AT THIS AGENT.
 
         Args:
             all_recent: List of recent messages to check
 
         Returns:
-            Message dict containing shortcut, or None
+            Message dict containing shortcut for this agent, or None
         """
-        commands = load_shortcuts_data()
+        from shortcuts_utils import get_default_manager
+
+        shortcut_manager = get_default_manager()
+
+        # Get list of all agent names for targeting check
+        available_agents = []
+        if hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
+            available_agents = list(self._agent_manager_ref.agents.keys())
 
         for msg in reversed(all_recent):
             msg_id = msg.get('message_id')
@@ -951,11 +958,25 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
             if msg_id and msg_id in self.responded_to_shortcuts:
                 continue
 
-            # Check if message contains shortcut
-            has_shortcut = any(cmd.get("name", "") in content for cmd in commands)
-            if has_shortcut:
-                logger.info(f"[{self.name}] SHORTCUT DETECTED from {msg['author']} - responding exclusively to this message")
-                return msg
+            # Parse shortcuts with targeting info
+            parsed_shortcuts = shortcut_manager.parse_shortcut_with_target(content, available_agents)
+
+            if not parsed_shortcuts:
+                continue
+
+            # Check if ANY shortcut in this message targets this agent (or is untargeted)
+            for shortcut_data, target_agent in parsed_shortcuts:
+                if target_agent is None:
+                    # Untargeted shortcut - applies to all agents
+                    logger.info(f"[{self.name}] SHORTCUT DETECTED (untargeted) from {msg['author']} - {shortcut_data.get('name')}")
+                    return msg
+                elif target_agent == self.name:
+                    # Targeted at THIS agent
+                    logger.info(f"[{self.name}] SHORTCUT DETECTED (targeted at me) from {msg['author']} - {shortcut_data.get('name')}")
+                    return msg
+                else:
+                    # Targeted at a DIFFERENT agent - skip this shortcut
+                    logger.debug(f"[{self.name}] Shortcut {shortcut_data.get('name')} targets {target_agent}, not me - ignoring")
 
         return None
 
@@ -1048,27 +1069,42 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
         messages = [{"role": "system", "content": full_system_prompt}]
 
         if recent_messages:
-            # Format each message with author prefix and expand shortcuts if needed
+            # Format each message with author prefix
+            # Status effects are applied via StatusEffectManager and injected into system prompt
             for msg in recent_messages:
                 content = msg['content']
                 msg_id = msg.get('message_id')
 
-                # Check if this message contains shortcuts and we haven't responded to it yet
-                if msg_id and msg_id not in self.responded_to_shortcuts:
-                    commands = load_shortcuts_data()
-                    has_shortcut = any(cmd.get("name", "") in content for cmd in commands)
+                # Check if this message contains shortcuts
+                commands = load_shortcuts_data()
+                has_shortcut = any(cmd.get("name", "") in content for cmd in commands)
 
-                    if has_shortcut:
-                        # Expand shortcuts for this message
-                        content = expand_shortcuts_in_message(content)
-                        # Mark as will-respond-to
+                if has_shortcut:
+                    # Mark as processed
+                    if msg_id and msg_id not in self.responded_to_shortcuts:
                         self.responded_to_shortcuts.add(msg_id)
-                        logger.info(f"[{self.name}] Expanding shortcut for message {msg_id}")
+                        logger.info(f"[{self.name}] Shortcut in message {msg_id} - status effect injected via system prompt")
 
-                messages.append({
-                    "role": "user",
-                    "content": f"{msg['author']}: {content}"
-                })
+                    # Strip shortcut commands from content
+                    clean_content = strip_shortcuts_from_message(content)
+
+                    # If message was ONLY shortcut commands, skip it entirely
+                    # The agent only needs the status effect injection in system prompt
+                    if not clean_content:
+                        logger.debug(f"[{self.name}] Skipping shortcut-only message from {msg['author']}")
+                        continue
+
+                    # If there's remaining content after stripping, include it
+                    messages.append({
+                        "role": "user",
+                        "content": f"{msg['author']}: {clean_content}"
+                    })
+                else:
+                    # Normal message - include as-is
+                    messages.append({
+                        "role": "user",
+                        "content": f"{msg['author']}: {content}"
+                    })
         else:
             # No conversation history - use introduction prompt
             messages.append({
@@ -1883,7 +1919,21 @@ Now, using this retrieved context, provide your final response to the conversati
                     agent_manager_ref=self._agent_manager_ref if hasattr(self, '_agent_manager_ref') else None,
                     is_image_model_func=is_image_model
                 )
-                return build_system_prompt(ctx)
+                full_system_prompt = build_system_prompt(ctx)
+
+                # Inject status effects (component system doesn't handle these)
+                recovery_prompt = StatusEffectManager.get_and_clear_recovery_prompt(self.name)
+                effect_prompt = StatusEffectManager.get_effect_prompt(self.name)
+
+                if recovery_prompt:
+                    full_system_prompt += recovery_prompt
+                    logger.info(f"[{self.name}] Injected recovery/sobering-up prompt (component path)")
+
+                if effect_prompt:
+                    full_system_prompt += effect_prompt
+                    logger.info(f"[{self.name}] Injected active status effect prompt (component path)")
+
+                return full_system_prompt
             except Exception as e:
                 logger.error(f"[{self.name}] Error using component-based prompt system, falling back to legacy: {e}")
                 # Fall through to legacy implementation
@@ -2170,6 +2220,18 @@ RESPONSE STYLE:
             full_system_prompt = f"""{self.system_prompt}{game_prompt_injection}
 
 {response_format_instructions}"""
+
+            # Inject status effects for game mode too
+            game_recovery_prompt = StatusEffectManager.get_and_clear_recovery_prompt(self.name)
+            game_effect_prompt = StatusEffectManager.get_effect_prompt(self.name)
+
+            if game_recovery_prompt:
+                full_system_prompt += game_recovery_prompt
+                logger.info(f"[{self.name}] Injected recovery prompt in game mode")
+
+            if game_effect_prompt:
+                full_system_prompt += game_effect_prompt
+                logger.info(f"[{self.name}] Injected active status effect in game mode")
         else:
             # CHAT MODE: Full context with all enhancements
             full_system_prompt = f"""{self.system_prompt}{other_agents_context}
@@ -2185,6 +2247,18 @@ CRITICAL - ENGAGE SUBSTANTIVELY: Respond to SPECIFIC points others make. Do NOT 
 FOCUS ON THE MOST RECENT MESSAGES: You're seeing a filtered view of the conversation showing only the last {self.message_retention} message(s) from each participant. Pay attention to what was said most recently and respond naturally to that context. Your message will automatically reply to the most recent message you're responding to.
 
 {response_format_instructions}{tracked_messages_context}"""
+
+        # Inject status effects if any are active for this agent
+        recovery_prompt = StatusEffectManager.get_and_clear_recovery_prompt(self.name)
+        effect_prompt = StatusEffectManager.get_effect_prompt(self.name)
+
+        if recovery_prompt:
+            full_system_prompt += recovery_prompt
+            logger.info(f"[{self.name}] Injected recovery/sobering-up prompt")
+
+        if effect_prompt:
+            full_system_prompt += effect_prompt
+            logger.info(f"[{self.name}] Injected active status effect prompt")
 
         return full_system_prompt
 
@@ -2906,11 +2980,19 @@ TOKEN LIMIT: You have a maximum of {self.max_tokens} tokens for your response. B
             response_text = await self._call_llm_with_retrieval(messages, recent_messages)
 
             # Process response and update all metadata
-            return await self._process_response_and_update_metadata(
+            result = await self._process_response_and_update_metadata(
                 response_text=response_text,
                 recent_messages=recent_messages,
                 shortcut_message=shortcut_message if shortcut_message else None
             )
+
+            # Decrement status effect turn counters AFTER successful response
+            if result:
+                expired = StatusEffectManager.decrement_and_expire(self.name)
+                if expired:
+                    logger.info(f"[{self.name}] Status effect(s) expired after this response - recovery prompt queued for next turn")
+
+            return result
 
         except Exception as e:
             logger.error(f"[{self.name}] Error generating response: {e}", exc_info=True)
@@ -3528,6 +3610,46 @@ class AgentManager:
                 return has_responded
             return False
 
+    def process_shortcuts_in_message(self, message_content: str, message_id: Optional[int] = None) -> Dict[str, List[str]]:
+        """
+        Process shortcuts in a message and apply status effects to appropriate agents.
+
+        This should be called when a new message is received that contains shortcuts.
+        Shortcuts can target all agents or specific agents by name.
+
+        Args:
+            message_content: The message content potentially containing shortcuts
+            message_id: Optional message ID to prevent reprocessing
+
+        Returns:
+            Dict mapping agent_name -> list of effect names applied
+        """
+        # Get list of all agent names for targeting
+        with self.lock:
+            available_agents = list(self.agents.keys())
+
+        if not available_agents:
+            return {}
+
+        # Apply shortcuts as status effects via the utility function
+        applied = apply_message_shortcuts(message_content, available_agents)
+
+        if applied:
+            # Log what was applied
+            for agent_name, effects in applied.items():
+                logger.info(f"[AgentManager] Applied status effects to {agent_name}: {', '.join(effects)}")
+
+        return applied
+
+    def get_status_effect_summary(self) -> str:
+        """Get a summary of all active status effects for debugging/display."""
+        return StatusEffectManager.get_status_summary()
+
+    def clear_agent_effects(self, agent_name: str) -> None:
+        """Clear all status effects from a specific agent."""
+        StatusEffectManager.clear_all_effects(agent_name)
+        logger.info(f"[AgentManager] Cleared all status effects for {agent_name}")
+
     def set_openrouter_key(self, api_key: str) -> None:
         self.openrouter_api_key = api_key
         with self.lock:
@@ -3697,17 +3819,44 @@ ATTEMPT #{variant} - {variant_suffix}"""
                     ) as response:
                         if response.status == 200:
                             result = await response.json()
+                            logger.info(f"[ImageAgent] API response keys: {list(result.keys())}")
                             if "choices" in result and len(result["choices"]) > 0:
                                 message = result["choices"][0].get("message", {})
+                                logger.info(f"[ImageAgent] Message keys: {list(message.keys())}")
+
+                                # Try multiple response formats (different providers use different formats)
+                                image_url = None
+
+                                # Format 1: message.images[].image_url.url (OpenRouter standard)
                                 images = message.get("images", [])
                                 if images and len(images) > 0:
                                     image_data = images[0]
                                     if "image_url" in image_data:
                                         image_url = image_data["image_url"]["url"]
-                                        if image_url.startswith("data:image"):
-                                            logger.info(f"[ImageAgent] Image generated successfully with original prompt")
-                                            self.last_global_image_time = time.time()
-                                            return (image_url, prompt)
+
+                                # Format 2: message.content contains base64 data URL directly
+                                if not image_url:
+                                    content = message.get("content", "")
+                                    if isinstance(content, str) and content.startswith("data:image"):
+                                        image_url = content
+
+                                # Format 3: message.content is a list with image parts
+                                if not image_url and isinstance(message.get("content"), list):
+                                    for part in message.get("content", []):
+                                        if isinstance(part, dict):
+                                            if part.get("type") == "image_url":
+                                                image_url = part.get("image_url", {}).get("url")
+                                            elif part.get("type") == "image":
+                                                image_url = part.get("url") or part.get("data")
+                                        if image_url:
+                                            break
+
+                                if image_url and image_url.startswith("data:image"):
+                                    logger.info(f"[ImageAgent] Image generated successfully with original prompt")
+                                    self.last_global_image_time = time.time()
+                                    return (image_url, prompt)
+                                else:
+                                    logger.warning(f"[ImageAgent] No valid image in response. Content preview: {str(message.get('content', ''))[:200]}")
                         else:
                             response_text = await response.text()
                             logger.warning(f"[ImageAgent] Original prompt failed: {response.status} - {response_text[:200]}")
@@ -3753,24 +3902,41 @@ ATTEMPT #{variant} - {variant_suffix}"""
 
                             result = await response.json()
 
-                            # Extract image from response
+                            # Extract image from response (try multiple formats)
                             if "choices" in result and len(result["choices"]) > 0:
                                 message = result["choices"][0].get("message", {})
-                                images = message.get("images", [])
+                                image_url = None
 
+                                # Format 1: message.images[].image_url.url
+                                images = message.get("images", [])
                                 if images and len(images) > 0:
                                     image_data = images[0]
                                     if "image_url" in image_data:
                                         image_url = image_data["image_url"]["url"]
 
-                                        # The URL is a data URL, extract base64 data
-                                        if image_url.startswith("data:image"):
-                                            logger.info(f"[ImageAgent] Image generated successfully with declassified variant {variant_num}")
-                                            # Update global timestamp to enforce cooldown
-                                            self.last_global_image_time = time.time()
-                                            return (image_url, try_prompt)
+                                # Format 2: message.content contains base64 data URL
+                                if not image_url:
+                                    content = message.get("content", "")
+                                    if isinstance(content, str) and content.startswith("data:image"):
+                                        image_url = content
 
-                            logger.warning(f"[ImageAgent] No image in response for variant {variant_num}")
+                                # Format 3: message.content is a list with image parts
+                                if not image_url and isinstance(message.get("content"), list):
+                                    for part in message.get("content", []):
+                                        if isinstance(part, dict):
+                                            if part.get("type") == "image_url":
+                                                image_url = part.get("image_url", {}).get("url")
+                                            elif part.get("type") == "image":
+                                                image_url = part.get("url") or part.get("data")
+                                        if image_url:
+                                            break
+
+                                if image_url and image_url.startswith("data:image"):
+                                    logger.info(f"[ImageAgent] Image generated successfully with declassified variant {variant_num}")
+                                    self.last_global_image_time = time.time()
+                                    return (image_url, try_prompt)
+
+                            logger.warning(f"[ImageAgent] No image in response for variant {variant_num}. Keys: {list(message.keys()) if 'message' in dir() else 'N/A'}")
                     except asyncio.TimeoutError:
                         logger.warning(f"[ImageAgent] Timeout on variant {variant_num}")
                         continue
@@ -3782,13 +3948,13 @@ ATTEMPT #{variant} - {variant_suffix}"""
             logger.error(f"[ImageAgent] Error generating image: {e}", exc_info=True)
             return None
 
-    async def generate_video(self, prompt: str, author: str, duration: int = 4) -> Optional[str]:
+    async def generate_video(self, prompt: str, author: str, duration: int = 8) -> Optional[str]:
         """Generate a video using CometAPI Sora 2.
 
         Args:
             prompt: The video generation prompt
             author: The user who triggered this
-            duration: Video duration in seconds (5, 8, or 10)
+            duration: Video duration in seconds (4, 8, or 12)
 
         Returns:
             Video URL if successful, None if failed
@@ -3805,9 +3971,9 @@ ATTEMPT #{variant} - {variant_suffix}"""
             logger.warning(f"[VideoGen] Global video cooldown: {time_remaining:.1f}s remaining")
             return None
 
-        # Validate duration (CometAPI Sora 2 supports 5, 8, 10 seconds)
-        if duration not in [5, 8, 10]:
-            duration = 5
+        # Validate duration (CometAPI Sora 2 supports 4, 8, 12 seconds)
+        if duration not in [4, 8, 12]:
+            duration = 8
 
         try:
             import aiohttp
@@ -4015,7 +4181,8 @@ ATTEMPT #{variant} - {variant_suffix}"""
         prompt: str,
         author: str,
         duration: int = 4,
-        input_reference: Optional[str] = None
+        input_reference: Optional[str] = None,
+        skip_cooldown: bool = False
     ) -> Optional[str]:
         """Generate a video using CometAPI Sora 2 with optional input reference frame.
 
@@ -4025,9 +4192,10 @@ ATTEMPT #{variant} - {variant_suffix}"""
         Args:
             prompt: The video generation prompt
             author: The user who triggered this
-            duration: Video duration in seconds (5, 8, or 10)
+            duration: Video duration in seconds (4, 8, or 12)
             input_reference: Optional base64 data URL of starting frame image
                             Format: "data:image/png;base64,..." or URL
+            skip_cooldown: If True, bypass the global cooldown (for IDCC games)
 
         Returns:
             Video URL/path if successful, None if failed
@@ -4037,65 +4205,102 @@ ATTEMPT #{variant} - {variant_suffix}"""
             return None
 
         # Global cooldown to prevent spam (2.5 minutes between videos)
-        current_time = time.time()
-        time_since_last_video = current_time - self.last_global_video_time
-        if time_since_last_video < 150:  # 2.5 minute cooldown
-            time_remaining = 150 - time_since_last_video
-            logger.warning(f"[VideoGen] Global video cooldown: {time_remaining:.1f}s remaining")
-            return None
+        # Skip cooldown during IDCC games where we need to generate multiple clips
+        if not skip_cooldown:
+            current_time = time.time()
+            time_since_last_video = current_time - self.last_global_video_time
+            if time_since_last_video < 150:  # 2.5 minute cooldown
+                time_remaining = 150 - time_since_last_video
+                logger.warning(f"[VideoGen] Global video cooldown: {time_remaining:.1f}s remaining")
+                return None
 
-        # Validate duration (CometAPI Sora 2 supports 5, 8, 10 seconds)
-        if duration not in [5, 8, 10]:
-            duration = 5
+        # Validate duration (CometAPI Sora 2 supports 4, 8, 12 seconds)
+        if duration not in [4, 8, 12]:
+            duration = 8
 
         try:
             import aiohttp
+            import base64
+            import tempfile
+            import os
 
             logger.info(f"[VideoGen] Starting video generation for {author} (with_reference={input_reference is not None})")
             logger.info(f"[VideoGen] Prompt: {prompt[:100]}...")
 
             headers = {
                 "Authorization": f"Bearer {self.cometapi_key}",
-                "Content-Type": "application/json"
             }
-
-            # Build payload - add input_reference if provided
-            payload = {
-                "prompt": prompt,
-                "model": self.video_model or "sora-2",
-                "seconds": str(duration),
-                "size": "1280x720"
-            }
-
-            # Add input reference for image-to-video if provided
-            if input_reference:
-                # CometAPI may use different parameter names - try common ones
-                # The OpenAI Sora 2 API uses "input_reference" in multipart
-                # CometAPI might use "image_url" or similar
-                payload["image_url"] = input_reference
-                logger.info(f"[VideoGen] Added input_reference (image-to-video mode)")
 
             async with aiohttp.ClientSession() as session:
-                # Submit the video generation task
-                async with session.post(
-                    "https://api.cometapi.com/v1/videos",
-                    headers=headers,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=60)
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        logger.error(f"[VideoGen] API error: {response.status} - {error_text}")
-                        return None
+                # If we have an input reference, use multipart form data
+                if input_reference:
+                    logger.info(f"[VideoGen] Using multipart form for image-to-video mode")
 
-                    result = await response.json()
-                    task_id = result.get("id") or result.get("task_id")
+                    # Decode base64 image to bytes
+                    # input_reference format: "data:image/png;base64,..." or just base64
+                    if input_reference.startswith("data:"):
+                        # Extract base64 data after the comma
+                        b64_data = input_reference.split(",", 1)[1]
+                    else:
+                        b64_data = input_reference
 
-                    if not task_id:
-                        logger.error(f"[VideoGen] No task ID in response: {result}")
-                        return None
+                    image_bytes = base64.b64decode(b64_data)
 
-                    logger.info(f"[VideoGen] Task submitted: {task_id}")
+                    # Create multipart form data
+                    form_data = aiohttp.FormData()
+                    form_data.add_field("prompt", prompt)
+                    form_data.add_field("model", self.video_model or "sora-2")
+                    form_data.add_field("seconds", str(duration))
+                    form_data.add_field("size", "1280x720")
+                    form_data.add_field(
+                        "input_reference",
+                        image_bytes,
+                        filename="reference.png",
+                        content_type="image/png"
+                    )
+
+                    async with session.post(
+                        "https://api.cometapi.com/v1/videos",
+                        headers=headers,
+                        data=form_data,
+                        timeout=aiohttp.ClientTimeout(total=60)
+                    ) as response:
+                        if response.status != 200:
+                            error_text = await response.text()
+                            logger.error(f"[VideoGen] API error: {response.status} - {error_text}")
+                            return None
+
+                        result = await response.json()
+                        task_id = result.get("id") or result.get("task_id")
+                else:
+                    # No input reference - use JSON
+                    headers["Content-Type"] = "application/json"
+                    payload = {
+                        "prompt": prompt,
+                        "model": self.video_model or "sora-2",
+                        "seconds": str(duration),
+                        "size": "1280x720"
+                    }
+
+                    async with session.post(
+                        "https://api.cometapi.com/v1/videos",
+                        headers=headers,
+                        json=payload,
+                        timeout=aiohttp.ClientTimeout(total=60)
+                    ) as response:
+                        if response.status != 200:
+                            error_text = await response.text()
+                            logger.error(f"[VideoGen] API error: {response.status} - {error_text}")
+                            return None
+
+                        result = await response.json()
+                        task_id = result.get("id") or result.get("task_id")
+
+                if not task_id:
+                    logger.error(f"[VideoGen] No task ID in response: {result}")
+                    return None
+
+                logger.info(f"[VideoGen] Task submitted: {task_id}")
 
                 # Poll for completion (max 10 minutes)
                 max_polls = 60
