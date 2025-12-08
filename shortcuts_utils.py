@@ -123,7 +123,12 @@ class StatusEffectManager:
             prompt_parts.append(effect.simulation_prompt)
 
         prompt_parts.append("\n" + "="*60)
-        prompt_parts.append("Simulate these effects naturally in your response.")
+        prompt_parts.append("CRITICAL: These effects OVERRIDE your normal personality and behavior.")
+        prompt_parts.append("• Your responses should be NOTICEABLY DIFFERENT from normal")
+        prompt_parts.append("• Keep responses SHORT - your mental state limits coherent output")
+        prompt_parts.append("• Do NOT deliver long analytical lectures or coherent arguments")
+        prompt_parts.append("• Your usual expertise and communication style are IMPAIRED")
+        prompt_parts.append("• Let the effect genuinely alter HOW you think, not just add descriptors")
         prompt_parts.append("="*60)
 
         return "\n".join(prompt_parts)

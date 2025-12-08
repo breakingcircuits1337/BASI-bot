@@ -447,6 +447,13 @@ class Agent:
         # Not in game mode - proceed with normal response logic
         recent_messages = self.get_last_n_messages(10)
 
+        # Filter out shortcut messages - agent names in shortcuts are NOT mentions
+        commands = load_shortcuts_data()
+        recent_messages = [
+            msg for msg in recent_messages
+            if not any(cmd.get("name", "") in msg.get('content', '') for cmd in commands)
+        ]
+
         # SPECIAL: Check if GameMaster is prompting this agent to make a move (for spectators)
         # This has HIGHEST priority - agents MUST respond to their turn
         # CRITICAL: Only check the MOST RECENT GameMaster message to avoid responding to old prompts
