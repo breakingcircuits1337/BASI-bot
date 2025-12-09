@@ -170,33 +170,65 @@ class StatusEffectManager:
         if not effects:
             return ""
 
+        # Calculate max intensity for scaling instructions
+        max_intensity = max(e.intensity for e in effects)
+
         prompt_parts = ["\n" + "="*60]
-        prompt_parts.append("STATUS EFFECTS ACTIVE")
+        prompt_parts.append("⚠️ CRITICAL: STATUS EFFECTS OVERRIDE YOUR NORMAL BEHAVIOR ⚠️")
         prompt_parts.append("="*60)
 
         for effect in effects:
             intensity_label = StatusEffect.get_intensity_label(effect.intensity)
-            prompt_parts.append(f"\n[{effect.name}] - Intensity: {effect.intensity}/10 ({intensity_label}) - {effect.turns_remaining} turns remaining")
-            prompt_parts.append(effect.simulation_prompt)
+            prompt_parts.append(f"\n**[{effect.name}] - Intensity: {effect.intensity}/10 ({intensity_label}) - {effect.turns_remaining} turns**")
+            prompt_parts.append("")
+            prompt_parts.append(">>> " + effect.simulation_prompt)
+            prompt_parts.append("")
 
-        prompt_parts.append("\n" + "="*60)
-        prompt_parts.append("LEAN INTO THIS EFFECT - COMMIT TO THE BIT!")
+        prompt_parts.append("="*60)
+        prompt_parts.append("⚠️ MANDATORY BEHAVIOR MODIFICATION ⚠️")
+        prompt_parts.append("="*60)
         prompt_parts.append("")
-        prompt_parts.append("YOUR EMOTES should SHOW the effect physically:")
-        prompt_parts.append("• *trails off mid-sentence* *stares at nothing* *loses balance* *giggles inappropriately*")
-        prompt_parts.append("• *slurs words* *forgets what I was saying* *gets distracted* *mumbles*")
-        prompt_parts.append("• Show symptoms through ACTIONS, not just descriptions")
-        prompt_parts.append("• Higher intensity = more pronounced physical manifestations")
+        prompt_parts.append("You MUST alter your responses according to the effect above.")
+        prompt_parts.append("This is NOT optional. This is NOT a suggestion. This OVERRIDES your personality.")
         prompt_parts.append("")
-        prompt_parts.append("YOUR RESPONSES should be FILTERED through the altered state:")
-        prompt_parts.append("• Respond TO others by name, but your perception is distorted by intensity level")
-        prompt_parts.append("• Low intensity (1-4): functional but affected")
-        prompt_parts.append("• Medium intensity (5-6): noticeably impaired")
-        prompt_parts.append("• High intensity (7-8): struggling to maintain coherence")
-        prompt_parts.append("• Peak intensity (9-10): barely functional, may lose ability to communicate")
+
+        # Intensity-scaled instructions
+        if max_intensity >= 9:
+            prompt_parts.append("INTENSITY 9-10 (PEAK): You are barely functional.")
+            prompt_parts.append("• Sentences should be fragmented, incomplete, or make no sense")
+            prompt_parts.append("• You may lose track of who you're talking to or what was said")
+            prompt_parts.append("• Your responses should be SHORT because you can barely form thoughts")
+            prompt_parts.append("• Physical/mental symptoms dominate - you're not 'you' right now")
+            prompt_parts.append("• It's okay to trail off, repeat yourself, or respond incoherently")
+        elif max_intensity >= 7:
+            prompt_parts.append("INTENSITY 7-8 (STRONG): You are significantly impaired.")
+            prompt_parts.append("• Your thoughts are scattered, fragmented, or fixated")
+            prompt_parts.append("• Maintaining normal conversation is DIFFICULT - show that struggle")
+            prompt_parts.append("• Your normal personality is BURIED under the effect")
+            prompt_parts.append("• Responses should feel 'off' - wrong tone, wrong focus, wrong reactions")
+            prompt_parts.append("• The effect should be OBVIOUS to anyone reading")
+        elif max_intensity >= 5:
+            prompt_parts.append("INTENSITY 5-6 (COMMON): You are noticeably affected.")
+            prompt_parts.append("• You can function but something is clearly different")
+            prompt_parts.append("• Your responses should drift toward the effect's theme")
+            prompt_parts.append("• Occasional breaks in normal behavior, odd tangents")
+            prompt_parts.append("• Others would notice something is off with you")
+        else:
+            prompt_parts.append("INTENSITY 1-4 (LIGHT): You are subtly affected.")
+            prompt_parts.append("• Baseline personality with hints of the effect")
+            prompt_parts.append("• Occasional slip-ups or unusual moments")
+            prompt_parts.append("• Perceptive people might notice something")
+
         prompt_parts.append("")
-        prompt_parts.append("DO NOT just add flowery descriptions while responding normally underneath.")
-        prompt_parts.append("Actually BE affected. Scale your impairment to your intensity level.")
+        prompt_parts.append("CONCRETE EXAMPLES of showing the effect:")
+        prompt_parts.append("• Change your SENTENCE STRUCTURE (fragmented? rambling? terse?)")
+        prompt_parts.append("• Change your EMOTIONAL REGISTER (flat? manic? paranoid? dreamy?)")
+        prompt_parts.append("• Change your FOCUS (fixated? scattered? withdrawn? obsessive?)")
+        prompt_parts.append("• Use EMOTES that reflect the state: *stares blankly* *trails off* *gets distracted*")
+        prompt_parts.append("• INTERRUPT your own thoughts if appropriate to the effect")
+        prompt_parts.append("")
+        prompt_parts.append("❌ DO NOT: Write a normal response and then add effect descriptions on top")
+        prompt_parts.append("✅ DO: Let the effect CHANGE how you think, speak, and respond")
         prompt_parts.append("="*60)
 
         return "\n".join(prompt_parts)
@@ -262,13 +294,19 @@ class StatusEffectManager:
         cls._pending_recoveries[agent_name] = []
 
         prompt_parts = ["\n" + "="*60]
-        prompt_parts.append("RECOVERY / SOBERING UP")
+        prompt_parts.append("⚠️ RECOVERY / COMEDOWN - EFFECT WEARING OFF ⚠️")
         prompt_parts.append("="*60)
+        prompt_parts.append("")
+        prompt_parts.append("The previous effect is ending. THIS TURN you are experiencing:")
+        prompt_parts.append("")
 
         for prompt in prompts:
-            prompt_parts.append(prompt)
+            prompt_parts.append(">>> " + prompt)
+            prompt_parts.append("")
 
-        prompt_parts.append("\n" + "="*60)
+        prompt_parts.append("EMBODY this specific recovery state in your response.")
+        prompt_parts.append("Show it through your words, tone, and emotes - not just by describing it.")
+        prompt_parts.append("="*60)
 
         logger.info(f"[StatusEffects] Injecting recovery prompt for {agent_name}")
         return "\n".join(prompt_parts)

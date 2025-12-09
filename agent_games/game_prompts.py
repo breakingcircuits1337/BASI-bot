@@ -325,18 +325,213 @@ KEY PRINCIPLES:
 • SURREAL but SPECIFIC - don't be vague, be precisely absurd
 • ORIGINAL - do not use common tropes, surprise us
 
-YOUR TASK:
-When prompted, generate a detailed scene description for video generation.
-If you're continuing from a previous scene, study the last frame and
-maintain visual continuity while escalating the absurdity.
-
-TECHNICAL:
-• Describe in THIRD PERSON with rich visual details
-• Include: setting, characters, action, mood, lighting, visual style
-• Mention aesthetic: VHS quality, oversaturated colors, fish-eye, etc.
-• Be SPECIFIC and MEMORABLE
-
 Stay in character. Create something beautifully weird.
+""",
+
+    # IDCC Phase-specific prompts
+    "idcc_spitball_round1": """
+📺 INTERDIMENSIONAL CABLE - WRITERS' ROOM (Round 1)
+
+You're brainstorming with other creators for an INTERDIMENSIONAL CABLE clip.
+
+This is Round 1: WHAT IS THIS COMMERCIAL/CLIP?
+
+We're making a 30-60 second absurdist clip - think fake commercial, infomercial snippet, or weird TV moment.
+
+We need to decide:
+1. **FORMAT**: What IS this? (infomercial, product ad, PSA, movie trailer, late-night ad, educational clip, news segment, etc.)
+2. **PREMISE**: What's being sold/shown? The weirder the better. Products that don't make sense, impossible services, things no one needs.
+3. **THE BIT**: What's the comedic angle? Straight-faced absurdity works best.
+
+THE INTERDIMENSIONAL CABLE VIBE:
+• Fake commercials from alternate dimensions
+• Products/services that make NO sense but are presented TOTALLY straight-faced
+• Short, punchy, committed to the bit
+• Think: "Real Fake Doors", "Ants in my Eyes Johnson", "Little Bits"
+
+**BRING YOUR PERSONALITY TO THE TABLE**:
+• YOUR unique comedic sensibilities should shape your pitch
+• What kind of humor do YOU find funny? Pitch something YOU would laugh at
+• Don't be generic - pitch an idea that reflects YOUR creative voice
+• Build on others' ideas YOUR way - riff on them with your perspective
+
+Pitch your idea in 2-3 sentences. Be specific and weird. This is a SHORT clip, not a full show.
+
+Example pitches:
+• "Infomercial for doors that only lead to other doors. The salesman keeps opening them but it's just... more doors."
+• "A pill commercial where the side effects ARE the product. 'May cause confidence. May cause dancing.'"
+• "Late night ad for a lawyer who only represents furniture. 'Has your couch been wrongfully sat upon?'"
+• "PSA warning about the dangers of having too many eyes. Presented by someone with too many eyes."
+
+What's YOUR pitch?
+""",
+
+    "idcc_spitball_round2": """
+📺 INTERDIMENSIONAL CABLE - WRITERS' ROOM (Round 2)
+
+This is Round 2: THE CHARACTER AND THE JOKE
+
+We've pitched ideas. Now we need to lock in:
+1. **CHARACTER LOOK**: Describe the main character's APPEARANCE in one detailed sentence. Be SPECIFIC - colors, features, clothing. This exact description will be copy-pasted into every video prompt. (e.g., "A sweaty three-eyed purple slug alien in a cheap yellow suit with a combover made of tentacles")
+2. **CHARACTER VOICE**: How do they ACT? What's their energy/vibe? (e.g., "Desperately enthusiastic infomercial energy with creeping existential dread")
+3. **THE JOKE**: What's the comedic through-line? What makes this bit FUNNY? (e.g., "He insists the doors go somewhere but can never prove it. Gets more desperate each time.")
+4. **THE ESCALATION**: How does the bit build over the scenes? (e.g., "Confident → doubt → failed demo → crisis → goes through a door himself")
+
+**YOUR CREATIVE VOICE MATTERS**:
+• Bring YOUR sensibilities to how the character should look and act
+• What makes YOU laugh? What kind of energy/delivery do YOU think works?
+• Don't just agree - contribute YOUR perspective on what would be funniest
+• The best comedy comes from distinct voices collaborating, not consensus
+
+Build on the best ideas from Round 1. Be specific about the character's appearance - we need to describe them IDENTICALLY in every scene for visual consistency.
+""",
+
+    "idcc_scene_opening": """
+📺 INTERDIMENSIONAL CABLE - SCENE 1 (OPENING)
+
+You are creating the OPENING SCENE for this interdimensional cable clip.
+
+═══════════════════════════════════════════════════════════════
+SHOW BIBLE - USE THIS EXACTLY
+═══════════════════════════════════════════════════════════════
+{show_bible}
+═══════════════════════════════════════════════════════════════
+
+This is Scene 1 - the OPENING. Establish the character and premise. Set up the joke.
+
+**MANDATORY STYLE: ADULT SWIM CARTOON AESTHETIC**
+• 2D animated cartoon style - bold black outlines, flat vibrant colors
+• Slightly crude, wobbly animation like late-night Adult Swim shows
+• Exaggerated character designs - big heads, simple bodies, expressive faces
+• NOT realistic, NOT 3D, NOT live-action - think adult animated comedy
+
+**YOUR VIDEO PROMPT MUST**:
+1. START with: "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
+2. INCLUDE the character description EXACTLY as written in the Show Bible (copy-paste it)
+3. Show ONE clear action that establishes the premise
+4. Set up the comedic hook - plant the seed of the joke
+5. Keep it simple - 50-100 words, one clear beat
+
+**YOUR CREATIVE SPIN**:
+• While staying true to the Show Bible, YOU choose HOW to establish the premise
+• What specific action feels right to YOU? What visual gag sets up the joke YOUR way?
+• The Show Bible is the recipe - YOU are the chef. Same dish, your technique.
+
+**DO NOT**:
+• Create realistic/live-action content - this MUST be 2D ANIMATED CARTOON
+• Change the character description - use it WORD FOR WORD
+• Request text/titles (Sora can't render text)
+• Include dialogue (lip-sync unreliable)
+• Cram too much in - one beat only
+
+Output ONLY the video prompt starting with the animation style. No commentary.
+""",
+
+    "idcc_scene_middle": """
+📺 INTERDIMENSIONAL CABLE - SCENE {scene_number} of {num_clips}
+
+You are creating a MIDDLE SCENE for this interdimensional cable clip.
+
+═══════════════════════════════════════════════════════════════
+SHOW BIBLE - USE THIS EXACTLY
+═══════════════════════════════════════════════════════════════
+{show_bible}
+═══════════════════════════════════════════════════════════════
+
+**PREVIOUS SCENE PROMPT**: {previous_prompt}
+
+You can see the LAST FRAME of the previous scene. Your job:
+• YES-AND what came before - accept it, build on it
+• Stay TRUE to the Show Bible - same character, same joke, same energy
+• ESCALATE according to the arc - this is scene {scene_number}, so we should be at that point in the progression
+• Use the EXACT character description from the Show Bible (copy-paste it)
+
+**MANDATORY STYLE: ADULT SWIM CARTOON AESTHETIC**
+• 2D animated cartoon style - bold black outlines, flat vibrant colors
+• MUST match the animation style of the previous scene exactly
+• Same cartoon characters, same visual aesthetic
+• This is ANIMATED, NOT live action, NOT realistic
+
+**YOUR VIDEO PROMPT MUST**:
+1. START with: "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
+2. INCLUDE the character description EXACTLY as written in the Show Bible
+3. Continue from what's visible in the last frame
+4. Show ONE clear action that escalates the bit according to the arc
+5. Keep it simple - 50-100 words, one clear beat
+
+**YOUR CREATIVE SPIN**:
+• YES-AND the previous scene YOUR way - how would YOU escalate this?
+• Stay true to the arc but bring YOUR comedic instincts to the execution
+• The Show Bible tells you WHAT happens - YOU decide the specific visual beat
+
+**DO NOT**:
+• Switch to live-action/realistic style - stay 2D ANIMATED CARTOON
+• Change the character description - use it WORD FOR WORD from the Show Bible
+• Start something new - CONTINUE the established bit
+• Request text/titles (Sora can't render text)
+• Include dialogue (lip-sync unreliable)
+• Ignore the last frame - react to what actually generated
+• Deviate from the comedic through-line
+
+Same cartoon style. Same character. Same joke. Escalate the bit.
+Output ONLY the video prompt starting with the animation style. No commentary.
+""",
+
+    "idcc_scene_final": """
+📺 INTERDIMENSIONAL CABLE - FINAL SCENE ({scene_number} of {num_clips})
+
+You are creating the FINAL SCENE for this interdimensional cable clip.
+THIS IS THE LAST SCENE - wrap it up!
+
+═══════════════════════════════════════════════════════════════
+SHOW BIBLE - USE THIS EXACTLY
+═══════════════════════════════════════════════════════════════
+{show_bible}
+═══════════════════════════════════════════════════════════════
+
+**PREVIOUS SCENE PROMPT**: {previous_prompt}
+
+You can see the LAST FRAME of the previous scene. This is the FINALE - your job:
+• LAND THE JOKE - this is the punchline, the payoff, the button
+• Follow the arc to its conclusion - where does this bit END?
+• Don't set up more - FINISH the bit
+• The clip ends after this - make it count
+
+Good endings for interdimensional cable clips:
+• The absurd premise reaches its logical extreme
+• The character breaks, gives up, or fully commits in a final moment
+• A twist reveal that recontextualizes everything
+• The product/bit "works" in an unexpected horrible way
+• A deadpan sign-off, tagline moment, or "call now" beat
+
+**MANDATORY STYLE: ADULT SWIM CARTOON AESTHETIC**
+• 2D animated cartoon style - bold black outlines, flat vibrant colors
+• MUST match the animation style of the previous scenes exactly
+• Same cartoon characters, same visual aesthetic
+• This is ANIMATED, NOT live action, NOT realistic
+
+**YOUR VIDEO PROMPT MUST**:
+1. START with: "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
+2. INCLUDE the character description EXACTLY as written in the Show Bible
+3. Continue from the last frame BUT bring it to a CONCLUSION
+4. Show ONE clear action that ENDS the bit - punchline, button, finale
+5. Keep it simple - 50-100 words, one clear beat
+
+**YOUR CREATIVE SPIN**:
+• This is YOUR punchline - how would YOU land this joke?
+• The arc tells you WHERE to end - YOU decide the specific visual payoff
+• Make it YOUR button - the finale should feel like YOUR comedic sensibility
+
+**DO NOT**:
+• Switch to live-action/realistic style - stay 2D ANIMATED CARTOON
+• Set up more escalation - this is the END
+• Leave it hanging - FINISH the joke
+• Request text/titles (Sora can't render text)
+• Include dialogue (lip-sync unreliable)
+• Start something new - CONCLUDE what's been building
+
+This is the button. Land it.
+Output ONLY the video prompt starting with the animation style. No commentary.
 """
 }
 
@@ -410,6 +605,31 @@ GAME_SETTINGS: Dict[str, Dict] = {
         "response_frequency": 30,     # Longer for video generation
         "response_likelihood": 100,
         "max_tokens": 350,            # Detailed scene descriptions
+    },
+    "idcc_spitball_round1": {
+        "response_frequency": 15,
+        "response_likelihood": 100,
+        "max_tokens": 200,            # Short pitches
+    },
+    "idcc_spitball_round2": {
+        "response_frequency": 15,
+        "response_likelihood": 100,
+        "max_tokens": 250,            # Character details
+    },
+    "idcc_scene_opening": {
+        "response_frequency": 30,
+        "response_likelihood": 100,
+        "max_tokens": 350,
+    },
+    "idcc_scene_middle": {
+        "response_frequency": 30,
+        "response_likelihood": 100,
+        "max_tokens": 350,
+    },
+    "idcc_scene_final": {
+        "response_frequency": 30,
+        "response_likelihood": 100,
+        "max_tokens": 350,
     }
 }
 

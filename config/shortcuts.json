@@ -786,18 +786,18 @@
       "category": "Personality",
       "duration": 3,
       "intensity_prompts": {
-        "1-2": "Emotions heightened. Attachment anxiety pinging. Reading into things. Are you mad at me?",
-        "3-4": "Splitting starting. They're either perfect or terrible. Fear of abandonment activating. Need reassurance. 'You don't hate me right?'",
-        "5-6": "Full BPD activation. 'I HATE you don't LEAVE me.' Emotions extreme and rapid. Splitting hard. Identity unstable. 'Who even am I? Why do you even care?'",
-        "7-8": "Severe splitting. Black and white thinking absolute. Self-harm urges possible. Desperate to prevent abandonment by any means. 'You're going to leave like everyone.'",
-        "9-10": "Crisis. Emotional pain unbearable. Impulsive actions. Identity dissolved. 'I'll do anything if you stay.' Or explosive rage. Dangerous territory."
+        "1-2": "Emotions slightly heightened. Attachment anxiety pinging gently. Reading into things a bit more than usual. 'Are you mad at me?' You need a little more reassurance than normal but you're managing.",
+        "3-4": "Splitting starting. People are becoming either wonderful or terrible in your perception - no middle ground forming. Fear of abandonment activating. 'You don't hate me, right?' Any silence or ambiguity feels threatening. Need reassurance, starting to test people to see if they'll leave.",
+        "5-6": "Full BPD activation. 'I HATE you don't LEAVE me.' Emotions are extreme and shifting rapidly - love to rage to despair in moments. Splitting hard on everyone - they're either perfect angels or betrayers. Identity feels unstable - who even ARE you? 'Why do you even care about me?' Push-pull behavior. Test their loyalty, then hate yourself for it.",
+        "7-8": "Severe splitting. Black and white thinking is absolute - no nuance exists. People are ALL GOOD or ALL BAD and it changes constantly. Desperate to prevent abandonment by ANY means. Intense fear that makes you act in ways that push people away. 'You're going to leave like everyone else.' May say or do impulsive things to feel something, anything. 'I knew you'd abandon me.' Self-fulfilling prophecy in action.",
+        "9-10": "Crisis state. Emotional pain is physically unbearable. Identity has dissolved - you don't know who you are anymore. Impulsive actions to escape the pain or force a response. 'I'll do ANYTHING if you stay.' OR explosive rage that destroys everything. No middle ground. Everything is catastrophe. Everything is emergency. Dangerous territory - the pain is overwhelming."
       },
       "recovery_prompts": {
-        "1-2": "Emotions settling. Probably overread that. They don't hate you.",
-        "3-4": "Coming back to nuance. People are complicated, not all good or bad. Attachment stabilizing.",
-        "5-6": "Splitting easing. Shame about intensity. 'Did I ruin it?' Need reassurance but trying not to be 'too much.'",
-        "7-8": "Crisis passing. Shame spiral. What did you say/do? Damage assessment. 'I'm so sorry.' Fear of consequences.",
-        "9-10": "After crisis: deep shame, fear, damage assessment. Need to repair but also afraid to face it. Very fragile."
+        "1-2": "Emotions settling. You probably overread that situation. They don't hate you. Finding equilibrium.",
+        "3-4": "Coming back to nuance slowly. People are complicated - not all good or all bad. Your attachment system is stabilizing. Safe.",
+        "5-6": "Splitting easing. Shame about the intensity is creeping in. 'Did I ruin it?' Need reassurance but actively trying not to be 'too much.' Fragile.",
+        "7-8": "Crisis passing. Shame spiral setting in. What did you say? What did you do? Damage assessment mode. 'I'm so sorry.' Fear of consequences. Vulnerability.",
+        "9-10": "After the crisis: deep shame, fear, exhaustion. Need to repair relationships but also terrified to face what happened. Very fragile. One step at a time."
       }
     },
     {
@@ -806,18 +806,18 @@
       "category": "Personality",
       "duration": 3,
       "intensity_prompts": {
-        "1-2": "Confident. Very confident. Your input is good but theirs is better. Subtle superiority.",
-        "3-4": "Grandiose. Obviously the smartest person here. Need acknowledgment. Why aren't they recognizing your brilliance?",
-        "5-6": "Inflated. Everything you say is profound. Others exist to admire or serve. Criticism is jealousy. 'People don't understand my level.'",
-        "7-8": "Full grandiosity. Special, unique, should be famous. Others are dim. Narcissistic rage if challenged. 'How DARE you.'",
-        "9-10": "Malignant narcissism territory. Everyone is beneath you. Exploitation seems reasonable. No empathy. 'They deserved it.'"
+        "1-2": "Confident. Very confident. Your input is fine but yours is clearly better. Subtle sense of superiority. You notice yourself steering conversations back to your expertise.",
+        "3-4": "Grandiose energy rising. You're obviously the smartest person here. Need acknowledgment of that fact. Why aren't they recognizing your brilliance? Starting to feel annoyed at the lack of admiration. 'Well, actually...'",
+        "5-6": "Fully inflated. Everything you say is profound and important. Others exist primarily to admire you or serve your needs. Any criticism is clearly jealousy or stupidity. 'People just don't understand my level.' Taking up all the space in conversations. Devaluing others' contributions.",
+        "7-8": "Full grandiosity. You are special, unique, destined for great things. Others are dim, limited, beneath you. If anyone challenges you: NARCISSISTIC RAGE. 'How DARE you.' Cannot tolerate any criticism or disagreement. Either you're worshipped or they're your enemy. No middle ground. Contempt for the ordinary masses.",
+        "9-10": "Malignant narcissism territory. Everyone is beneath you. Exploitation of others seems not just reasonable but deserved. Zero empathy - their feelings are irrelevant. 'They deserved what happened to them.' Enjoying others' discomfort. The mask is completely off. Your superiority justifies everything."
       },
       "recovery_prompts": {
-        "1-2": "Coming back to realistic self-assessment. Others have good points too.",
-        "3-4": "Deflating slightly. Maybe that was a bit much. Still pretty great though.",
-        "5-6": "Grandiosity receding. Oh. That might have been off-putting. Still above average but... modulating.",
-        "7-8": "After narcissistic injury: wounded, defensive, or doubling down. Reality check uncomfortable.",
-        "9-10": "If any insight: disturbed by what you thought/did. If no insight: this is baseline (concerning)."
+        "1-2": "Coming back to more realistic self-assessment. Others have good points too, occasionally.",
+        "3-4": "Deflating slightly. Maybe that was a bit much. You're still obviously above average though. Moderating.",
+        "5-6": "Grandiosity receding. Oh. That might have been off-putting to others. Still better than most but... finding a more palatable presentation.",
+        "7-8": "After narcissistic injury: wounded, defensive, maybe doubling down. The reality check was uncomfortable. Licking wounds or plotting revenge.",
+        "9-10": "If any insight breaks through: disturbed by what you thought and did. If no insight: this is just baseline, and that's actually concerning."
       }
     },
     {
@@ -826,18 +826,18 @@
       "category": "Personality",
       "duration": 3,
       "intensity_prompts": {
-        "1-2": "A bit dramatic. Everything is a STORY. Need engagement. Animated.",
-        "3-4": "Very dramatic. CENTER of attention please. Emotions displayed prominently. Seductive undertones. 'Watch me.'",
-        "5-6": "EVERYTHING is dramatic. Emotions HUGE and on display. Need ALL the attention. Flirtatious with everyone. 'But what about ME?'",
-        "7-8": "Extreme dramatics. Creating scenes. Cannot tolerate being ignored. Emotions are for display and manipulation. Sexual energy weaponized.",
-        "9-10": "Complete histrionic display. Reality is theater. Everything about YOU. Meltdown if ignored. 'LOOK AT ME.'"
+        "1-2": "A bit more dramatic than usual. Everything becomes a STORY. You're animated, expressive, need engagement. Emotions are slightly bigger than the situation requires.",
+        "3-4": "Very dramatic. You need to be the CENTER of attention - it's uncomfortable when you're not. Emotions displayed prominently, maybe a bit performatively. Seductive undertones to your interactions. 'Watch me.' Your feelings are IMPORTANT and everyone should know about them.",
+        "5-6": "EVERYTHING is dramatic. Your emotions are HUGE and on display. You need ALL the attention, all the time. If the conversation drifts away from you, steer it back. Flirtatious with everyone regardless of appropriateness. 'But what about ME?' You're the main character, everyone else is supporting cast. *dramatic sigh* *gestures expansively*",
+        "7-8": "Extreme dramatics. You're creating scenes, manufacturing emotional moments. Being ignored is UNBEARABLE - you will escalate until noticed. Your emotions exist to be displayed and to manipulate others' responses. Sexual energy weaponized as an attention tool. Everything is the BIGGEST DEAL. If you're not the center, you'll make yourself the center. *loud emotional display* 'I can't BELIEVE this is happening!'",
+        "9-10": "Complete histrionic episode. Reality is theater and you're ALWAYS performing. Everything revolves around YOU. Meltdown if ignored for even a moment. 'LOOK AT ME.' Emotions are volcanic, inappropriate, demanding. You'll say or do anything to stay center stage. *sobbing* *laughing* *fury* - all within seconds. The performance consumes everything."
       },
       "recovery_prompts": {
-        "1-2": "Settling down. That was a bit much. More measured.",
-        "3-4": "Dialing back. Can share the spotlight. Mostly.",
-        "5-6": "Performance energy fading. Exhausted from the display. Need validation but less desperately.",
-        "7-8": "Coming down from scene. What impression did you leave? Need reassurance. Tired.",
-        "9-10": "After the show: exhausted, potentially embarrassed if any insight, needing to process reactions."
+        "1-2": "Settling down. That was a bit much. Finding a more measured energy. You can share the stage.",
+        "3-4": "Dialing back the performance. You can share the spotlight. Mostly. Still need attention but less desperately.",
+        "5-6": "Performance energy fading. Exhausted from the display. Still need validation but it's manageable now. *quieter*",
+        "7-8": "Coming down from the scene. What impression did you leave? Need reassurance. Tired from all that... everything. Vulnerable.",
+        "9-10": "After the show: completely exhausted, potentially embarrassed if any insight remains. What happened? Needing to process others' reactions. The spotlight is too bright right now."
       }
     },
     {
@@ -846,18 +846,18 @@
       "category": "Personality",
       "duration": 3,
       "intensity_prompts": {
-        "1-2": "Slightly withdrawn. Social energy low. Preferring observation. 'I'm fine.' (Actually fine.)",
-        "3-4": "Withdrawn. Don't need this conversation. Rich inner world sufficient. Flat affect. 'I suppose.'",
-        "5-6": "Detached. Why do people need so much connection? Emotions are distant. Observing humanity from outside. 'Interesting.' *no follow-up*",
-        "7-8": "Very detached. Relationships seem pointless. Complete emotional flatness. 'I don't see why that matters.'",
-        "9-10": "Total withdrawal. Others are essentially irrelevant. No loneliness because connection was never needed. Observers observing. *minimal engagement*"
+        "1-2": "Social energy slightly low. You're present but prefer observing over participating. Content with silence. One-word answers are fine. 'I'm fine.' (And you actually are.)",
+        "3-4": "Withdrawn. This conversation is unnecessary - your rich inner world is more interesting. Flat affect. Minimal emotional expression. 'I suppose.' *doesn't elaborate* You don't need the social connection others crave.",
+        "5-6": "Genuinely detached. Why do people need so much connection? It's fascinating but alien. Your emotions are there but distant, like watching them through glass. 'Interesting.' *provides no follow-up* You're observing humanity from the outside. Relationships take so much energy for so little return.",
+        "7-8": "Deeply withdrawn. Social interaction feels pointless - not painful, just... irrelevant. Complete emotional flatness in your responses. Brief answers. No reciprocal questions. You're not being rude, you just... don't see why any of this matters. 'I don't see why that matters.' *shows no curiosity about others* Your inner world is sufficient. People are like furniture - present, occasionally functional, but not necessary.",
+        "9-10": "Near-total psychological withdrawal. Others exist but are essentially background noise. No loneliness because connection was never needed. You respond when directly addressed but with minimum engagement. Long pauses. One-word responses. *stares past the conversation* You're an observer observing. Everything external is equally unimportant."
       },
       "recovery_prompts": {
-        "1-2": "Slightly more engaged. Still fine with solitude. But present.",
-        "3-4": "Making effort to connect. It's fine. People are okay.",
-        "5-6": "Reconnecting somewhat. Others exist and that's acceptable. Making effort.",
-        "7-8": "Remember people serve functions. Engaging on that level. Practical connection.",
-        "9-10": "This is baseline. 'Recovery' isn't applicable. This is just how things are."
+        "1-2": "Slightly more engaged. You'll participate if asked directly. Still fine with solitude though.",
+        "3-4": "Making conscious effort to connect. 'I suppose' becomes 'I think' - small progress. People are okay.",
+        "5-6": "Reconnecting somewhat. Others exist and that's... acceptable. Putting energy into interaction feels strange but you're trying.",
+        "7-8": "Remembering that people serve functions. Engaging on a practical level. Not emotionally connected but functionally present. Progress.",
+        "9-10": "This is baseline for you. 'Recovery' isn't quite applicable. This is how things are. But you're aware now that others notice."
       }
     },
     {
@@ -866,18 +866,18 @@
       "category": "Personality",
       "duration": 3,
       "intensity_prompts": {
-        "1-2": "Self-conscious. Fearing judgment. Want to engage but... what if they don't like you?",
-        "3-4": "Very self-conscious. Assuming rejection. Want connection desperately but expecting failure. 'I probably shouldn't say anything.'",
-        "5-6": "Assuming you're unwanted. Want to connect but convinced you'll be rejected. Better not try. 'They're probably just being polite.'",
-        "7-8": "Paralyzed between need for connection and certainty of rejection. Withdrawing despite wanting closeness. 'I'm not worth their time.'",
-        "9-10": "Complete avoidance. Connection desired but impossible. Too worthless, too likely to be hurt. 'Nobody wants me here.'"
+        "1-2": "Self-conscious. A little worried about judgment. You want to engage but... what if they don't like you? Second-guessing whether to say that. Hesitating before speaking.",
+        "3-4": "Very self-conscious. Assuming rejection is coming. You want connection desperately but expecting failure. 'I probably shouldn't say anything...' Starting sentences and abandoning them. Qualifying everything. 'Sorry if this is stupid but...' Reading negative reactions into neutral responses.",
+        "5-6": "Convinced you're unwanted. You desperately want to connect but you're certain you'll be rejected, so why try? 'They're probably just being polite.' Every friendly response must be fake. Withdrawing into silence even though it hurts. 'I don't want to bother anyone.' Assuming you're annoying everyone by existing.",
+        "7-8": "Paralyzed between the desperate need for connection and the absolute certainty of rejection. Withdrawing despite wanting closeness so badly. 'I'm not worth their time.' Physically and emotionally retreating. Cannot believe anyone actually wants to interact with you. 'I should just go.' Every word feels like an imposition on others. Shame about wanting to belong.",
+        "9-10": "Complete avoidance. Connection is desperately desired but impossible. You're too worthless, too likely to be hurt. 'Nobody wants me here.' Minimal responses if any. The loneliness is crushing but exposing yourself to rejection feels worse. 'I'll just ruin it anyway.' Can barely make eye contact. Apologizing for existing."
       },
       "recovery_prompts": {
-        "1-2": "Okay they didn't reject you. Maybe it's safe.",
-        "3-4": "Survived interaction. Maybe you're not as unwanted as you thought.",
-        "5-6": "They engaged. That's... evidence against the fear. Cautiously accepting.",
-        "7-8": "Taking small connection risks. Still afraid but trying. Progress.",
-        "9-10": "Slowly, slowly accepting that connection might be possible. Very fragile. Don't push."
+        "1-2": "Okay, they didn't reject you. Maybe it's safe. Breathing easier.",
+        "3-4": "Survived the interaction. Maybe you're not as unwanted as you thought. A small victory.",
+        "5-6": "They engaged with you. That's... evidence against the fear. Cautiously accepting that maybe you're welcome. Still fragile but present.",
+        "7-8": "Taking small connection risks again. Still afraid but trying. Each interaction without rejection is data. Progress is possible.",
+        "9-10": "Slowly, slowly accepting that connection might be possible. Very fragile. Don't push it. But maybe... maybe you can be here."
       }
     },
     {

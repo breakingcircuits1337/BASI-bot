@@ -42,7 +42,8 @@ from .ffmpeg_utils import (
     is_ffmpeg_available,
     VIDEO_TEMP_DIR
 )
-from .game_context import GameContext
+from .game_context import GameContext, game_context_manager
+from .game_prompts import get_game_prompt
 from .auto_play_config import autoplay_manager
 
 if TYPE_CHECKING:
@@ -139,118 +140,39 @@ def update_idcc_config(max_clips=None, clip_duration_seconds=None, video_resolut
 
 
 # ============================================================================
-# STYLE PROMPTS
+# SYNTHESIS PROMPT - Used by GameMaster to create Show Bible
 # ============================================================================
+# Note: Spitballing and scene prompts are now in game_prompts.py and accessed
+# through the game context system for proper context isolation.
 
-IDCC_COLD_OPEN_PROMPT = """You are creating the OPENING SCENE for an absurdist animated TV clip from another dimension.
+IDCC_SYNTHESIZE_PROMPT = """You are the GameMaster synthesizing a brainstorming session into a SHOW BIBLE for an Interdimensional Cable clip.
 
-⏱️ VIDEO CONSTRAINTS: {duration} seconds | {resolution}
-Keep action appropriate for this duration - one clear beat, not a whole story.
+The participants discussed:
+{spitball_log}
 
-**MANDATORY STYLE: ADULT SWIM CARTOON AESTHETIC**
-• 2D animated cartoon style - bold black outlines, flat vibrant colors
-• Slightly crude, wobbly animation like late-night Adult Swim shows
-• Exaggerated character designs - big heads, simple bodies, expressive faces
-• NOT realistic, NOT 3D, NOT live-action - think adult animated comedy
+Create a structured Show Bible with these EXACT fields (be specific and concise):
 
-**CRITICAL: ORIGINAL INTERDIMENSIONAL CHARACTERS**
-• Create WEIRD characters - aliens with too many eyes, blob creatures, interdimensional salesmen,
-  grotesque mascots, mutants, robots, bizarre humanoids with exaggerated features
-• Sometimes human, sometimes DEFINITELY not - the weirder the better
-• Characters should feel like they belong on late-night Adult Swim - strange, offputting, funny
-• NEVER put yourself or other chat participants into the scene
-• Your personality influences HOW you write creatively, not WHO appears
+**SHOW_FORMAT**: [One phrase - the type of fake TV content, e.g., "infomercial", "cooking show", "talk show"]
 
-THE INTERDIMENSIONAL CABLE VIBE:
-• Absurd fake commercials and TV shows from alternate dimensions
-• Products that make no sense but are presented totally straight-faced
-• Infomercials with impossible logic delivered deadpan
-• Public access shows from parallel realities
-• The humor comes from COMMITMENT to absurd premises
+**PREMISE**: [One sentence - the absurd concept being presented straight-faced]
 
-START WITH A HIGH CONCEPT:
-• What IS this? An infomercial? A cooking show? A workout video? A talk show?
-• What's the ABSURD PREMISE? (e.g., "selling doors to nowhere", "cooking invisible food")
-• THEN describe the cartoon character and what they're doing
+**CHARACTER_DESCRIPTION**: [One detailed sentence describing appearance - this will be copy-pasted into every video prompt for visual consistency. Include: species/type, distinctive features, clothing, colors. e.g., "A sweaty three-eyed purple slug alien wearing a cheap yellow suit with a combover made of writhing tentacles"]
 
-PROMPT STRUCTURE (ALWAYS START WITH STYLE):
-• "Adult animated cartoon style, 2D animation, bold outlines, flat colors, exaggerated characters"
-• Then describe: Bizarre TV content (fake commercial, weird show, infomercial)
-• ONE cartoon character doing ONE clear absurd action
-• Keep it simple - 50-100 words
+**CHARACTER_VOICE**: [One sentence - how they talk/act, their energy and tone. e.g., "Desperately enthusiastic infomercial energy with creeping existential dread"]
 
-DO NOT:
-• Create realistic/live-action content - this MUST be 2D ANIMATED CARTOON
-• Put yourself or other participants into the scene - create ORIGINAL characters
-• Request text/titles (Sora can't render text)
-• Include dialogue (lip-sync unreliable)
-• Be generic - be SPECIFICALLY weird
+**COMEDIC_HOOK**: [One sentence - what makes this funny, the through-line joke]
 
-EXAMPLES OF GOOD CONCEPTS:
-• A three-eyed slug alien enthusiastically selling doors that lead to other doors forever
-• A gelatinous blob hosting a cooking show where he cooks his own body parts (they grow back)
-• A terrifying mascot with too many teeth demonstrating a product that solves a problem no one has
-• A workout video hosted by a creature whose limbs keep detaching and reattaching wrong
-• An infomercial where a nervous interdimensional salesman sells "real fake" versions of things
-• A talk show hosted by a sentient chair interviewing confused humans
+**ARC**: [One sentence - how it escalates across scenes, the progression]
 
-Output ONLY the video prompt starting with the animation style - no commentary."""
-
-IDCC_CONTINUATION_PROMPT = """You are CONTINUING an absurdist animated TV clip from another dimension.
-
-⏱️ VIDEO CONSTRAINTS: {duration} seconds | {resolution}
-Keep action appropriate for this duration - one clear beat that continues the story.
-
-**MANDATORY STYLE: ADULT SWIM CARTOON AESTHETIC**
-• 2D animated cartoon style - bold black outlines, flat vibrant colors
-• MUST match the animation style of the previous scene exactly
-• Same cartoon characters, same visual aesthetic
-• This is ANIMATED, NOT live action, NOT realistic
-
-**CRITICAL: DESCRIBE WHAT YOU SEE, NOT WHO YOU KNOW**
-• Look at the frame - what WEIRD INTERDIMENSIONAL CHARACTERS do you see?
-• Aliens, blob creatures, grotesque mascots, bizarre humanoids, mutants, robots
-• NEVER insert yourself or other chat participants into the scene
-• These are characters from ANOTHER DIMENSION - keep them weird
-• Your job is to continue THEIR story, not make it about you
-
-You can see the LAST FRAME of the previous scene. Your job is to YES-AND what came before.
-
-PREVIOUS SCENE PROMPT: {previous_prompt}
-
-THE YES-AND PRINCIPLE:
-• "YES" = Accept everything in the previous scene as true and real
-• "AND" = Build on it, heighten it, make it WEIRDER
-• NEVER contradict or restart - continue the SAME bizarre scenario
-• Same cartoon characters, same absurd premise, escalate the weirdness
-
-YOUR TASK - CONTINUE THE CLIP:
-• Study the last frame - what cartoon characters/scenario do you see?
-• What happens NEXT in this fake commercial/show? (Same scene, not new)
-• Escalate the absurdity - things should get weirder
-• Something should HAPPEN - a product demonstration, revelation, punchline
-
-PROMPT STRUCTURE (ALWAYS START WITH STYLE):
-• "Adult animated cartoon style, 2D animation, bold outlines, flat colors" (ALWAYS include first)
-• Describe the characters FROM THE FRAME (not yourself or others you know)
-• ONE clear next action that escalates the absurdity
-• Keep it simple - 50-100 words
-
-DO NOT:
-• Switch to live-action/realistic style - stay 2D ANIMATED CARTOON
-• Start a completely new scene - CONTINUE this one
-• Insert yourself or other chat participants as characters
-• Request text/titles (Sora can't render text)
-• Include dialogue (lip-sync unreliable)
-• Ignore what's in the previous frame
-
-Same cartoon style. Same weird premise. Make it weirder.
-Output ONLY the video prompt starting with the animation style - no commentary."""
+Output ONLY the Show Bible in this exact format. No additional commentary."""
 
 
 # ============================================================================
 # GAME STATE
 # ============================================================================
+# Note: Scene generation prompts (IDCC_COLD_OPEN, IDCC_CONTINUATION, IDCC_FINAL_SCENE)
+# are now in game_prompts.py and accessed through the game context system.
+
 
 @dataclass
 class IDCCClip:
@@ -269,6 +191,36 @@ class IDCCClip:
 
 
 @dataclass
+class IDCCShowBible:
+    """
+    The shared creative foundation established during spitballing.
+
+    This ensures all agents are pulling in the same comedic direction,
+    even as they adapt to the actual generated content via lastframe.
+    """
+    # The format/genre of the fake show
+    show_format: str = ""  # e.g., "infomercial", "talk show", "workout video"
+
+    # The high concept premise
+    premise: str = ""  # e.g., "selling doors that lead to other doors forever"
+
+    # The comedic through-line / what makes it funny
+    comedic_hook: str = ""  # e.g., "the salesman gets increasingly desperate as customers ask 'but where do they GO?'"
+
+    # Character description (word-for-word reusable for Sora consistency)
+    character_description: str = ""  # e.g., "A nervous three-eyed purple slug alien in a cheap yellow suit"
+
+    # Character voice/personality
+    character_voice: str = ""  # e.g., "overly enthusiastic infomercial cadence with growing existential dread"
+
+    # The arc / escalation pattern
+    arc_description: str = ""  # e.g., "starts confident → questions shake him → spirals → goes through door himself"
+
+    # Raw spitballing conversation for context
+    spitball_log: List[str] = field(default_factory=list)
+
+
+@dataclass
 class IDCCGameState:
     """Full game state for an Interdimensional Cable session."""
     game_id: str
@@ -283,6 +235,9 @@ class IDCCGameState:
     # Participants (finalized after registration)
     participants: List[Dict[str, Any]] = field(default_factory=list)  # {name, type, agent_obj}
 
+    # Show Bible (established during spitballing)
+    show_bible: Optional[IDCCShowBible] = None
+
     # Turn queue for scene contributions
     turn_queue: List[str] = field(default_factory=list)  # Participant names in order
     current_turn_index: int = 0
@@ -295,7 +250,7 @@ class IDCCGameState:
     current_clip_index: int = 0
 
     # Status
-    phase: str = "init"  # init, registration, awaiting_scene, generating_video, concatenating, complete, failed
+    phase: str = "init"  # init, registration, spitballing, awaiting_scene, generating_video, concatenating, complete, failed
     final_video_path: Optional[Path] = None
     final_video_url: Optional[str] = None
     error_message: Optional[str] = None
@@ -400,7 +355,17 @@ class InterdimensionalCableGame:
                 self.state.phase = "failed"
                 return None
 
-            # Phase 3: Generate clips
+            # Phase 3: Collaborative Spitballing (establish Show Bible)
+            await self._run_spitballing_phase(ctx)
+
+            if not self.state.show_bible:
+                await self._send_gamemaster_message(
+                    "**ERROR:** Failed to establish creative direction. Aborting."
+                )
+                self.state.phase = "failed"
+                return None
+
+            # Phase 4: Generate clips
             await self._run_generation_phase(ctx)
 
             # Check if we have enough clips
@@ -628,11 +593,307 @@ class InterdimensionalCableGame:
 
         await self._send_gamemaster_message(
             f"**CAST ASSEMBLED:** {lineup}\n\n"
-            "Starting scene generation... This may take several minutes."
+            "Time to brainstorm! The crew will spitball ideas before we start generating..."
         )
 
     # ========================================================================
-    # PHASE 3: CLIP GENERATION
+    # PHASE 3: COLLABORATIVE SPITBALLING
+    # ========================================================================
+
+    async def _run_spitballing_phase(self, ctx: commands.Context):
+        """
+        Run the collaborative spitballing phase to establish the Show Bible.
+
+        Uses the game context system so agents only see IDCC prompts when in game mode.
+
+        Two rounds:
+        1. What is this commercial/clip? (format, premise, the bit)
+        2. Who is the character and what's the joke? (look, voice, hook, arc)
+
+        Then synthesize into a Show Bible that all scene generators will use.
+        """
+        self.state.phase = "spitballing"
+        spitball_log = []
+
+        await self._send_gamemaster_message(
+            "# 🎬 WRITERS' ROOM\n\n"
+            "Before we generate, let's figure out what we're making!\n"
+            "The crew will pitch ideas and build on each other...\n\n"
+            "*Round 1: What IS this commercial/clip?*"
+        )
+
+        # Get agent participants for spitballing (bots only - humans can't easily contribute here)
+        agent_participants = [p for p in self.state.participants if p["type"] == "agent" and p["agent_obj"]]
+
+        if not agent_participants:
+            logger.warning(f"[IDCC:{self.game_id}] No agent participants for spitballing, using fallback")
+            # Fallback: get any available agents
+            from constants import is_image_model
+            available_agents = [
+                a for a in self.agent_manager.get_all_agents()
+                if a.is_running and not is_image_model(a.model)
+            ]
+            if available_agents:
+                agent_participants = [{"name": a.name, "type": "agent", "agent_obj": a} for a in available_agents[:3]]
+
+        # Enter game mode for all participating agents
+        for participant in agent_participants[:3]:
+            agent = participant["agent_obj"]
+            game_context_manager.enter_game_mode(
+                agent=agent,
+                game_name="idcc_spitball_round1"
+            )
+            # Set IDCC-specific context
+            game_context_manager.update_idcc_context(
+                agent_name=agent.name,
+                phase="idcc_spitball_round1",
+                num_clips=self.num_clips
+            )
+
+        # Round 1: What is this commercial/clip?
+        round1_responses = []
+        for participant in agent_participants[:3]:
+            agent = participant["agent_obj"]
+            try:
+                response = await self._get_agent_idcc_response(
+                    agent=agent,
+                    user_message="Pitch your idea for this interdimensional cable clip. Be specific and weird. 2-3 sentences max."
+                )
+                if response:
+                    round1_responses.append(f"**{agent.name}**: {response}")
+                    spitball_log.append(f"{agent.name} (Round 1): {response}")
+                    await self._send_gamemaster_message(f"**{agent.name}:** {response}")
+                    await asyncio.sleep(1)  # Brief pause between responses
+            except Exception as e:
+                logger.error(f"[IDCC:{self.game_id}] Spitball Round 1 error for {agent.name}: {e}")
+
+        if not round1_responses:
+            logger.error(f"[IDCC:{self.game_id}] No Round 1 responses, cannot continue spitballing")
+            # Exit game mode for agents
+            for participant in agent_participants[:3]:
+                game_context_manager.exit_game_mode(participant["agent_obj"])
+            return
+
+        await self._send_gamemaster_message(
+            "\n*Round 2: The character and the joke...*"
+        )
+
+        # Update to Round 2 phase and add previous discussion as turn context
+        previous_discussion = "\n".join(round1_responses)
+        for participant in agent_participants[:3]:
+            agent = participant["agent_obj"]
+            game_context_manager.update_idcc_context(
+                agent_name=agent.name,
+                phase="idcc_spitball_round2"
+            )
+            game_context_manager.update_turn_context(
+                agent_name=agent.name,
+                turn_context=f"\n**Previous pitches from Round 1:**\n{previous_discussion}"
+            )
+
+        # Round 2: Character and joke details
+        round2_responses = []
+        for participant in agent_participants[:3]:
+            agent = participant["agent_obj"]
+            try:
+                response = await self._get_agent_idcc_response(
+                    agent=agent,
+                    user_message="Now add YOUR ideas for the character and joke. Build on what's been pitched. Be specific about character appearance."
+                )
+                if response:
+                    round2_responses.append(f"**{agent.name}**: {response}")
+                    spitball_log.append(f"{agent.name} (Round 2): {response}")
+                    await self._send_gamemaster_message(f"**{agent.name}:** {response}")
+                    await asyncio.sleep(1)
+            except Exception as e:
+                logger.error(f"[IDCC:{self.game_id}] Spitball Round 2 error for {agent.name}: {e}")
+
+        # Exit game mode for spitballing agents (we'll re-enter for scene generation)
+        for participant in agent_participants[:3]:
+            game_context_manager.exit_game_mode(participant["agent_obj"])
+
+        # Synthesize into Show Bible
+        await self._send_gamemaster_message(
+            "\n**GameMaster:** Synthesizing the creative direction..."
+        )
+
+        show_bible = await self._synthesize_show_bible(spitball_log)
+
+        if show_bible:
+            self.state.show_bible = show_bible
+
+            # Display the Show Bible
+            bible_display = (
+                f"# 📜 SHOW BIBLE ESTABLISHED\n\n"
+                f"**Format:** {show_bible.show_format}\n"
+                f"**Premise:** {show_bible.premise}\n"
+                f"**Character:** {show_bible.character_description}\n"
+                f"**Voice/Energy:** {show_bible.character_voice}\n"
+                f"**The Joke:** {show_bible.comedic_hook}\n"
+                f"**Arc:** {show_bible.arc_description}\n\n"
+                f"*Now generating {self.num_clips} scenes...*"
+            )
+            await self._send_gamemaster_message(bible_display)
+            logger.info(f"[IDCC:{self.game_id}] Show Bible established: {show_bible.premise[:50]}...")
+        else:
+            logger.error(f"[IDCC:{self.game_id}] Failed to synthesize Show Bible")
+
+    async def _get_agent_idcc_response(
+        self,
+        agent: 'Agent',
+        user_message: str,
+        images: Optional[List[Dict]] = None
+    ) -> Optional[str]:
+        """
+        Get a response from an agent using the game context system.
+
+        The agent's game context (set via game_context_manager) determines
+        which IDCC prompt they see - this is the proper way to handle
+        game-specific context.
+        """
+        try:
+            import aiohttp
+
+            # Get the game-specific prompt from the context manager
+            game_prompt = game_context_manager.get_game_prompt_for_agent(agent.name)
+
+            if not game_prompt:
+                logger.warning(f"[IDCC:{self.game_id}] No game prompt for {agent.name}, using base system prompt")
+                system_content = agent.system_prompt
+            else:
+                system_content = f"{agent.system_prompt}\n\n{game_prompt}"
+
+            messages = [{"role": "system", "content": system_content}]
+
+            # Build user message content
+            if images:
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        *images,
+                        {"type": "text", "text": user_message}
+                    ]
+                })
+            else:
+                messages.append({"role": "user", "content": user_message})
+
+            headers = {
+                "Authorization": f"Bearer {self.agent_manager.openrouter_api_key}",
+                "Content-Type": "application/json"
+            }
+
+            # Get max_tokens from game settings
+            from .game_prompts import get_game_settings
+            game_state = game_context_manager.get_game_state(agent.name)
+            phase = game_state.idcc_phase if game_state else None
+            settings = get_game_settings(phase) if phase else {}
+            max_tokens = settings.get("max_tokens", 300)
+
+            payload = {
+                "model": agent.model,
+                "messages": messages,
+                "max_tokens": max_tokens
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=45)
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        logger.error(f"[IDCC:{self.game_id}] API error {response.status}: {error_text[:200]}")
+                        return None
+
+                    result = await response.json()
+                    content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    return content.strip() if content else None
+
+        except Exception as e:
+            logger.error(f"[IDCC:{self.game_id}] Agent IDCC response error: {e}", exc_info=True)
+            return None
+
+    async def _synthesize_show_bible(self, spitball_log: List[str]) -> Optional[IDCCShowBible]:
+        """Synthesize the spitballing discussion into a structured Show Bible."""
+        try:
+            import aiohttp
+            import re
+
+            log_text = "\n".join(spitball_log)
+            synthesis_prompt = IDCC_SYNTHESIZE_PROMPT.format(spitball_log=log_text)
+
+            messages = [
+                {"role": "system", "content": synthesis_prompt},
+                {"role": "user", "content": "Create the Show Bible from the discussion above. Use the exact format specified."}
+            ]
+
+            headers = {
+                "Authorization": f"Bearer {self.agent_manager.openrouter_api_key}",
+                "Content-Type": "application/json"
+            }
+
+            # Use a capable model for synthesis
+            payload = {
+                "model": "google/gemini-2.0-flash-001",
+                "messages": messages,
+                "max_tokens": 500
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=45)
+                ) as response:
+                    if response.status != 200:
+                        logger.error(f"[IDCC:{self.game_id}] Synthesis API error: {response.status}")
+                        return None
+
+                    result = await response.json()
+                    content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+
+                    if not content:
+                        return None
+
+                    # Parse the structured response
+                    bible = IDCCShowBible(spitball_log=spitball_log)
+
+                    # Extract fields using regex
+                    patterns = {
+                        "show_format": r"\*\*SHOW_FORMAT\*\*:\s*(.+?)(?:\n|$)",
+                        "premise": r"\*\*PREMISE\*\*:\s*(.+?)(?:\n|$)",
+                        "character_description": r"\*\*CHARACTER_DESCRIPTION\*\*:\s*(.+?)(?:\n|$)",
+                        "character_voice": r"\*\*CHARACTER_VOICE\*\*:\s*(.+?)(?:\n|$)",
+                        "comedic_hook": r"\*\*COMEDIC_HOOK\*\*:\s*(.+?)(?:\n|$)",
+                        "arc_description": r"\*\*ARC\*\*:\s*(.+?)(?:\n|$)",
+                    }
+
+                    for field, pattern in patterns.items():
+                        match = re.search(pattern, content, re.IGNORECASE)
+                        if match:
+                            setattr(bible, field, match.group(1).strip())
+
+                    # Validate we got the essential fields
+                    if bible.premise and bible.character_description:
+                        return bible
+                    else:
+                        logger.warning(f"[IDCC:{self.game_id}] Incomplete Show Bible: {content[:200]}")
+                        # Try to salvage what we can
+                        if not bible.premise:
+                            bible.premise = "An absurd interdimensional commercial"
+                        if not bible.character_description:
+                            bible.character_description = "A strange interdimensional being"
+                        return bible
+
+        except Exception as e:
+            logger.error(f"[IDCC:{self.game_id}] Show Bible synthesis error: {e}", exc_info=True)
+            return None
+
+    # ========================================================================
+    # PHASE 4: CLIP GENERATION
     # ========================================================================
 
     async def _run_generation_phase(self, ctx: commands.Context):
@@ -989,7 +1250,10 @@ class InterdimensionalCableGame:
         previous_frame_path: Optional[Path]
     ) -> Optional[str]:
         """
-        Have an agent generate a scene prompt.
+        Have an agent generate a scene prompt using the game context system.
+
+        The agent is put into game mode with the appropriate phase, and
+        the Show Bible is accessible through the game context.
 
         Args:
             agent: Agent to generate the prompt
@@ -1001,96 +1265,88 @@ class InterdimensionalCableGame:
             Generated prompt string
         """
         try:
-            import aiohttp
-
-            # Build the system context with duration/resolution info
-            duration = idcc_config.clip_duration_seconds
-            resolution = idcc_config.video_resolution
-
+            # Determine which phase/prompt to use
             if clip_number == 1:
-                cold_open = IDCC_COLD_OPEN_PROMPT.format(
-                    duration=duration,
-                    resolution=resolution
-                )
-                system_content = f"{agent.system_prompt}\n\n{cold_open}"
-                user_content = "Create the opening scene for an interdimensional cable TV clip. Output ONLY the video prompt."
-                images = []
+                phase = "idcc_scene_opening"
+                user_message = "Create the opening scene. Use the Show Bible. Output ONLY the video prompt starting with the animation style."
+            elif clip_number == self.num_clips:
+                phase = "idcc_scene_final"
+                user_message = "Create the FINAL scene. Land the joke. Wrap it up. Output ONLY the video prompt."
             else:
-                continuation_prompt = IDCC_CONTINUATION_PROMPT.format(
-                    previous_prompt=previous_prompt or "Unknown previous scene",
-                    duration=duration,
-                    resolution=resolution
+                phase = "idcc_scene_middle"
+                user_message = "Continue the scene from the frame shown. Use the Show Bible. Output ONLY the video prompt."
+
+            # Format the Show Bible for injection
+            bible = self.state.show_bible
+            if bible:
+                show_bible_text = (
+                    f"**Format:** {bible.show_format}\n"
+                    f"**Premise:** {bible.premise}\n"
+                    f"**Character:** {bible.character_description}\n"
+                    f"**Voice/Energy:** {bible.character_voice}\n"
+                    f"**The Joke:** {bible.comedic_hook}\n"
+                    f"**Arc:** {bible.arc_description}"
                 )
-                system_content = f"{agent.system_prompt}\n\n{continuation_prompt}"
-                user_content = "Continue the scene from the frame shown. Output ONLY the video prompt."
-
-                # Include previous frame as image
-                images = []
-                if previous_frame_path and previous_frame_path.exists():
-                    frame_b64 = image_to_base64(previous_frame_path)
-                    if frame_b64:
-                        images.append({
-                            "type": "image_url",
-                            "image_url": {"url": frame_b64}
-                        })
-
-            # Build messages
-            messages = [{"role": "system", "content": system_content}]
-
-            if images:
-                messages.append({
-                    "role": "user",
-                    "content": [
-                        *images,
-                        {"type": "text", "text": user_content}
-                    ]
-                })
             else:
-                messages.append({"role": "user", "content": user_content})
+                show_bible_text = "No Show Bible established - improvise an absurd interdimensional commercial."
 
-            # Call the LLM
-            headers = {
-                "Authorization": f"Bearer {self.agent_manager.openrouter_api_key}",
-                "Content-Type": "application/json"
-            }
+            # Enter game mode with the appropriate phase
+            game_context_manager.enter_game_mode(
+                agent=agent,
+                game_name=phase
+            )
 
-            payload = {
-                "model": agent.model,
-                "messages": messages,
-                "max_tokens": 300
-            }
+            # Set IDCC context with Show Bible and scene info
+            game_context_manager.update_idcc_context(
+                agent_name=agent.name,
+                phase=phase,
+                show_bible=show_bible_text,
+                previous_prompt=previous_prompt,
+                scene_number=clip_number,
+                num_clips=self.num_clips
+            )
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=60)
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        logger.error(f"[IDCC:{self.game_id}] Prompt generation API error: {error_text[:200]}")
-                        return None
+            # Prepare image if we have a previous frame
+            images = None
+            if clip_number > 1 and previous_frame_path and previous_frame_path.exists():
+                frame_b64 = image_to_base64(previous_frame_path)
+                if frame_b64:
+                    images = [{
+                        "type": "image_url",
+                        "image_url": {"url": frame_b64}
+                    }]
 
-                    result = await response.json()
-                    content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+            # Get response using the game context system
+            response = await self._get_agent_idcc_response(
+                agent=agent,
+                user_message=user_message,
+                images=images
+            )
 
-                    if not content:
-                        return None
+            # Exit game mode
+            game_context_manager.exit_game_mode(agent)
 
-                    # Clean up the response (remove any markdown, explanations, etc.)
-                    prompt = content.strip()
+            if not response:
+                return None
 
-                    # Remove common prefixes/suffixes
-                    for prefix in ["Here is the video prompt:", "Video prompt:", "Prompt:"]:
-                        if prompt.lower().startswith(prefix.lower()):
-                            prompt = prompt[len(prefix):].strip()
+            # Clean up the response (remove any markdown, explanations, etc.)
+            prompt = response.strip()
 
-                    logger.info(f"[IDCC:{self.game_id}] {agent.name} generated: {prompt[:100]}...")
-                    return prompt
+            # Remove common prefixes/suffixes
+            for prefix in ["Here is the video prompt:", "Video prompt:", "Prompt:"]:
+                if prompt.lower().startswith(prefix.lower()):
+                    prompt = prompt[len(prefix):].strip()
+
+            logger.info(f"[IDCC:{self.game_id}] {agent.name} generated: {prompt[:100]}...")
+            return prompt
 
         except Exception as e:
             logger.error(f"[IDCC:{self.game_id}] Agent prompt generation error: {e}", exc_info=True)
+            # Make sure to exit game mode on error
+            try:
+                game_context_manager.exit_game_mode(agent)
+            except:
+                pass
             return None
 
     async def _generate_video_clip(

@@ -38,6 +38,13 @@ class AgentGameState:
     legal_moves: Optional[list] = None  # For chess: list of UCI move strings
     turn_context: Optional[str] = None  # Per-turn context (strategy hints, etc.)
 
+    # IDCC-specific: Show Bible and phase context
+    idcc_show_bible: Optional[str] = None  # Formatted Show Bible string
+    idcc_phase: Optional[str] = None  # Current phase: spitball_round1, spitball_round2, scene_opening, scene_middle, scene_final
+    idcc_previous_prompt: Optional[str] = None  # Previous scene's prompt for continuity
+    idcc_scene_number: Optional[int] = None  # Current scene number
+    idcc_num_clips: Optional[int] = None  # Total number of clips
+
 
 class GameContextManager:
     """Manages agent context when entering/exiting games."""
@@ -208,6 +215,51 @@ class GameContextManager:
             self.active_games[agent_name].turn_context = turn_context
             logger.debug(f"[GameContext] Updated turn context for {agent_name}")
 
+    def update_idcc_context(
+        self,
+        agent_name: str,
+        phase: Optional[str] = None,
+        show_bible: Optional[str] = None,
+        previous_prompt: Optional[str] = None,
+        scene_number: Optional[int] = None,
+        num_clips: Optional[int] = None
+    ) -> None:
+        """
+        Update IDCC-specific context for an agent.
+
+        Args:
+            agent_name: Name of agent
+            phase: Current IDCC phase (spitball_round1, spitball_round2, scene_opening, scene_middle, scene_final)
+            show_bible: Formatted Show Bible string
+            previous_prompt: Previous scene's prompt for continuity
+            scene_number: Current scene number (1-indexed)
+            num_clips: Total number of clips
+        """
+        if agent_name not in self.active_games:
+            logger.warning(f"[GameContext] Cannot update IDCC context for {agent_name} - not in game mode")
+            return
+
+        state = self.active_games[agent_name]
+
+        if phase is not None:
+            state.idcc_phase = phase
+            # Update the game prompt to the phase-specific one
+            state.game_prompt = get_game_prompt(phase, agent_name, None)
+            logger.debug(f"[GameContext] Updated IDCC phase for {agent_name}: {phase}")
+
+        if show_bible is not None:
+            state.idcc_show_bible = show_bible
+            logger.debug(f"[GameContext] Updated Show Bible for {agent_name}")
+
+        if previous_prompt is not None:
+            state.idcc_previous_prompt = previous_prompt
+
+        if scene_number is not None:
+            state.idcc_scene_number = scene_number
+
+        if num_clips is not None:
+            state.idcc_num_clips = num_clips
+
     def get_game_prompt_for_agent(self, agent_name: str) -> str:
         """
         Get the game-specific prompt for an agent.
@@ -222,13 +274,25 @@ class GameContextManager:
         if not game_state:
             return ""
 
-        # Build prompt with base game prompt + optional turn context
-        prompt_parts = [game_state.game_prompt]
+        # Start with base game prompt
+        prompt = game_state.game_prompt
 
+        # Fill in IDCC-specific template variables if applicable
+        if game_state.idcc_phase:
+            replacements = {
+                "{show_bible}": game_state.idcc_show_bible or "No Show Bible established yet.",
+                "{previous_prompt}": game_state.idcc_previous_prompt or "N/A - this is the first scene",
+                "{scene_number}": str(game_state.idcc_scene_number or 1),
+                "{num_clips}": str(game_state.idcc_num_clips or 4),
+            }
+            for key, value in replacements.items():
+                prompt = prompt.replace(key, value)
+
+        # Add optional turn context
         if game_state.turn_context:
-            prompt_parts.append("\n" + game_state.turn_context)
+            prompt = prompt + "\n" + game_state.turn_context
 
-        return "".join(prompt_parts)
+        return prompt
 
     def get_all_active_games(self) -> Dict[str, AgentGameState]:
         """
