@@ -3642,12 +3642,14 @@ class AgentManager:
             return {}
 
         # Apply shortcuts as status effects via the utility function
+        # Returns Dict[str, List[Tuple[str, int]]] - agent_name -> [(effect_name, intensity), ...]
         applied = apply_message_shortcuts(message_content, available_agents)
 
         if applied:
-            # Log what was applied
+            # Log what was applied (effects are now tuples of (name, intensity))
             for agent_name, effects in applied.items():
-                logger.info(f"[AgentManager] Applied status effects to {agent_name}: {', '.join(effects)}")
+                effect_strs = [f"{name}[{intensity}]" for name, intensity in effects]
+                logger.info(f"[AgentManager] Applied status effects to {agent_name}: {', '.join(effect_strs)}")
 
         return applied
 
