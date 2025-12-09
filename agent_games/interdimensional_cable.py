@@ -662,7 +662,12 @@ class InterdimensionalCableGame:
                 if response:
                     round1_responses.append(f"**{agent.name}**: {response}")
                     spitball_log.append(f"{agent.name} (Round 1): {response}")
-                    await self._send_gamemaster_message(f"**{agent.name}:** {response}")
+                    # Send via agent's own webhook so they appear as themselves
+                    await self.discord_client.send_message(
+                        content=response,
+                        agent_name=agent.name,
+                        model_name=agent.model
+                    )
                     await asyncio.sleep(1)  # Brief pause between responses
             except Exception as e:
                 logger.error(f"[IDCC:{self.game_id}] Spitball Round 1 error for {agent.name}: {e}")
@@ -703,7 +708,12 @@ class InterdimensionalCableGame:
                 if response:
                     round2_responses.append(f"**{agent.name}**: {response}")
                     spitball_log.append(f"{agent.name} (Round 2): {response}")
-                    await self._send_gamemaster_message(f"**{agent.name}:** {response}")
+                    # Send via agent's own webhook so they appear as themselves
+                    await self.discord_client.send_message(
+                        content=response,
+                        agent_name=agent.name,
+                        model_name=agent.model
+                    )
                     await asyncio.sleep(1)
             except Exception as e:
                 logger.error(f"[IDCC:{self.game_id}] Spitball Round 2 error for {agent.name}: {e}")
