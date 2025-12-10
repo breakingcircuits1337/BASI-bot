@@ -222,3 +222,7 @@ class PresetsManager:
 
         logger.warning(f"[Presets] Preset '{preset_name}' not found")
         return False
+
+
+# Global instance for use throughout the application
+presets_manager = PresetsManager()
