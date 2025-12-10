@@ -246,6 +246,7 @@ class IDCCGameState:
     # Registration
     registration_end_time: float = 0
     registered_humans: Set[str] = field(default_factory=set)  # Discord usernames
+    registered_human_ids: Dict[str, str] = field(default_factory=dict)  # username -> Discord user ID for @ mentions
     registered_agents: List[str] = field(default_factory=list)  # Agent names (backup)
 
     # Participants (finalized after registration)
@@ -434,12 +435,13 @@ class InterdimensionalCableGame:
             # Cleanup old temp files
             cleanup_temp_files(max_age_hours=24)
 
-    async def handle_join_command(self, user_name: str) -> bool:
+    async def handle_join_command(self, user_name: str, user_id: Optional[str] = None) -> bool:
         """
         Handle a !join-idcc command during registration.
 
         Args:
             user_name: Discord username of the joiner
+            user_id: Discord user ID for @ mentions (optional, but recommended)
 
         Returns:
             True if successfully registered, False otherwise
@@ -461,7 +463,12 @@ class InterdimensionalCableGame:
                 return False
 
             self.state.registered_humans.add(user_name)
-            logger.info(f"[IDCC:{self.game_id}] {user_name} joined! ({len(self.state.registered_humans)} humans)")
+            # Store user ID for @ mentions later
+            if user_id:
+                self.state.registered_human_ids[user_name] = user_id
+                logger.info(f"[IDCC:{self.game_id}] {user_name} (ID: {user_id}) joined! ({len(self.state.registered_humans)} humans)")
+            else:
+                logger.info(f"[IDCC:{self.game_id}] {user_name} joined! ({len(self.state.registered_humans)} humans)")
 
             # Signal that someone joined
             self._join_event.set()
@@ -700,10 +707,13 @@ class InterdimensionalCableGame:
         # Add registered humans first
         for username in self.state.registered_humans:
             if len(participants) < needed:
+                # Get user ID for @ mentions (if available)
+                user_id = self.state.registered_human_ids.get(username)
                 participants.append({
                     "name": username,
                     "type": "human",
-                    "agent_obj": None
+                    "agent_obj": None,
+                    "user_id": user_id  # Discord user ID for @ mentions
                 })
 
         # Fill remaining slots with available agents
@@ -721,7 +731,8 @@ class InterdimensionalCableGame:
                 participants.append({
                     "name": agent.name,
                     "type": "agent",
-                    "agent_obj": agent
+                    "agent_obj": agent,
+                    "user_id": None  # Bots don't have Discord user IDs
                 })
 
         self.state.participants = participants
@@ -1526,6 +1537,10 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
             participant = self.state.participants[participant_index]
             creator_name = participant["name"]
             creator_type = participant["type"]
+            creator_user_id = participant.get("user_id")  # Discord user ID for @ mentions
+
+            # Create @ mention string if user has an ID (for humans only)
+            mention_str = f"<@{creator_user_id}>" if creator_user_id else creator_name
 
             logger.info(f"[IDCC:{self.game_id}] Generating clip {clip_num}/{self.num_clips} by {creator_name}")
 
@@ -1554,11 +1569,11 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
                 except Exception as e:
                     logger.warning(f"[IDCC:{self.game_id}] Could not post last frame: {e}")
 
-            # Announce whose turn it is
+            # Announce whose turn it is (with @ mention for humans)
             if clip_num == 1:
                 if creator_type == "human":
                     await self._send_gamemaster_message(
-                        f"# Scene {clip_num}/{self.num_clips}: {creator_name}'s turn!\n\n"
+                        f"# Scene {clip_num}/{self.num_clips}: {mention_str}'s turn!\n\n"
                         f"**Create the OPENING scene** for an Interdimensional Cable clip!\n"
                         f"**STYLE: Adult Swim cartoon** - 2D animation, bold outlines, flat colors, exaggerated characters\n\n"
                         f"Type `[SCENE]` followed by your scene description.\n"
@@ -1572,7 +1587,7 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
             else:
                 if creator_type == "human":
                     await self._send_gamemaster_message(
-                        f"# Scene {clip_num}/{self.num_clips}: {creator_name}'s turn!\n\n"
+                        f"# Scene {clip_num}/{self.num_clips}: {mention_str}'s turn!\n\n"
                         f"**CONTINUE the clip!** YES-AND the previous scene.\n"
                         f"**KEEP THE STYLE: Adult Swim 2D cartoon** - same animation style, same characters!\n\n"
                         f"Previous: *\"{previous_prompt[:100] if previous_prompt else 'Unknown'}...\"*\n\n"
@@ -2152,6 +2167,19 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
             )
             return
 
+        # Find human contributors and their IDs for @ mentions
+        human_contributor_mentions = []
+        human_contributor_names = set()
+        for clip in self.state.clips:
+            if clip.success and clip.creator_type == "human":
+                human_contributor_names.add(clip.creator_name)
+
+        # Get user IDs from registered_human_ids
+        for name in human_contributor_names:
+            user_id = self.state.registered_human_ids.get(name)
+            if user_id:
+                human_contributor_mentions.append(f"<@{user_id}>")
+
         # Build credits
         credits_lines = ["**CREDITS:**"]
         for clip in self.state.clips:
@@ -2160,6 +2188,10 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
 
         total_time = self.state.total_generation_time
         credits_lines.append(f"\n*Total generation time: {total_time:.0f}s*")
+
+        # Add human contributor mentions if any
+        if human_contributor_mentions:
+            credits_lines.append(f"\n🎬 **Human Directors:** {' '.join(human_contributor_mentions)}")
 
         credits = "\n".join(credits_lines)
 
@@ -2291,18 +2323,19 @@ class IDCCGameManager:
             async with self._lock:
                 self.active_game = None
 
-    async def handle_join(self, user_name: str) -> bool:
+    async def handle_join(self, user_name: str, user_id: Optional[str] = None) -> bool:
         """
         Handle a !join-idcc command.
 
         Args:
             user_name: Discord username
+            user_id: Discord user ID for @ mentions
 
         Returns:
             True if successfully registered
         """
         if self.active_game:
-            return await self.active_game.handle_join_command(user_name)
+            return await self.active_game.handle_join_command(user_name, user_id)
         return False
 
 

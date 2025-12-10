@@ -440,9 +440,15 @@ Use with: `!MODEL <agent> <model_id>`"""
 
             # Check for admin DM commands BEFORE channel filtering
             if isinstance(message.channel, discord.DMChannel):
+                user_id = str(message.author.id)
+                admin_ids = DiscordConfig.get_admin_user_ids()
+                logger.info(f"[Discord] DM received from {message.author} (ID: {user_id})")
+                logger.info(f"[Discord] Admin IDs list: {admin_ids}, checking if '{user_id}' in list...")
                 # Only process DM commands from admin users
-                if str(message.author.id) in DiscordConfig.get_admin_user_ids():
+                if user_id in admin_ids:
                     await self._handle_admin_dm_command(message)
+                else:
+                    logger.info(f"[Discord] DM from non-admin user {message.author} (ID: {user_id}) - ignoring")
                 return  # Don't process DMs as regular messages
 
             # Ignore messages from wrong channel (for regular chat)
@@ -830,12 +836,13 @@ Configure auto-play settings in the UI's Auto-Play tab.
                 from agent_games.interdimensional_cable import idcc_manager
 
                 user_name = ctx.author.display_name
+                user_id = str(ctx.author.id)  # Discord user ID for @ mentions
 
                 if idcc_manager.is_game_active():
-                    success = await idcc_manager.handle_join(user_name)
+                    success = await idcc_manager.handle_join(user_name, user_id)
                     if success:
                         await ctx.message.add_reaction("📺")  # Confirm join with reaction
-                        logger.info(f"[Discord] {user_name} joined IDCC game")
+                        logger.info(f"[Discord] {user_name} (ID: {user_id}) joined IDCC game")
                     else:
                         await ctx.message.add_reaction("⏰")  # Already registered or too late
                 else:
