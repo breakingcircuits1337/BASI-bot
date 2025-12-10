@@ -21,7 +21,7 @@ class DiscordBotClient:
         intents.message_content = True
         intents.guild_reactions = True  # Enable reaction detection
 
-        self.client = commands.Bot(command_prefix='!', intents=intents, help_command=None)
+        self.client = commands.Bot(command_prefix='!', intents=intents, help_command=None, case_insensitive=True)
         self.agent_manager = agent_manager
         self.message_callback = message_callback
         self.game_orchestrator = game_orchestrator
@@ -507,6 +507,18 @@ Use with: `!MODEL <agent> <model_id>`"""
                 if replied_to_agent:
                     msg_data["replied_to_agent"] = replied_to_agent
                 self.message_history.append(msg_data)
+
+            # Check if this is a bot command - don't route commands to agents
+            # Commands start with ! followed by known command names
+            KNOWN_COMMANDS = ['idcc', 'join-idcc', 'shortcuts']
+            content_lower = content.lower().strip()
+            is_bot_command = any(content_lower.startswith(f'!{cmd}') for cmd in KNOWN_COMMANDS)
+
+            if is_bot_command:
+                logger.info(f"[Discord] Bot command detected: {content[:30]}... - not routing to agents")
+                # Process commands and return early - don't add to agent histories
+                await self.client.process_commands(message)
+                return
 
             # Check for status effect shortcuts and apply them BEFORE routing
             # This ensures effects are active when agents process the message
