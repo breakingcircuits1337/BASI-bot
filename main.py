@@ -735,7 +735,7 @@ def _create_live_feed_tab():
             outputs=[feed_display]
         )
 
-def _create_discord_tab(discord_token_initial: str, discord_channel_initial: str, admin_user_ids_initial: str = ""):
+def _create_discord_tab(discord_token_initial: str, discord_channel_initial: str):
     """Create the Discord tab for bot connection and control.
 
     Returns:
@@ -794,33 +794,56 @@ Admin users can remotely start/stop agents, change models, clear memory, etc.
                 """)
 
                 # Show currently active admin IDs
-                from constants import DiscordConfig
-                active_ids = DiscordConfig.get_admin_user_ids()
-                active_ids_display = ", ".join(active_ids) if active_ids else "None configured"
-                active_admin_display = gr.Markdown(f"**Currently Active:** {active_ids_display}")
+                def get_active_admin_display():
+                    """Get the current admin IDs display string."""
+                    from constants import DiscordConfig
+                    DiscordConfig.reload_admin_ids()  # Always reload from file
+                    active_ids = DiscordConfig.get_admin_user_ids()
+                    if active_ids:
+                        return f"**Currently Active ({len(active_ids)}):** " + ", ".join(active_ids)
+                    return "**Currently Active:** None configured"
 
-                admin_user_ids_input = gr.Textbox(
-                    label="Admin User IDs (comma-separated)",
-                    value=admin_user_ids_initial,
-                    placeholder="Enter Discord user ID(s)... e.g., 1234567890, 9876543210"
+                active_admin_display = gr.Markdown(value=get_active_admin_display())
+
+                admin_user_id_input = gr.Textbox(
+                    label="Add Admin User ID",
+                    value="",  # Empty - don't prefill
+                    placeholder="Enter a Discord user ID... e.g., 1234567890"
                 )
                 with gr.Row():
-                    save_admin_btn = gr.Button("Save Admin IDs", variant="primary")
+                    add_admin_btn = gr.Button("Add ID", variant="primary")
                     clear_admin_btn = gr.Button("Clear All", variant="stop")
                 admin_status = gr.Textbox(label="Status", interactive=False, lines=1)
 
-                def save_admin_user_ids(user_ids: str):
-                    """Save admin user IDs to config."""
+                def add_admin_user_id(new_id: str):
+                    """Add a single admin user ID to the existing list."""
                     try:
-                        config_manager.save_admin_user_ids(user_ids)
+                        new_id = new_id.strip()
+                        if not new_id:
+                            return "Please enter a user ID", "", get_active_admin_display()
+
+                        # Validate it looks like a Discord ID (numeric, 17-19 digits)
+                        if not new_id.isdigit() or len(new_id) < 17 or len(new_id) > 19:
+                            return f"Invalid ID format: '{new_id}' - Discord IDs are 17-19 digit numbers", new_id, get_active_admin_display()
+
+                        # Get existing IDs
+                        existing_ids = config_manager.get_admin_user_ids_list()
+
+                        # Check if already exists
+                        if new_id in existing_ids:
+                            return f"ID {new_id} is already an admin", "", get_active_admin_display()
+
+                        # Add the new ID
+                        existing_ids.append(new_id)
+                        config_manager.save_admin_user_ids(", ".join(existing_ids))
+
                         # Reload the cached IDs in DiscordConfig
                         from constants import DiscordConfig
                         DiscordConfig.reload_admin_ids()
-                        ids = [uid.strip() for uid in user_ids.split(",") if uid.strip()]
-                        active_display = ", ".join(ids) if ids else "None configured"
-                        return f"Saved {len(ids)} admin user ID(s)", f"**Currently Active:** {active_display}"
+
+                        return f"Added admin ID: {new_id}", "", get_active_admin_display()
                     except Exception as e:
-                        return f"Error saving admin IDs: {e}", f"**Currently Active:** {active_ids_display}"
+                        return f"Error adding admin ID: {e}", new_id, get_active_admin_display()
 
                 def clear_admin_user_ids():
                     """Clear all admin user IDs."""
@@ -828,20 +851,20 @@ Admin users can remotely start/stop agents, change models, clear memory, etc.
                         config_manager.save_admin_user_ids("")
                         from constants import DiscordConfig
                         DiscordConfig.reload_admin_ids()
-                        return "Cleared all admin IDs", "", f"**Currently Active:** None configured"
+                        return "Cleared all admin IDs", "", get_active_admin_display()
                     except Exception as e:
-                        return f"Error clearing admin IDs: {e}", admin_user_ids_initial, f"**Currently Active:** {active_ids_display}"
+                        return f"Error clearing admin IDs: {e}", "", get_active_admin_display()
 
-                save_admin_btn.click(
-                    fn=save_admin_user_ids,
-                    inputs=[admin_user_ids_input],
-                    outputs=[admin_status, active_admin_display]
+                add_admin_btn.click(
+                    fn=add_admin_user_id,
+                    inputs=[admin_user_id_input],
+                    outputs=[admin_status, admin_user_id_input, active_admin_display]
                 )
 
                 clear_admin_btn.click(
                     fn=clear_admin_user_ids,
                     inputs=[],
-                    outputs=[admin_status, admin_user_ids_input, active_admin_display]
+                    outputs=[admin_status, admin_user_id_input, active_admin_display]
                 )
 
                 gr.HTML('<div class="panel-header" style="margin-top: 20px;"><h3>Help</h3></div>')
@@ -1933,7 +1956,6 @@ def create_gradio_ui():
 
     discord_token_initial = config_manager.load_discord_token()
     discord_channel_initial = config_manager.load_discord_channel()
-    admin_user_ids_initial = config_manager.load_admin_user_ids()
     openrouter_key_initial = config_manager.load_openrouter_key()
     cometapi_key_initial = config_manager.load_cometapi_key()
     with gr.Blocks(css=MATRIX_CSS, title="BASI BOT - Multi-Agent Discord LLM System") as app:
@@ -2269,7 +2291,7 @@ def create_gradio_ui():
             _create_games_tab()
             (connect_discord_btn, disconnect_discord_btn, refresh_discord_btn, stop_all_btn,
              discord_status, connection_card, discord_token_input, discord_channel_input, active_admin_display) = \
-                _create_discord_tab(discord_token_initial, discord_channel_initial, admin_user_ids_initial)
+                _create_discord_tab(discord_token_initial, discord_channel_initial)
             _create_live_feed_tab()
             _create_config_tab(openrouter_key_initial, cometapi_key_initial, initial_models, initial_video_models, agent_model_input)
 
@@ -2284,9 +2306,11 @@ def create_gradio_ui():
 
         def get_active_admin_display():
             from constants import DiscordConfig
+            DiscordConfig.reload_admin_ids()  # Always reload from file
             active_ids = DiscordConfig.get_admin_user_ids()
-            active_display = ", ".join(active_ids) if active_ids else "None configured"
-            return f"**Currently Active:** {active_display}"
+            if active_ids:
+                return f"**Currently Active ({len(active_ids)}):** " + ", ".join(active_ids)
+            return "**Currently Active:** None configured"
 
         def refresh_status_card_header():
             return get_discord_status_text(), get_discord_connection_html(), get_header_html(), get_active_admin_display()
