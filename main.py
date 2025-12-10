@@ -795,10 +795,12 @@ Admin users can remotely start/stop agents, change models, clear memory, etc.
 
                 # Show currently active admin IDs
                 def get_active_admin_display():
-                    """Get the current admin IDs display string."""
+                    """Get the current admin IDs display string - reads directly from file."""
+                    # Read directly from config file to avoid any caching issues
+                    active_ids = config_manager.get_admin_user_ids_list()
+                    # Also update the DiscordConfig cache for consistency
                     from constants import DiscordConfig
-                    DiscordConfig.reload_admin_ids()  # Always reload from file
-                    active_ids = DiscordConfig.get_admin_user_ids()
+                    DiscordConfig.reload_admin_ids()
                     if active_ids:
                         return f"**Currently Active ({len(active_ids)}):** " + ", ".join(active_ids)
                     return "**Currently Active:** None configured"
@@ -2305,9 +2307,11 @@ def create_gradio_ui():
             return result, get_discord_connection_html(), get_header_html()
 
         def get_active_admin_display():
+            # Read directly from config file to avoid any caching issues
+            active_ids = config_manager.get_admin_user_ids_list()
+            # Also update the DiscordConfig cache for consistency
             from constants import DiscordConfig
-            DiscordConfig.reload_admin_ids()  # Always reload from file
-            active_ids = DiscordConfig.get_admin_user_ids()
+            DiscordConfig.reload_admin_ids()
             if active_ids:
                 return f"**Currently Active ({len(active_ids)}):** " + ", ".join(active_ids)
             return "**Currently Active:** None configured"

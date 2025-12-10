@@ -114,21 +114,27 @@ class DiscordConfig:
         """Get admin user IDs, loading from config if available."""
         if cls._cached_admin_ids is not None:
             return cls._cached_admin_ids
+        # Load fresh from config
+        return cls._load_admin_ids_from_file()
+
+    @classmethod
+    def _load_admin_ids_from_file(cls) -> list:
+        """Actually load admin IDs from the config file."""
         try:
             from config_manager import config_manager
             ids = config_manager.get_admin_user_ids_list()
-            if ids:
+            if ids:  # Only cache non-empty lists
                 cls._cached_admin_ids = ids
                 return ids
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[DiscordConfig] Error loading admin IDs: {e}")
         return cls._DEFAULT_ADMIN_USER_IDS
 
     @classmethod
     def reload_admin_ids(cls):
-        """Force reload of admin IDs from config."""
-        cls._cached_admin_ids = None
-        return cls.get_admin_user_ids()
+        """Force reload of admin IDs from config file."""
+        cls._cached_admin_ids = None  # Clear cache
+        return cls._load_admin_ids_from_file()  # Load fresh
 
     # Message history
     MESSAGE_HISTORY_MAX_LEN = 25  # Maximum messages to keep in history
