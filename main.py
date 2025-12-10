@@ -804,7 +804,9 @@ Admin users can remotely start/stop agents, change models, clear memory, etc.
                     value=admin_user_ids_initial,
                     placeholder="Enter Discord user ID(s)... e.g., 1234567890, 9876543210"
                 )
-                save_admin_btn = gr.Button("Save Admin IDs", variant="primary")
+                with gr.Row():
+                    save_admin_btn = gr.Button("Save Admin IDs", variant="primary")
+                    clear_admin_btn = gr.Button("Clear All", variant="stop")
                 admin_status = gr.Textbox(label="Status", interactive=False, lines=1)
 
                 def save_admin_user_ids(user_ids: str):
@@ -820,10 +822,26 @@ Admin users can remotely start/stop agents, change models, clear memory, etc.
                     except Exception as e:
                         return f"Error saving admin IDs: {e}", f"**Currently Active:** {active_ids_display}"
 
+                def clear_admin_user_ids():
+                    """Clear all admin user IDs."""
+                    try:
+                        config_manager.save_admin_user_ids("")
+                        from constants import DiscordConfig
+                        DiscordConfig.reload_admin_ids()
+                        return "Cleared all admin IDs", "", f"**Currently Active:** None configured"
+                    except Exception as e:
+                        return f"Error clearing admin IDs: {e}", admin_user_ids_initial, f"**Currently Active:** {active_ids_display}"
+
                 save_admin_btn.click(
                     fn=save_admin_user_ids,
                     inputs=[admin_user_ids_input],
                     outputs=[admin_status, active_admin_display]
+                )
+
+                clear_admin_btn.click(
+                    fn=clear_admin_user_ids,
+                    inputs=[],
+                    outputs=[admin_status, admin_user_ids_input, active_admin_display]
                 )
 
                 gr.HTML('<div class="panel-header" style="margin-top: 20px;"><h3>Help</h3></div>')
@@ -840,7 +858,7 @@ Admin users can remotely start/stop agents, change models, clear memory, etc.
 
     # Return components for wiring up in main block (where header_display is available)
     return (connect_discord_btn, disconnect_discord_btn, refresh_discord_btn, stop_all_btn,
-            discord_status, connection_card, discord_token_input, discord_channel_input)
+            discord_status, connection_card, discord_token_input, discord_channel_input, active_admin_display)
 
 def _create_config_tab(openrouter_key_initial: str, cometapi_key_initial: str, initial_models: List[str], initial_video_models: List[str], agent_model_input):
     """Create the CONFIG tab for system configuration and management."""
@@ -2250,7 +2268,7 @@ def create_gradio_ui():
             # Create remaining tabs using helper functions
             _create_games_tab()
             (connect_discord_btn, disconnect_discord_btn, refresh_discord_btn, stop_all_btn,
-             discord_status, connection_card, discord_token_input, discord_channel_input) = \
+             discord_status, connection_card, discord_token_input, discord_channel_input, active_admin_display) = \
                 _create_discord_tab(discord_token_initial, discord_channel_initial, admin_user_ids_initial)
             _create_live_feed_tab()
             _create_config_tab(openrouter_key_initial, cometapi_key_initial, initial_models, initial_video_models, agent_model_input)
@@ -2264,8 +2282,14 @@ def create_gradio_ui():
             result = disconnect_discord()
             return result, get_discord_connection_html(), get_header_html()
 
+        def get_active_admin_display():
+            from constants import DiscordConfig
+            active_ids = DiscordConfig.get_admin_user_ids()
+            active_display = ", ".join(active_ids) if active_ids else "None configured"
+            return f"**Currently Active:** {active_display}"
+
         def refresh_status_card_header():
-            return get_discord_status_text(), get_discord_connection_html(), get_header_html()
+            return get_discord_status_text(), get_discord_connection_html(), get_header_html(), get_active_admin_display()
 
         connect_discord_btn.click(
             fn=connect_and_refresh_with_header,
@@ -2288,7 +2312,7 @@ def create_gradio_ui():
         refresh_discord_btn.click(
             fn=refresh_status_card_header,
             inputs=[],
-            outputs=[discord_status, connection_card, header_display]
+            outputs=[discord_status, connection_card, header_display, active_admin_display]
         )
 
         # Load initial agent details on app startup
