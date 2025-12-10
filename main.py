@@ -792,6 +792,13 @@ def _create_discord_tab(discord_token_initial: str, discord_channel_initial: str
 Configure which Discord users can send admin commands via DM to the bot.
 Admin users can remotely start/stop agents, change models, clear memory, etc.
                 """)
+
+                # Show currently active admin IDs
+                from constants import DiscordConfig
+                active_ids = DiscordConfig.get_admin_user_ids()
+                active_ids_display = ", ".join(active_ids) if active_ids else "None configured"
+                active_admin_display = gr.Markdown(f"**Currently Active:** {active_ids_display}")
+
                 admin_user_ids_input = gr.Textbox(
                     label="Admin User IDs (comma-separated)",
                     value=admin_user_ids_initial,
@@ -808,14 +815,15 @@ Admin users can remotely start/stop agents, change models, clear memory, etc.
                         from constants import DiscordConfig
                         DiscordConfig.reload_admin_ids()
                         ids = [uid.strip() for uid in user_ids.split(",") if uid.strip()]
-                        return f"Saved {len(ids)} admin user ID(s)"
+                        active_display = ", ".join(ids) if ids else "None configured"
+                        return f"Saved {len(ids)} admin user ID(s)", f"**Currently Active:** {active_display}"
                     except Exception as e:
-                        return f"Error saving admin IDs: {e}"
+                        return f"Error saving admin IDs: {e}", f"**Currently Active:** {active_ids_display}"
 
                 save_admin_btn.click(
                     fn=save_admin_user_ids,
                     inputs=[admin_user_ids_input],
-                    outputs=[admin_status]
+                    outputs=[admin_status, active_admin_display]
                 )
 
                 gr.HTML('<div class="panel-header" style="margin-top: 20px;"><h3>Help</h3></div>')
