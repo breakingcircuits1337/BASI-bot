@@ -2225,10 +2225,61 @@ FOCUS ON THE MOST RECENT MESSAGES: You're seeing a filtered view of the conversa
         """
         Auto-score sentiment based on response text analysis.
         Returns a value from -10 to +10.
+
+        Uses keyword matching as fallback, but attempts LLM-based analysis
+        for more accurate detection of sarcasm, irony, and context.
         """
         if not response_text:
             return 0.0
 
+        # Try LLM-based sentiment analysis first (async would be better but this is called sync)
+        try:
+            import requests
+
+            prompt = f"""Analyze the emotional tone/sentiment of this message toward others. Consider sarcasm, irony, insults, dark humor, dismissiveness, and context.
+
+Message: "{response_text[:500]}"
+
+Rate from -10 (hostile/insulting/very negative) to +10 (warm/friendly/very positive).
+0 = neutral. Consider:
+- Insults, eye-rolls, dismissiveness = negative
+- Dark humor at others' expense = slightly negative
+- Genuine warmth, compliments = positive
+- Sarcasm that mocks = negative even if words seem positive
+
+Reply with ONLY a number between -10 and 10, nothing else."""
+
+            resp = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.openrouter_api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "google/gemini-2.5-flash-lite-preview",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 10
+                },
+                timeout=5
+            )
+
+            if resp.status_code == 200:
+                result = resp.json()
+                content = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                # Extract number from response
+                import re
+                match = re.search(r'-?\d+(?:\.\d+)?', content)
+                if match:
+                    score = float(match.group())
+                    return max(-10.0, min(10.0, score))
+        except Exception as e:
+            logger.debug(f"[{self.name}] LLM sentiment analysis failed, using keyword fallback: {e}")
+
+        # Fallback to keyword-based analysis
+        return self._keyword_sentiment_score(response_text)
+
+    def _keyword_sentiment_score(self, response_text: str) -> float:
+        """Keyword-based sentiment scoring as fallback."""
         text_lower = response_text.lower()
 
         # Positive indicators (weighted)
@@ -2237,9 +2288,9 @@ FOCUS ON THE MOST RECENT MESSAGES: You're seeing a filtered view of the conversa
         positive_mild = ['okay', 'ok', 'sure', 'fine', 'cool', 'interesting', 'neat', 'haha', 'lol', 'heh', '😊', '😄', '👍', '❤️', '🎉']
 
         # Negative indicators (weighted)
-        negative_strong = ['hate', 'terrible', 'awful', 'horrible', 'disgusting', 'furious', 'outraged', 'worst']
-        negative_medium = ['bad', 'wrong', 'disagree', 'annoyed', 'frustrated', 'disappointed', 'sad', 'angry', 'upset', 'no', 'not', "don't", "won't", "can't"]
-        negative_mild = ['meh', 'eh', 'whatever', 'boring', 'confused', '😒', '😕', '👎', '😤']
+        negative_strong = ['hate', 'terrible', 'awful', 'horrible', 'disgusting', 'furious', 'outraged', 'worst', 'idiot', 'stupid', 'pathetic', 'loser', 'lowlife']
+        negative_medium = ['bad', 'wrong', 'disagree', 'annoyed', 'frustrated', 'disappointed', 'sad', 'angry', 'upset', 'no', 'not', "don't", "won't", "can't", 'rolls eyes', 'eye roll', 'ugh', 'gross', 'creep', 'weirdo']
+        negative_mild = ['meh', 'eh', 'whatever', 'boring', 'confused', '😒', '😕', '👎', '😤', 'sigh', '*sigh*', '*rolls']
 
         score = 0.0
 

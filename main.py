@@ -19,12 +19,14 @@ try:
     from agent_games.auto_play_config import autoplay_manager
     from agent_games.game_orchestrator import GameOrchestrator
     from agent_games.game_context import game_context_manager
+    from agent_games.tribal_council import format_tribal_council_history_display
     GAMES_AVAILABLE = True
 except ImportError:
     game_manager = None
     autoplay_manager = None
     GameOrchestrator = None
     game_context_manager = None
+    format_tribal_council_history_display = None
     GAMES_AVAILABLE = False
 
 # Load Matrix CSS from external file
@@ -1288,6 +1290,28 @@ To start a Tribal Council manually, use the command `!tribal-council` in Discord
                 )
 
         tc_status = gr.Markdown(value="Tribal Council settings. Use `!tribal-council` in Discord to start a session.")
+
+        # Tribal Council History Section
+        gr.HTML('<hr style="border-color: var(--border-dim); margin: 20px 0;">')
+        gr.HTML('<div class="panel-header"><h3>📜 Tribal Council History</h3></div>')
+
+        tc_refresh_history_btn = gr.Button("🔄 Refresh History", variant="secondary")
+        tc_history_display = gr.Markdown(
+            value="Click 'Refresh History' to view past Tribal Council sessions.",
+            elem_classes=["history-display"]
+        )
+
+        def refresh_tribal_council_history():
+            """Refresh the Tribal Council history display."""
+            if format_tribal_council_history_display:
+                return format_tribal_council_history_display(limit=10)
+            return "Tribal Council history not available."
+
+        tc_refresh_history_btn.click(
+            fn=refresh_tribal_council_history,
+            inputs=[],
+            outputs=[tc_history_display]
+        )
 
 # ============================================================================
 # PRESETS TAB HELPER FUNCTIONS

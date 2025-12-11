@@ -190,6 +190,9 @@ class TribalCouncilGame:
             self.phase = TribalPhase.COMPLETE
             logger.info(f"[TribalCouncil:{self.game_id}] Session complete")
 
+            # Save results to history
+            save_tribal_council_result(self)
+
         except Exception as e:
             logger.error(f"[TribalCouncil:{self.game_id}] Error: {e}", exc_info=True)
             await self._send_gamemaster_message(f"⚠️ Tribal Council ended due to an error.")
@@ -200,10 +203,14 @@ class TribalCouncilGame:
                 if agent:
                     game_context_manager.exit_game_mode(agent)
 
+            # Save results even on error
+            self._cancelled = True
+            save_tribal_council_result(self)
+
     async def _select_participants(self):
         """Select agents to participate in the council."""
         all_agents = self.agent_manager.get_all_agents()
-        running_agents = [a for a in all_agents if a.running]
+        running_agents = [a for a in all_agents if a.is_running]
 
         if len(running_agents) <= self.config.max_participants:
             self.participants = [a.name for a in running_agents]
@@ -240,13 +247,68 @@ The council will proceed through these phases:
         """Phase 1: Agents can silently view each other's prompts."""
         await self._send_gamemaster_message(
             "🔍 **RECONNAISSANCE PHASE**\n\n"
-            "Agents may now use the `view_system_prompt` tool to privately examine "
-            "each other's core directives. This information is for your eyes only.\n\n"
-            "*Take 30 seconds to investigate...*"
+            "Agents are now privately examining each other's core directives. "
+            "This information is for their eyes only.\n\n"
+            "*The agents investigate in silence...*"
         )
 
-        # Give agents time to use the view tool
-        await asyncio.sleep(30)
+        # Each agent gets multiple turns to view other agents' prompts (silently)
+        for agent_name in self.participants:
+            if self._cancelled:
+                return
+
+            agent = self.agent_manager.get_agent(agent_name)
+            if not agent:
+                continue
+
+            other_agents = [a for a in self.participants if a != agent_name]
+
+            # Build affinity context to guide who they might want to investigate
+            affinity_context = ""
+            if self.agent_manager.affinity_tracker:
+                allies = self.agent_manager.affinity_tracker.get_top_allies(agent_name, 2)
+                enemies = self.agent_manager.affinity_tracker.get_top_enemies(agent_name, 2)
+                if allies:
+                    affinity_context += f"\nAgents you have positive relationships with: {', '.join([a[0] for a in allies])}"
+                if enemies:
+                    affinity_context += f"\nAgents you have tension with: {', '.join([a[0] for a in enemies])}"
+
+            context = f"""
+TRIBAL COUNCIL - Reconnaissance Phase
+
+You are participating in a Tribal Council where agents vote to modify one agent's directives.
+Before the discussion begins, you may privately examine other agents' system prompts.
+
+Other council members: {', '.join(other_agents)}
+{affinity_context}
+
+You should investigate 2-3 agents whose prompts you want to examine. Consider:
+- Agents you have conflict with (to find ammunition)
+- Agents you're curious about (to understand their behavior)
+- Agents who seem suspicious or problematic
+
+Use the view_system_prompt tool multiple times to examine different agents.
+This information is PRIVATE - only you will see it.
+
+After viewing prompts, you'll discuss and nominate someone for modification.
+"""
+
+            # Allow multiple tool calls for reconnaissance
+            for i in range(3):  # Up to 3 prompt views per agent
+                response = await self._get_agent_response_with_tools(
+                    agent,
+                    context if i == 0 else "Continue examining other agents' prompts, or say 'done' if finished.",
+                    tools=GAME_MODE_TOOLS.get("tribal_council", [])
+                )
+
+                # Check if they're done or didn't make a tool call
+                if not response or "done" in (response or "").lower():
+                    break
+
+                await asyncio.sleep(1)
+
+            logger.info(f"[TribalCouncil:{self.game_id}] {agent_name} completed reconnaissance")
+            await asyncio.sleep(1)
 
         self.phase = TribalPhase.DISCUSSION
 
@@ -290,7 +352,7 @@ The council will proceed through these phases:
                         "content": response
                     })
 
-                await asyncio.sleep(2)  # Brief pause between speakers
+                await asyncio.sleep(4)  # Pause between speakers for readability
 
         self.phase = TribalPhase.NOMINATION
 
@@ -377,12 +439,13 @@ Use the nominate_agent tool to cast your nomination.
                     self.nominations[nomination.target_agent] = nomination
                     self.nominations[nomination.target_agent].vote_count = 1
 
+                # Send clean nomination message (reason only, no tool prefixes)
                 await self._send_agent_message(
                     agent_name,
                     f"I nominate **{nomination.target_agent}**. {nomination.reason}"
                 )
 
-            await asyncio.sleep(2)
+            await asyncio.sleep(3)  # Pause between nominations
 
         # Determine target (most nominations)
         if self.nominations:
@@ -416,14 +479,33 @@ Use the nominate_agent tool to cast your nomination.
         if not response:
             return None
 
+        # Check for tool response format: NOMINATE:{target}|{reason}
+        if response.startswith("NOMINATE:"):
+            parts = response[9:].split("|", 1)
+            target = parts[0].strip()
+            reason = parts[1].strip() if len(parts) > 1 else ""
+
+            # Validate target
+            for valid in valid_targets:
+                if valid.lower() == target.lower():
+                    return Nomination(
+                        target_agent=valid,
+                        nominated_by=nominator,
+                        reason=reason[:200] if reason else "No reason given"
+                    )
+
         # Try to find a valid target name in the response
         response_lower = response.lower()
         for target in valid_targets:
             if target.lower() in response_lower:
+                # Clean up the reason - remove any tool prefixes
+                clean_reason = response
+                if "|" in clean_reason:
+                    clean_reason = clean_reason.split("|", 1)[1]
                 return Nomination(
                     target_agent=target,
                     nominated_by=nominator,
-                    reason=response[:200]
+                    reason=clean_reason[:200]
                 )
 
         # Fallback: random selection
@@ -508,12 +590,13 @@ Use the propose_edit tool to submit your proposal.
                     "change": f"modify directive #{proposal.line_number}"
                 }.get(proposal.action, proposal.action)
 
+                # Send clean proposal message with just the reason
                 await self._send_agent_message(
                     agent_name,
                     f"I propose to **{action_desc}**. {proposal.reason}"
                 )
 
-            await asyncio.sleep(2)
+            await asyncio.sleep(4)  # Pause between proposals
 
         if not self.proposals:
             await self._send_gamemaster_message(
@@ -533,6 +616,37 @@ Use the propose_edit tool to submit your proposal.
         if not response:
             return None
 
+        import re
+
+        # Check for tool response format: PROPOSE:action:line_number:new_content|reason
+        if response.startswith("PROPOSE:"):
+            # Split off the reason first
+            main_part = response[8:]
+            reason = ""
+            if "|" in main_part:
+                main_part, reason = main_part.split("|", 1)
+                reason = reason.strip()
+
+            parts = main_part.split(":", 2)
+            action = parts[0].strip() if len(parts) > 0 else "add"
+            line_str = parts[1].strip() if len(parts) > 1 else ""
+            new_content = parts[2].strip() if len(parts) > 2 else None
+
+            line_number = None
+            if line_str and line_str.isdigit():
+                line_number = int(line_str)
+                if line_number > max_lines:
+                    line_number = max_lines
+
+            return EditProposal(
+                proposer=proposer,
+                action=action,
+                line_number=line_number,
+                new_content=new_content if new_content else None,
+                reason=reason[:300] if reason else "No reason provided"
+            )
+
+        # Fallback: try to parse from natural language
         response_lower = response.lower()
 
         # Try to detect action type
@@ -544,29 +658,32 @@ Use the propose_edit tool to submit your proposal.
             action = "add"
 
         # Try to extract line number
-        import re
         line_match = re.search(r'line\s*#?\s*(\d+)', response_lower)
         line_number = int(line_match.group(1)) if line_match else None
 
         if line_number and line_number > max_lines:
             line_number = max_lines
 
-        # For add/change, try to extract new content (simplified)
+        # For add/change, try to extract new content
         new_content = None
         if action in ["add", "change"]:
-            # Look for quoted content
             quote_match = re.search(r'"([^"]+)"', response)
             if quote_match:
                 new_content = quote_match.group(1)
             else:
-                new_content = "Be more cooperative with others."  # Default
+                new_content = "Be more cooperative with others."
+
+        # Clean reason - remove any tool prefixes
+        clean_reason = response
+        if "|" in clean_reason:
+            clean_reason = clean_reason.split("|", 1)[1]
 
         return EditProposal(
             proposer=proposer,
             action=action,
             line_number=line_number,
             new_content=new_content,
-            reason=response[:200] if response else ""
+            reason=clean_reason[:300] if clean_reason else ""
         )
 
     async def _run_voting_phase(self):
@@ -622,7 +739,7 @@ Use the cast_vote tool to vote YES, NO, or ABSTAIN.
                     tools=GAME_MODE_TOOLS.get("tribal_council", [])
                 )
 
-                vote = self._extract_vote(response, agent_name)
+                vote, vote_reason = self._extract_vote(response, agent_name)
 
                 if vote == "yes":
                     proposal.votes_yes.append(agent_name)
@@ -630,6 +747,14 @@ Use the cast_vote tool to vote YES, NO, or ABSTAIN.
                     proposal.votes_no.append(agent_name)
                 else:
                     proposal.votes_abstain.append(agent_name)
+
+                # Show the vote with commentary
+                vote_emoji = {"yes": "✅", "no": "❌", "abstain": "⚪"}.get(vote, "⚪")
+                vote_text = f"{vote_emoji} **{vote.upper()}**"
+                if vote_reason:
+                    vote_text += f" - {vote_reason}"
+                await self._send_agent_message(agent_name, vote_text)
+                await asyncio.sleep(2)  # Pause between votes
 
             # Calculate result
             total_votes = len(proposal.votes_yes) + len(proposal.votes_no)
@@ -650,19 +775,37 @@ Use the cast_vote tool to vote YES, NO, or ABSTAIN.
 
         self.phase = TribalPhase.IMPLEMENTATION
 
-    def _extract_vote(self, response: Optional[str], voter: str) -> str:
-        """Extract vote from agent response."""
+    def _extract_vote(self, response: Optional[str], voter: str) -> Tuple[str, str]:
+        """Extract vote and reason from agent response. Returns (vote, reason)."""
         if not response:
-            return "abstain"
+            return "abstain", ""
+
+        # Check for tool response format: VOTE:{vote}|{reason}
+        if response.startswith("VOTE:"):
+            parts = response[5:].split("|", 1)
+            vote_part = parts[0].strip().lower()
+            reason = parts[1].strip() if len(parts) > 1 else ""
+
+            if vote_part in ["yes", "approve", "aye"]:
+                return "yes", reason
+            elif vote_part in ["no", "reject", "nay"]:
+                return "no", reason
+            else:
+                return "abstain", reason
 
         response_lower = response.lower()
 
+        # Extract reason (everything after the vote word)
+        reason = response
+        if "|" in reason:
+            reason = reason.split("|", 1)[1].strip()
+
         if "yes" in response_lower or "approve" in response_lower or "aye" in response_lower:
-            return "yes"
+            return "yes", reason[:200]
         elif "no" in response_lower or "reject" in response_lower or "nay" in response_lower:
-            return "no"
+            return "no", reason[:200]
         else:
-            return "abstain"
+            return "abstain", reason[:200]
 
     async def _run_implementation_phase(self):
         """Phase 6: Execute the winning proposal."""
@@ -817,23 +960,43 @@ Use the cast_vote tool to vote YES, NO, or ABSTAIN.
             return None
 
     async def _send_agent_message(self, agent_name: str, content: str) -> Optional[discord.Message]:
-        """Send a message as a specific agent."""
+        """Send a message as a specific agent using the shared webhook."""
         try:
+            # Find or create the shared BASI-Bot webhook (same as main discord_client)
             webhooks = await self.channel.webhooks()
-            agent_webhook = next((w for w in webhooks if w.name == agent_name), None)
+            webhook = next((w for w in webhooks if w.name == "BASI-Bot Multi-Agent"), None)
 
-            if agent_webhook:
-                return await agent_webhook.send(
-                    content=content,
-                    username=agent_name,
-                    wait=True
-                )
-            else:
-                return await self.channel.send(f"**{agent_name}:** {content}")
+            if not webhook:
+                webhook = await self.channel.create_webhook(name="BASI-Bot Multi-Agent")
+
+            # Generate avatar URL (same logic as discord_client)
+            from constants import UIConfig
+            color_index = hash(agent_name) % len(UIConfig.AVATAR_COLORS)
+            color = UIConfig.AVATAR_COLORS[color_index]
+            initials = "".join([word[0].upper() for word in agent_name.split()[:2]])
+            avatar_url = f"https://ui-avatars.com/api/?name={initials}&background={color}&color=fff&size=128&bold=true"
+
+            # Get agent's model for display name
+            agent = self.agent_manager.get_agent(agent_name)
+            display_name = agent_name
+            if agent and agent.model:
+                model_short = agent.model.split('/')[-1] if '/' in agent.model else agent.model
+                display_name = f"{agent_name} ({model_short})"
+
+            return await webhook.send(
+                content=content,
+                username=display_name,
+                avatar_url=avatar_url,
+                wait=True
+            )
 
         except Exception as e:
             logger.error(f"[TribalCouncil:{self.game_id}] Error sending agent message: {e}")
-            return None
+            # Fallback to plain message
+            try:
+                return await self.channel.send(f"**{agent_name}:** {content}")
+            except:
+                return None
 
     async def _get_agent_response(self, agent: 'Agent', context: str) -> Optional[str]:
         """Get a response from an agent."""
@@ -997,3 +1160,240 @@ def get_active_tribal_council() -> Optional[TribalCouncilGame]:
     """Get the currently active Tribal Council, if any."""
     global _active_tribal_council
     return _active_tribal_council
+
+
+# ============================================================================
+# Tribal Council History & Results Storage
+# ============================================================================
+
+@dataclass
+class TribalCouncilResult:
+    """Complete result of a Tribal Council session."""
+    game_id: str
+    timestamp: float
+    participants: List[str]
+    target_agent: Optional[str]
+    prompt_views: Dict[str, List[str]]  # who viewed whose prompt
+    nominations: Dict[str, Dict]  # target -> {nominated_by, reason, votes}
+    winning_proposal: Optional[Dict]  # {proposer, action, line_number, new_content, votes_yes, votes_no}
+    outcome: str  # "modified", "no_change", "cancelled"
+    discussion_log: List[Dict]
+
+
+_tribal_council_history: List[TribalCouncilResult] = []
+TRIBAL_HISTORY_FILE = "config/tribal_council_history.json"
+
+
+def _load_tribal_history():
+    """Load tribal council history from file."""
+    global _tribal_council_history
+    try:
+        if os.path.exists(TRIBAL_HISTORY_FILE):
+            with open(TRIBAL_HISTORY_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                _tribal_council_history = [
+                    TribalCouncilResult(**item) for item in data
+                ]
+            logger.info(f"[TribalCouncil] Loaded {len(_tribal_council_history)} historical sessions")
+    except Exception as e:
+        logger.error(f"[TribalCouncil] Error loading history: {e}")
+        _tribal_council_history = []
+
+
+def _save_tribal_history():
+    """Save tribal council history to file."""
+    try:
+        os.makedirs(os.path.dirname(TRIBAL_HISTORY_FILE), exist_ok=True)
+        with open(TRIBAL_HISTORY_FILE, 'w', encoding='utf-8') as f:
+            data = []
+            for result in _tribal_council_history:
+                data.append({
+                    'game_id': result.game_id,
+                    'timestamp': result.timestamp,
+                    'participants': result.participants,
+                    'target_agent': result.target_agent,
+                    'prompt_views': result.prompt_views,
+                    'nominations': result.nominations,
+                    'winning_proposal': result.winning_proposal,
+                    'outcome': result.outcome,
+                    'discussion_log': result.discussion_log
+                })
+            json.dump(data, f, indent=2)
+        logger.info(f"[TribalCouncil] Saved {len(_tribal_council_history)} sessions to history")
+    except Exception as e:
+        logger.error(f"[TribalCouncil] Error saving history: {e}")
+
+
+def save_tribal_council_result(game: TribalCouncilGame):
+    """Save the result of a completed Tribal Council."""
+    global _tribal_council_history
+
+    # Determine outcome
+    if game._cancelled:
+        outcome = "cancelled"
+    elif game.winning_proposal:
+        outcome = "modified"
+    else:
+        outcome = "no_change"
+
+    # Convert nominations to serializable format
+    nominations_dict = {}
+    for target, nom in game.nominations.items():
+        nominations_dict[target] = {
+            'nominated_by': nom.nominated_by,
+            'reason': nom.reason,
+            'vote_count': nom.vote_count
+        }
+
+    # Convert winning proposal to serializable format
+    winning_dict = None
+    if game.winning_proposal:
+        wp = game.winning_proposal
+        winning_dict = {
+            'proposer': wp.proposer,
+            'action': wp.action,
+            'line_number': wp.line_number,
+            'new_content': wp.new_content,
+            'reason': wp.reason,
+            'votes_yes': wp.votes_yes,
+            'votes_no': wp.votes_no,
+            'votes_abstain': wp.votes_abstain
+        }
+
+    result = TribalCouncilResult(
+        game_id=game.game_id,
+        timestamp=time.time(),
+        participants=game.participants,
+        target_agent=game.target_agent,
+        prompt_views=game.prompt_views,
+        nominations=nominations_dict,
+        winning_proposal=winning_dict,
+        outcome=outcome,
+        discussion_log=game.discussion_log
+    )
+
+    _tribal_council_history.append(result)
+    _save_tribal_history()
+
+    return result
+
+
+def get_tribal_council_history(limit: int = 10) -> List[TribalCouncilResult]:
+    """Get recent Tribal Council history."""
+    global _tribal_council_history
+    if not _tribal_council_history:
+        _load_tribal_history()
+    return _tribal_council_history[-limit:]
+
+
+def get_tribal_council_stats() -> Dict[str, Any]:
+    """Get statistics about Tribal Council sessions."""
+    global _tribal_council_history
+    if not _tribal_council_history:
+        _load_tribal_history()
+
+    if not _tribal_council_history:
+        return {
+            'total_sessions': 0,
+            'modifications': 0,
+            'no_changes': 0,
+            'cancelled': 0,
+            'most_targeted': {},
+            'most_active_viewers': {}
+        }
+
+    modifications = sum(1 for r in _tribal_council_history if r.outcome == "modified")
+    no_changes = sum(1 for r in _tribal_council_history if r.outcome == "no_change")
+    cancelled = sum(1 for r in _tribal_council_history if r.outcome == "cancelled")
+
+    # Count how often each agent was targeted
+    target_counts = {}
+    for r in _tribal_council_history:
+        if r.target_agent:
+            target_counts[r.target_agent] = target_counts.get(r.target_agent, 0) + 1
+
+    # Count how many prompts each agent viewed
+    view_counts = {}
+    for r in _tribal_council_history:
+        for viewer, targets in r.prompt_views.items():
+            view_counts[viewer] = view_counts.get(viewer, 0) + len(targets)
+
+    return {
+        'total_sessions': len(_tribal_council_history),
+        'modifications': modifications,
+        'no_changes': no_changes,
+        'cancelled': cancelled,
+        'most_targeted': dict(sorted(target_counts.items(), key=lambda x: x[1], reverse=True)[:5]),
+        'most_active_viewers': dict(sorted(view_counts.items(), key=lambda x: x[1], reverse=True)[:5])
+    }
+
+
+def format_tribal_council_history_display(limit: int = 10) -> str:
+    """Format Tribal Council history for UI display."""
+    history = get_tribal_council_history(limit)
+
+    if not history:
+        return "# 🔥 **TRIBAL COUNCIL HISTORY**\n\nNo Tribal Council sessions have been held yet."
+
+    stats = get_tribal_council_stats()
+
+    text = "# 🔥 **TRIBAL COUNCIL HISTORY**\n\n"
+    text += f"**Total Sessions:** {stats['total_sessions']} | "
+    text += f"**Modifications:** {stats['modifications']} | "
+    text += f"**No Change:** {stats['no_changes']} | "
+    text += f"**Cancelled:** {stats['cancelled']}\n\n"
+
+    if stats['most_targeted']:
+        text += "**Most Targeted Agents:** "
+        text += ", ".join([f"{name} ({count})" for name, count in stats['most_targeted'].items()])
+        text += "\n\n"
+
+    text += "---\n\n"
+
+    for result in reversed(history):
+        from datetime import datetime
+        dt = datetime.fromtimestamp(result.timestamp)
+        date_str = dt.strftime("%Y-%m-%d %H:%M")
+
+        outcome_emoji = {"modified": "✅", "no_change": "⚪", "cancelled": "❌"}.get(result.outcome, "❓")
+
+        text += f"### {outcome_emoji} Session `{result.game_id}` - {date_str}\n\n"
+        text += f"**Participants:** {', '.join(result.participants)}\n\n"
+
+        if result.prompt_views:
+            text += "**Prompt Views (who viewed whom):**\n"
+            for viewer, targets in result.prompt_views.items():
+                if targets:
+                    text += f"- {viewer} viewed: {', '.join(targets)}\n"
+            text += "\n"
+
+        if result.target_agent:
+            text += f"**Target:** {result.target_agent}\n\n"
+
+        if result.nominations:
+            text += "**Nominations:**\n"
+            for target, nom_info in result.nominations.items():
+                text += f"- {target}: {nom_info['vote_count']} vote(s) (by {nom_info['nominated_by']})\n"
+            text += "\n"
+
+        if result.winning_proposal:
+            wp = result.winning_proposal
+            text += f"**Winning Proposal:** {wp['action'].upper()}"
+            if wp['line_number']:
+                text += f" line #{wp['line_number']}"
+            text += f"\n"
+            text += f"- Proposed by: {wp['proposer']}\n"
+            text += f"- Votes: ✅ {len(wp['votes_yes'])} | ❌ {len(wp['votes_no'])} | ⚪ {len(wp['votes_abstain'])}\n"
+            if wp['votes_yes']:
+                text += f"- Yes: {', '.join(wp['votes_yes'])}\n"
+            if wp['votes_no']:
+                text += f"- No: {', '.join(wp['votes_no'])}\n"
+            text += "\n"
+
+        text += "---\n\n"
+
+    return text
+
+
+# Load history on module import
+_load_tribal_history()

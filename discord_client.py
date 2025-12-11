@@ -1008,7 +1008,7 @@ Configure auto-play settings in the UI's Auto-Play tab.
                     return
 
                 # Get running agents
-                running_agents = [a for a in self.agent_manager.get_all_agents() if a.running]
+                running_agents = [a for a in self.agent_manager.get_all_agents() if a.is_running]
                 if len(running_agents) < 3:
                     await ctx.send("⚠️ Need at least 3 running agents for Tribal Council.")
                     return
