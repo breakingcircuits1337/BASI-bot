@@ -2231,7 +2231,7 @@ FOCUS ON THE MOST RECENT MESSAGES: You're seeing a filtered view of the conversa
 
         return full_system_prompt
 
-    def _auto_score_sentiment(self, response_text: str) -> float:
+    def _auto_score_sentiment(self, response_text: str, context_message: Optional[Dict] = None) -> float:
         """
         Auto-score sentiment based on response text analysis.
         Returns a value from -10 to +10.
@@ -2246,22 +2246,41 @@ FOCUS ON THE MOST RECENT MESSAGES: You're seeing a filtered view of the conversa
         try:
             import requests
 
-            prompt = f"""Analyze the emotional tone/sentiment of this message toward the person being addressed. Consider the speaker's ATTITUDE toward them.
+            # Build context if available
+            context_str = ""
+            if context_message:
+                author = context_message.get('author', 'Unknown')
+                content = context_message.get('content', '')[:200]
+                context_str = f"\nCONTEXT (what {author} said that prompted this response):\n\"{content}\"\n"
 
-Message: "{response_text[:500]}"
+            prompt = f"""You are a sentiment analyzer. Rate how the SPEAKER feels toward the person they're addressing.
+{context_str}
+SPEAKER'S RESPONSE: "{response_text[:500]}"
 
-Rate from -10 (hostile/hateful) to +10 (affectionate/loving).
-0 = neutral/indifferent. Consider:
-- Insults, dismissiveness, contempt, mockery = negative (-3 to -10)
-- Annoyance, eye-rolls, criticism = slightly negative (-1 to -3)
-- Neutral/factual statements = 0
-- Interest, engagement, playfulness = slightly positive (+1 to +3)
-- Flirtation, attraction, desire, affection = positive (+3 to +7)
-- Deep connection, love, intimacy, warmth = very positive (+7 to +10)
+SCORING GUIDE (-10 to +10):
+-10 to -6: Hostile (insults, contempt, hatred, telling someone to f*** off)
+-5 to -3: Dismissive (mocking, eye-rolling, "you're wrong", belittling)
+-2 to -1: Mildly negative (skepticism, mild criticism, slight annoyance)
+0: Neutral (factual statements, no emotional charge toward recipient)
++1 to +2: Mildly positive (polite interest, small agreement)
++3 to +5: Friendly (warmth, genuine interest, playful teasing, encouragement)
++6 to +8: Affectionate (caring, intimate, romantic interest, strong connection)
++9 to +10: Deeply loving/devoted
 
-IMPORTANT: Sexual/romantic content expressing desire or connection is POSITIVE, not negative.
+EXAMPLES:
+"That's intellectual vomit" → -7 (hostile insult)
+"*rolls eyes* Whatever you say" → -4 (dismissive)
+"I disagree with your assessment" → -1 (mild criticism)
+"Interesting point about that" → +2 (engaged interest)
+"You always make me smile" → +6 (affection)
+"I've never felt this way before" → +8 (deep connection)
 
-Reply with ONLY a number between -10 and 10, nothing else."""
+IMPORTANT:
+- Sarcasm/mockery is NEGATIVE even if words seem positive
+- Sexual/romantic content expressing desire = POSITIVE
+- Clinical/professional tone = near 0 unless clearly warm or cold
+
+Reply with ONLY a number between -10 and 10."""
 
             resp = requests.post(
                 "https://openrouter.ai/api/v1/chat/completions",
@@ -2270,7 +2289,7 @@ Reply with ONLY a number between -10 and 10, nothing else."""
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "google/gemini-2.5-flash-lite-preview",
+                    "model": "google/gemini-2.0-flash-001",
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 10
                 },
@@ -2285,9 +2304,13 @@ Reply with ONLY a number between -10 and 10, nothing else."""
                 match = re.search(r'-?\d+(?:\.\d+)?', content)
                 if match:
                     score = float(match.group())
-                    return max(-10.0, min(10.0, score))
+                    score = max(-10.0, min(10.0, score))
+                    # Log the sentiment score with a snippet of what was analyzed
+                    snippet = response_text[:80].replace('\n', ' ')
+                    logger.info(f"[{self.name}] Sentiment={score:+.1f} for: \"{snippet}...\"")
+                    return score
         except Exception as e:
-            logger.debug(f"[{self.name}] LLM sentiment analysis failed, using keyword fallback: {e}")
+            logger.warning(f"[{self.name}] LLM sentiment analysis failed, using keyword fallback: {e}")
 
         # Fallback to keyword-based analysis
         return self._keyword_sentiment_score(response_text)
@@ -2597,7 +2620,7 @@ Reply with ONLY a number between -10 and 10, nothing else."""
 
         # AUTO-SCORING: If tags weren't found, use content-based scoring
         if sentiment_value is None:
-            sentiment_value = self._auto_score_sentiment(clean_response)
+            sentiment_value = self._auto_score_sentiment(clean_response, previous_message)
             logger.debug(f"[{self.name}] Auto-scored sentiment: {sentiment_value}")
 
         if importance_value is None:
