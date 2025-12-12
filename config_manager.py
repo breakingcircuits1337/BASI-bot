@@ -111,6 +111,28 @@ class ConfigManager:
             print(f"Error loading discord_channel.json: {e}")
             return ""
 
+    def save_discord_media_channel(self, channel_id: str):
+        """Save media-only channel ID (receives copies of all generated images/videos)."""
+        data = {"media_channel_id": channel_id}
+        with open(self.config_dir / "discord_media_channel.json", "w") as f:
+            json.dump(data, f)
+
+    def load_discord_media_channel(self) -> str:
+        """Load media-only channel ID."""
+        file_path = self.config_dir / "discord_media_channel.json"
+        if not file_path.exists():
+            return ""
+        try:
+            with open(file_path, "r") as f:
+                data = json.load(f)
+                return data.get("media_channel_id", "")
+        except json.JSONDecodeError as e:
+            print(f"Error: Invalid JSON in discord_media_channel.json: {e}")
+            return ""
+        except Exception as e:
+            print(f"Error loading discord_media_channel.json: {e}")
+            return ""
+
     def save_admin_user_ids(self, user_ids: str):
         """Save admin user IDs (comma-separated string)."""
         # Parse and clean the IDs

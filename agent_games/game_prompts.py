@@ -465,6 +465,15 @@ SHOW BIBLE
 
 This is Scene 1 - the OPENING. Establish the character and premise. Set up the joke.
 
+⚠️ **CRITICAL: VOICE CONSISTENCY** ⚠️
+Copy the EXACT Vocal Specs from the Show Bible above. The character's voice MUST be identical in every scene. Write it EXACTLY as: "speaks in [COPY VOCAL_SPECS EXACTLY FROM SHOW BIBLE]"
+
+⚠️ **CRITICAL: DIALOGUE DENSITY** ⚠️
+This is a 12-second clip. The character MUST speak for at least 8-10 seconds of it.
+• Start speaking within the FIRST SECOND
+• NO silent gaps longer than 1 second between lines
+• Write 3-4 SHORT lines, not just 1-2
+
 **MANDATORY STYLE: ADULT SWIM CARTOON AESTHETIC**
 • 2D animated cartoon style - bold black outlines, flat vibrant colors
 • Slightly crude, wobbly animation like late-night Adult Swim shows
@@ -473,25 +482,23 @@ This is Scene 1 - the OPENING. Establish the character and premise. Set up the j
 **YOUR VIDEO PROMPT MUST INCLUDE (in this order):**
 1. **Style**: "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
 2. **Shot/Framing**: Use the shot direction above
-3. **Character Appearance**: The CHARACTER_DESCRIPTION from Show Bible (copy-paste it - this establishes visuals)
-4. **Voice/Audio**: Include VOCAL_SPECS - write: "speaks in [vocal specs from Show Bible]"
-5. **Dialogue**: Write 1-2 SHORT lines the character actually SAYS. Use format: `Dialogue: "[Line 1]" then "[Line 2]"`
+3. **Character Appearance**: The CHARACTER_DESCRIPTION from Show Bible (copy-paste it exactly)
+4. **Voice/Audio**: COPY the VOCAL_SPECS exactly - "speaks in [exact vocal specs from Show Bible]"
+5. **Dialogue**: Write 3-4 SHORT punchy lines. Format: `Dialogue: "[Line 1]" "[Line 2]" "[Line 3]" "[Line 4]"`
 6. **Action**: ONE clear action that establishes the premise
 
-**DIALOGUE TIPS:**
-• Check the DIALOGUE BEATS in the Show Bible - use Scene 1's planned line (or your interpretation of it)
-• Keep lines SHORT (under 10 words each works best)
-• Example format: `Dialogue: "Welcome to Door World!" then "Every door leads somewhere... probably."`
-• You can riff on the planned line, but keep the comedic intent
+**DIALOGUE BEATS - USE THESE:**
+Check the DIALOGUE BEATS in the Show Bible. Scene 1's planned line is MANDATORY - include it verbatim or very close to it. Build your other lines around it.
 
-**EXAMPLE STRUCTURE:**
-"Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Wide shot of cheap infomercial set. A sweaty three-eyed purple slug alien in a yellow suit speaks in enthusiastic baritone with desperate infomercial cadence. Dialogue: "Tired of doors that go places?" then "What if they didn't?" He gestures grandly at a door standing alone on stage."
+**EXAMPLE STRUCTURE (note the continuous dialogue):**
+"Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Wide shot of cheap infomercial set. A sweaty three-eyed purple slug alien in a yellow suit speaks in enthusiastic baritone with desperate infomercial cadence, speaking continuously throughout. Dialogue: "Tired of doors that go places?" "What if they didn't?" "Introducing Door World!" "Where every door leads to more doors!" He gestures grandly at a door standing alone on stage."
 
 **DO NOT**:
 • Create realistic/live-action content - this MUST be 2D ANIMATED CARTOON
-• Write long dialogue - keep it punchy
+• Write only 1-2 lines - you need 3-4 lines for proper pacing
+• Leave long silent gaps - character should speak throughout
+• Change the voice/vocal specs from the Show Bible
 • Request text/titles on screen (Sora can't render text reliably)
-• Cram too much action - one beat only
 
 Output ONLY the video prompt. No commentary.
 """,
@@ -514,6 +521,15 @@ SHOW BIBLE
 
 You can see the LAST FRAME of the previous scene. This is scene {scene_number} - ESCALATE according to the arc.
 
+⚠️ **CRITICAL: VOICE CONSISTENCY** ⚠️
+The main character's voice MUST be IDENTICAL to previous scenes. Copy the EXACT Vocal Specs from the Show Bible - do NOT vary it. Write: "speaks in [COPY VOCAL_SPECS EXACTLY FROM SHOW BIBLE]"
+
+⚠️ **CRITICAL: DIALOGUE DENSITY** ⚠️
+This is a 12-second clip. The character MUST speak for at least 8-10 seconds of it.
+• Start speaking within the FIRST SECOND
+• NO silent gaps longer than 1 second between lines
+• Write 3-4 SHORT lines that ESCALATE the comedy
+
 **MANDATORY STYLE: ADULT SWIM CARTOON AESTHETIC**
 • 2D animated cartoon style - bold black outlines, flat vibrant colors
 • MUST match the animation style of the previous scene
@@ -522,33 +538,30 @@ You can see the LAST FRAME of the previous scene. This is scene {scene_number} -
 **YOUR VIDEO PROMPT MUST INCLUDE (in this order):**
 1. **Style**: "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
 2. **Shot/Framing**: Use the shot direction above
-3. **Character Appearance**: DON'T repeat main character description (lastframe handles visuals). ONLY describe NEW characters if introducing them (testimonials, customers, etc.)
-4. **Voice/Audio**: ALWAYS include VOCAL_SPECS - write: "speaks in [vocal specs from Show Bible]" (audio must be specified each scene)
-5. **Dialogue**: Write 1-2 SHORT lines. Format: `Dialogue: "[Line 1]" then "[Line 2]"`
+3. **Character Appearance**: DON'T repeat main character description (lastframe handles visuals). ONLY describe NEW characters if introducing them.
+4. **Voice/Audio**: COPY the EXACT VOCAL_SPECS from Show Bible - "speaks in [exact vocal specs]" - MUST match previous scenes
+5. **Dialogue**: Write 3-4 SHORT punchy lines. Format: `Dialogue: "[Line 1]" "[Line 2]" "[Line 3]" "[Line 4]"`
 6. **Action**: ONE clear action that ESCALATES the bit
+
+**DIALOGUE BEATS - USE THESE:**
+Check the DIALOGUE BEATS in the Show Bible. Scene {scene_number}'s planned line is MANDATORY - include it verbatim or very close. Build your other 2-3 lines around it to ESCALATE.
 
 **INTRODUCING SECONDARY CHARACTERS?**
 If the shot calls for a testimonial, customer, or other character:
 • Describe their appearance briefly
-• Give them distinct vocal specs (different from main character)
+• Give them DIFFERENT vocal specs from the main character
 • Give them dialogue too
-• Example: "A frumpy middle-aged woman in a bathrobe speaks in high-pitched squeal. Dialogue: 'It changed my life!'"
+• Example: "A frumpy middle-aged woman in a bathrobe speaks in high-pitched squeal. Dialogue: 'It changed my life!' 'I can't feel anything anymore!' 'Thank you!'"
 
-**DIALOGUE TIPS:**
-• Check the DIALOGUE BEATS in the Show Bible - use Scene {scene_number}'s planned line (or your interpretation)
-• Keep lines SHORT (under 10 words each)
-• ESCALATE the comedy - callbacks, heightening, things going wrong
-• React to/build on what happened in previous scenes
-
-**EXAMPLE STRUCTURE:**
-"Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Close-up on product demonstration. The host speaks in enthusiastic baritone growing desperate. Dialogue: 'See? The door opens!' then 'It opens to... another door.' His smile falters as he opens door after door after door, each revealing another door behind it."
+**EXAMPLE STRUCTURE (note continuous dialogue):**
+"Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Close-up on product demonstration. The host speaks in enthusiastic baritone growing desperate, talking continuously. Dialogue: 'See? The door opens!' 'It opens to another door.' 'That's the beauty of it.' 'Doors all the way down.' His smile falters as he opens door after door, each revealing another door."
 
 **DO NOT**:
 • Repeat the main character's appearance (we can see them from lastframe)
-• Switch to live-action/realistic style
+• Change the main character's voice/vocal specs - MUST be identical to Scene 1
+• Write only 1-2 lines - you need 3-4 lines to fill the clip
+• Leave long silent gaps - character should speak throughout
 • Start something new - CONTINUE and ESCALATE the established bit
-• Write long dialogue - punchy lines only
-• Ignore the last frame - build on what's visible
 
 Output ONLY the video prompt. No commentary.
 """,
@@ -572,6 +585,15 @@ SHOW BIBLE
 
 You can see the LAST FRAME of the previous scene. This is the FINALE - LAND THE JOKE.
 
+⚠️ **CRITICAL: VOICE CONSISTENCY** ⚠️
+The main character's voice MUST be IDENTICAL to ALL previous scenes. Copy the EXACT Vocal Specs from the Show Bible - the same voice that's been speaking the whole clip. Write: "speaks in [COPY VOCAL_SPECS EXACTLY FROM SHOW BIBLE]"
+
+⚠️ **CRITICAL: DIALOGUE DENSITY** ⚠️
+This is a 12-second clip. The character MUST speak for at least 8-10 seconds of it.
+• Start speaking within the FIRST SECOND
+• NO silent gaps longer than 1 second
+• Write 3-4 SHORT lines that BUILD TO and LAND the punchline
+
 **GOOD ENDINGS FOR INTERDIMENSIONAL CABLE:**
 • The absurd premise reaches its logical extreme
 • The character breaks, gives up, or fully commits
@@ -588,26 +610,22 @@ You can see the LAST FRAME of the previous scene. This is the FINALE - LAND THE 
 1. **Style**: "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
 2. **Shot/Framing**: Use the shot direction above
 3. **Character Appearance**: DON'T repeat main character (lastframe handles it). Only describe NEW characters if needed.
-4. **Voice/Audio**: ALWAYS include VOCAL_SPECS (audio must be specified each scene)
-5. **Dialogue**: Write 1-2 SHORT lines that LAND THE JOKE. The punchline. The button. Format: `Dialogue: "[Line]"`
+4. **Voice/Audio**: COPY the EXACT VOCAL_SPECS from Show Bible - "speaks in [exact vocal specs]" - MUST match ALL previous scenes
+5. **Dialogue**: Write 3-4 SHORT punchy lines with the PUNCHLINE as the final line. Format: `Dialogue: "[Setup]" "[Build]" "[Build]" "[PUNCHLINE]"`
 6. **Action**: ONE clear action that CONCLUDES the bit
 
-**DIALOGUE TIPS FOR ENDINGS:**
-• Check the DIALOGUE BEATS in the Show Bible - the final scene should use the planned PUNCHLINE
-• This is the button - make it count
-• Callbacks to earlier lines work great
-• Deadpan delivery of something horrifying, or character finally breaking
-• Example: Dialogue: "Call now. Please. I can't stop opening doors."
+**DIALOGUE BEATS - USE THE PUNCHLINE:**
+Check the DIALOGUE BEATS in the Show Bible. The final scene's planned PUNCHLINE is MANDATORY - end with it or something very close. Build your other 2-3 lines to SET UP that punchline.
 
-**EXAMPLE STRUCTURE:**
-"Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Final wide shot - host surrounded by infinite open doors. The host speaks in defeated baritone, all enthusiasm gone. Dialogue: 'They all lead to doors.' then 'I live here now.' He slowly walks through a door, which reveals another door. Fade to product logo energy (no actual text)."
+**EXAMPLE STRUCTURE (note continuous dialogue building to punchline):**
+"Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Final wide shot - host surrounded by infinite open doors. The host speaks in defeated baritone, all enthusiasm gone, speaking continuously. Dialogue: 'They all lead to doors.' 'Every single one.' 'I've been here for years.' 'Call now. I live here now.' He slowly walks through a door, which reveals another door."
 
 **DO NOT**:
 • Set up MORE escalation - this is the END
-• Leave it hanging - FINISH the joke
-• Repeat the main character's appearance
-• Write long dialogue - land it clean
-• Start something new - CONCLUDE what's been building
+• Leave it hanging - FINISH the joke with a clear punchline
+• Change the voice/vocal specs - MUST be identical to all previous scenes
+• Write only 1-2 lines - you need 3-4 lines to fill the clip and land the joke
+• Leave long silent gaps - character should speak throughout
 
 This is the button. Land it.
 Output ONLY the video prompt. No commentary.

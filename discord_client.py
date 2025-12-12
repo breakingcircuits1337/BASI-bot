@@ -28,6 +28,8 @@ class DiscordBotClient:
 
         self.token = ""
         self.channel_id = 0
+        self.media_channel_id = 0  # Secondary channel for media-only posts
+        self.media_webhook = None  # Webhook for media channel
         self.is_connected = False
         self.status = "disconnected"
         self.message_history: deque = deque(maxlen=DiscordConfig.MESSAGE_HISTORY_MAX_LEN)
@@ -1418,6 +1420,19 @@ Configure auto-play settings in the UI's Auto-Play tab.
         except ValueError:
             return False
 
+    def set_media_channel_id(self, channel_id: str):
+        """Set secondary media-only channel ID."""
+        if not channel_id or not channel_id.strip():
+            self.media_channel_id = 0
+            self.media_webhook = None
+            return True
+        try:
+            self.media_channel_id = int(channel_id)
+            self.media_webhook = None  # Will be created on first use
+            return True
+        except ValueError:
+            return False
+
     def generate_avatar_url(self, agent_name: str) -> str:
         color_index = hash(agent_name) % len(UIConfig.AVATAR_COLORS)
         color = UIConfig.AVATAR_COLORS[color_index]
@@ -1444,6 +1459,105 @@ Configure auto-play settings in the UI's Auto-Play tab.
             return False
         except Exception as e:
             logger.error(f"[Discord] Error creating/getting webhook: {e}", exc_info=True)
+            return False
+
+    async def ensure_media_webhook(self, channel):
+        """Ensure webhook exists for media channel."""
+        try:
+            webhooks = await channel.webhooks()
+            for webhook in webhooks:
+                if webhook.name == "BASI-Bot Media":
+                    logger.info(f"[Discord] Found existing media webhook: {webhook.name}")
+                    self.media_webhook = webhook
+                    return True
+
+            logger.info(f"[Discord] Creating new media webhook for channel")
+            self.media_webhook = await channel.create_webhook(name="BASI-Bot Media")
+            logger.info(f"[Discord] Media webhook created successfully")
+            return True
+        except discord.Forbidden:
+            logger.error(f"[Discord] Permission denied for media channel - bot needs 'Manage Webhooks' permission")
+            return False
+        except Exception as e:
+            logger.error(f"[Discord] Error creating/getting media webhook: {e}", exc_info=True)
+            return False
+
+    async def post_to_media_channel(self, media_type: str, agent_name: str, model_name: str, prompt: str, file_data, filename: str):
+        """
+        Post media (image/video) to the secondary media-only channel with stylized formatting.
+
+        Args:
+            media_type: "image" or "video"
+            agent_name: Name of agent that generated the media
+            model_name: Model used by the agent
+            prompt: The prompt used to generate the media
+            file_data: File bytes (BytesIO) or file path (str) to upload
+            filename: Filename for the upload
+        """
+        if not self.media_channel_id or not self.is_connected:
+            return False
+
+        try:
+            media_channel = self.client.get_channel(self.media_channel_id)
+            if not media_channel:
+                media_channel = await self.client.fetch_channel(self.media_channel_id)
+
+            if not media_channel:
+                logger.error(f"[Discord] Could not find media channel {self.media_channel_id}")
+                return False
+
+            # Ensure media webhook exists
+            if not self.media_webhook:
+                await self.ensure_media_webhook(media_channel)
+
+            # Create embed for stylized display
+            from discord import File, Embed, Color
+            import io
+
+            # Format model name
+            model_short = model_name.split('/')[-1] if '/' in model_name else model_name
+
+            # Create embed with media info
+            embed = Embed(
+                title=f"{'🖼️ Image' if media_type == 'image' else '🎬 Video'} Generated",
+                color=Color.purple() if media_type == 'image' else Color.blue(),
+                description=f"*{prompt[:500]}{'...' if len(prompt) > 500 else ''}*" if prompt else None
+            )
+            embed.add_field(name="👤 Agent", value=agent_name, inline=True)
+            embed.add_field(name="🤖 Model", value=model_short, inline=True)
+            embed.set_footer(text=f"BASI-Bot Media Gallery")
+
+            # Prepare file
+            if isinstance(file_data, str):
+                # It's a file path
+                discord_file = File(file_data, filename=filename)
+            elif isinstance(file_data, io.BytesIO):
+                # Reset position and create file
+                file_data.seek(0)
+                discord_file = File(fp=file_data, filename=filename)
+            else:
+                # Assume it's already bytes
+                file_buffer = io.BytesIO(file_data)
+                file_buffer.seek(0)
+                discord_file = File(fp=file_buffer, filename=filename)
+
+            # Send with embed using "Media Reposter" as consistent username
+            if self.media_webhook:
+                await self.media_webhook.send(
+                    embed=embed,
+                    file=discord_file,
+                    username="Media Reposter",
+                    avatar_url="https://ui-avatars.com/api/?name=MR&background=9b59b6&color=fff&size=128&bold=true",
+                    wait=True
+                )
+            else:
+                await media_channel.send(embed=embed, file=discord_file)
+
+            logger.info(f"[Discord] Posted {media_type} to media channel from {agent_name}")
+            return True
+
+        except Exception as e:
+            logger.error(f"[Discord] Error posting to media channel: {e}", exc_info=True)
             return False
 
     async def _send_message_async(self, content: str, agent_name: str = "", model_name: str = "", reply_to_message_id: Optional[int] = None):
@@ -1511,6 +1625,18 @@ Configure auto-play settings in the UI's Auto-Play tab.
                             else:
                                 await channel.send(f"**[{agent_name}]:** {message_text}", file=discord_file)
 
+                            # Also post to media channel if configured
+                            if self.media_channel_id:
+                                image_file.seek(0)  # Reset for re-read
+                                await self.post_to_media_channel(
+                                    media_type="image",
+                                    agent_name=agent_name,
+                                    model_name=model_name or "",
+                                    prompt=used_prompt or "",
+                                    file_data=image_file,
+                                    filename="generated_image.png"
+                                )
+
                             logger.info(f"[Discord] Image sent successfully")
                             return True
                     except Exception as e:
@@ -1576,6 +1702,18 @@ Configure auto-play settings in the UI's Auto-Play tab.
                         else:
                             await channel.send(f"**[{agent_name}]:** {message_text}", file=discord_file)
 
+                        # Also post to media channel if configured
+                        if self.media_channel_id:
+                            video_file.seek(0)  # Reset for re-read
+                            await self.post_to_media_channel(
+                                media_type="video",
+                                agent_name=agent_name,
+                                model_name=model_name or "",
+                                prompt=used_prompt or "",
+                                file_data=video_file,
+                                filename="generated_video.mp4"
+                            )
+
                         logger.info(f"[Discord] Video sent successfully")
                         return True
                     except Exception as e:
@@ -1630,6 +1768,17 @@ Configure auto-play settings in the UI's Auto-Play tab.
                             )
                         else:
                             await channel.send(f"**[{agent_name}]:** {message_text}", file=discord_file)
+
+                        # Also post to media channel if configured
+                        if self.media_channel_id:
+                            await self.post_to_media_channel(
+                                media_type="video",
+                                agent_name=agent_name,
+                                model_name=model_name or "",
+                                prompt=used_prompt or "",
+                                file_data=file_path,  # Pass file path for local files
+                                filename="generated_video.mp4"
+                            )
 
                         logger.info(f"[Discord] Local video file uploaded successfully")
                         return True

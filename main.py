@@ -582,7 +582,7 @@ def get_preset_cards_html() -> str:
 
     return ''.join(html)
 
-def connect_discord(token: str, channel_id: str):
+def connect_discord(token: str, channel_id: str, media_channel_id: str = ""):
     if not token:
         return "Error: Discord token required"
 
@@ -593,6 +593,15 @@ def connect_discord(token: str, channel_id: str):
             config_manager.save_discord_channel(channel_id)
         else:
             return "Error: Invalid channel ID"
+
+    # Set and save media channel if provided
+    if media_channel_id and media_channel_id.strip():
+        if discord_client.set_media_channel_id(media_channel_id):
+            config_manager.save_discord_media_channel(media_channel_id)
+        else:
+            return "Error: Invalid media channel ID"
+    else:
+        discord_client.set_media_channel_id("")  # Clear if empty
 
     if discord_client.connect(token):
         return "Connecting to Discord..."
@@ -773,12 +782,12 @@ def _create_live_feed_tab():
             outputs=[feed_display]
         )
 
-def _create_discord_tab(discord_token_initial: str, discord_channel_initial: str):
+def _create_discord_tab(discord_token_initial: str, discord_channel_initial: str, discord_media_channel_initial: str = ""):
     """Create the Discord tab for bot connection and control.
 
     Returns:
         Tuple of (connect_btn, disconnect_btn, refresh_btn, stop_all_btn,
-                  discord_status, connection_card, token_input, channel_input)
+                  discord_status, connection_card, token_input, channel_input, media_channel_input)
         for wiring up header updates in the main block.
     """
     with gr.Tab("DISCORD"):
@@ -813,9 +822,15 @@ def _create_discord_tab(discord_token_initial: str, discord_channel_initial: str
                     placeholder="Enter Discord bot token..."
                 )
                 discord_channel_input = gr.Textbox(
-                    label="Channel ID",
+                    label="Channel ID (Main)",
                     value=discord_channel_initial,
                     placeholder="Enter channel ID..."
+                )
+                discord_media_channel_input = gr.Textbox(
+                    label="Media Channel ID (Optional)",
+                    value=discord_media_channel_initial,
+                    placeholder="Secondary channel for media-only posts...",
+                    info="If set, all generated images/videos will also be posted here with agent details"
                 )
 
                 with gr.Row():
@@ -921,7 +936,8 @@ Admin users can remotely start/stop agents, change models, clear memory, etc.
 
     # Return components for wiring up in main block (where header_display is available)
     return (connect_discord_btn, disconnect_discord_btn, refresh_discord_btn, stop_all_btn,
-            discord_status, connection_card, discord_token_input, discord_channel_input, active_admin_display)
+            discord_status, connection_card, discord_token_input, discord_channel_input,
+            discord_media_channel_input, active_admin_display)
 
 def _create_config_tab(openrouter_key_initial: str, cometapi_key_initial: str, initial_models: List[str], initial_video_models: List[str], agent_model_input):
     """Create the CONFIG tab for system configuration and management."""
@@ -2118,6 +2134,7 @@ def create_gradio_ui():
 
     discord_token_initial = config_manager.load_discord_token()
     discord_channel_initial = config_manager.load_discord_channel()
+    discord_media_channel_initial = config_manager.load_discord_media_channel()
     openrouter_key_initial = config_manager.load_openrouter_key()
     cometapi_key_initial = config_manager.load_cometapi_key()
     with gr.Blocks(css=MATRIX_CSS, title="BASI BOT - Multi-Agent Discord LLM System") as app:
@@ -2452,14 +2469,15 @@ def create_gradio_ui():
             # Create remaining tabs using helper functions
             _create_games_tab()
             (connect_discord_btn, disconnect_discord_btn, refresh_discord_btn, stop_all_btn,
-             discord_status, connection_card, discord_token_input, discord_channel_input, active_admin_display) = \
-                _create_discord_tab(discord_token_initial, discord_channel_initial)
+             discord_status, connection_card, discord_token_input, discord_channel_input,
+             discord_media_channel_input, active_admin_display) = \
+                _create_discord_tab(discord_token_initial, discord_channel_initial, discord_media_channel_initial)
             _create_live_feed_tab()
             _create_config_tab(openrouter_key_initial, cometapi_key_initial, initial_models, initial_video_models, agent_model_input)
 
         # Wire up Discord buttons to update header (now that header_display exists)
-        def connect_and_refresh_with_header(token, channel):
-            result = connect_discord(token, channel)
+        def connect_and_refresh_with_header(token, channel, media_channel):
+            result = connect_discord(token, channel, media_channel)
             return result, get_discord_connection_html(), get_header_html()
 
         def disconnect_and_refresh_with_header():
@@ -2481,7 +2499,7 @@ def create_gradio_ui():
 
         connect_discord_btn.click(
             fn=connect_and_refresh_with_header,
-            inputs=[discord_token_input, discord_channel_input],
+            inputs=[discord_token_input, discord_channel_input, discord_media_channel_input],
             outputs=[discord_status, connection_card, header_display]
         )
 

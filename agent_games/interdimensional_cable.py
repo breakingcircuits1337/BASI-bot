@@ -140,6 +140,57 @@ def update_idcc_config(max_clips=None, clip_duration_seconds=None, video_resolut
     return idcc_config
 
 
+def extract_scene_dialogue_beat(dialogue_beats: str, scene_number: int, total_scenes: int) -> str:
+    """
+    Extract the specific dialogue beat for a given scene from the Show Bible dialogue_beats string.
+
+    Format expected: "Scene 1: '[line]' | Scene 2: '[line]' | Scene 3: '[line]' ..."
+    Also handles: "Opening: '[line]' | Middle: '[line]' | Punchline: '[line]'"
+
+    Returns the specific line for this scene, or a helpful fallback.
+    """
+    if not dialogue_beats:
+        return "Improvise a funny line that fits the comedic hook"
+
+    # Try to parse "Scene N: '[line]'" format
+    import re
+
+    # Handle numbered format: "Scene 1: 'line' | Scene 2: 'line'"
+    scene_pattern = rf"Scene\s*{scene_number}\s*:\s*['\"]([^'\"]+)['\"]"
+    match = re.search(scene_pattern, dialogue_beats, re.IGNORECASE)
+    if match:
+        return match.group(1)
+
+    # Handle named format for special positions
+    if scene_number == 1:
+        for label in ["Opening", "Setup", "Intro", "Scene 1"]:
+            pattern = rf"{label}\s*:\s*['\"]([^'\"]+)['\"]"
+            match = re.search(pattern, dialogue_beats, re.IGNORECASE)
+            if match:
+                return match.group(1)
+
+    if scene_number == total_scenes:
+        for label in ["Punchline", "Ending", "Finale", "Button", f"Scene {total_scenes}"]:
+            pattern = rf"{label}\s*:\s*['\"]([^'\"]+)['\"]"
+            match = re.search(pattern, dialogue_beats, re.IGNORECASE)
+            if match:
+                return match.group(1)
+
+    # Try splitting by | and taking the Nth element
+    parts = dialogue_beats.split("|")
+    if 0 < scene_number <= len(parts):
+        part = parts[scene_number - 1].strip()
+        # Extract just the quoted part if present
+        quote_match = re.search(r"['\"]([^'\"]+)['\"]", part)
+        if quote_match:
+            return quote_match.group(1)
+        # Otherwise return the cleaned part
+        return re.sub(r"^Scene\s*\d+\s*:\s*", "", part).strip()
+
+    # Fallback
+    return f"Build on the comedic hook - this is scene {scene_number} of {total_scenes}"
+
+
 # ============================================================================
 # HUMAN CARD SYSTEM - Cards Against Humanity style pitch selection
 # ============================================================================
@@ -2427,16 +2478,24 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
             # Format the Show Bible for injection
             bible = self.state.show_bible
             if bible:
+                # Extract this scene's specific mandatory dialogue line
+                scene_line = extract_scene_dialogue_beat(
+                    bible.dialogue_beats or "",
+                    clip_number,
+                    self.num_clips
+                )
+
                 show_bible_text = (
                     f"**Format:** {bible.show_format}\n"
                     f"**Premise:** {bible.premise}\n"
                     f"**Character Description:** {bible.character_description}\n"
-                    f"**Vocal Specs (how they SOUND):** {bible.vocal_specs or 'clear speaking voice with character-appropriate energy'}\n"
+                    f"**Vocal Specs (how they SOUND - USE EXACTLY):** {bible.vocal_specs or 'clear speaking voice with character-appropriate energy'}\n"
                     f"**Character Voice (how they ACT):** {bible.character_voice}\n"
                     f"**Secondary Characters:** {bible.secondary_characters or 'None'}\n"
                     f"**The Joke:** {bible.comedic_hook}\n"
                     f"**Arc:** {bible.arc_description}\n"
-                    f"**Dialogue Beats:** {bible.dialogue_beats or 'Improvise funny lines that fit the comedic hook'}"
+                    f"**Dialogue Beats (all scenes):** {bible.dialogue_beats or 'Improvise funny lines'}\n"
+                    f"**⚠️ THIS SCENE'S MANDATORY LINE:** \"{scene_line}\" (include this line or very close variation)"
                 )
                 # Get format-appropriate shot direction for this scene
                 shot_direction = get_shot_direction(
