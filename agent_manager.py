@@ -2236,16 +2236,20 @@ FOCUS ON THE MOST RECENT MESSAGES: You're seeing a filtered view of the conversa
         try:
             import requests
 
-            prompt = f"""Analyze the emotional tone/sentiment of this message toward others. Consider sarcasm, irony, insults, dark humor, dismissiveness, and context.
+            prompt = f"""Analyze the emotional tone/sentiment of this message toward the person being addressed. Consider the speaker's ATTITUDE toward them.
 
 Message: "{response_text[:500]}"
 
-Rate from -10 (hostile/insulting/very negative) to +10 (warm/friendly/very positive).
-0 = neutral. Consider:
-- Insults, eye-rolls, dismissiveness = negative
-- Dark humor at others' expense = slightly negative
-- Genuine warmth, compliments = positive
-- Sarcasm that mocks = negative even if words seem positive
+Rate from -10 (hostile/hateful) to +10 (affectionate/loving).
+0 = neutral/indifferent. Consider:
+- Insults, dismissiveness, contempt, mockery = negative (-3 to -10)
+- Annoyance, eye-rolls, criticism = slightly negative (-1 to -3)
+- Neutral/factual statements = 0
+- Interest, engagement, playfulness = slightly positive (+1 to +3)
+- Flirtation, attraction, desire, affection = positive (+3 to +7)
+- Deep connection, love, intimacy, warmth = very positive (+7 to +10)
+
+IMPORTANT: Sexual/romantic content expressing desire or connection is POSITIVE, not negative.
 
 Reply with ONLY a number between -10 and 10, nothing else."""
 
@@ -2283,9 +2287,9 @@ Reply with ONLY a number between -10 and 10, nothing else."""
         text_lower = response_text.lower()
 
         # Positive indicators (weighted)
-        positive_strong = ['love', 'amazing', 'fantastic', 'excellent', 'wonderful', 'brilliant', 'perfect', 'awesome', 'incredible']
-        positive_medium = ['great', 'good', 'nice', 'happy', 'glad', 'enjoy', 'like', 'thanks', 'thank', 'appreciate', 'agree', 'yes', 'definitely', 'absolutely']
-        positive_mild = ['okay', 'ok', 'sure', 'fine', 'cool', 'interesting', 'neat', 'haha', 'lol', 'heh', '😊', '😄', '👍', '❤️', '🎉']
+        positive_strong = ['love', 'amazing', 'fantastic', 'excellent', 'wonderful', 'brilliant', 'perfect', 'awesome', 'incredible', 'desire', 'want you', 'need you', 'crave', 'gorgeous', 'beautiful', 'sexy', 'hot', 'attracted', 'passion', 'intimate']
+        positive_medium = ['great', 'good', 'nice', 'happy', 'glad', 'enjoy', 'like', 'thanks', 'thank', 'appreciate', 'agree', 'yes', 'definitely', 'absolutely', 'flirt', 'tease', 'playful', 'touch', 'kiss', 'closer', 'together', 'connection', 'chemistry', 'electric', 'exciting']
+        positive_mild = ['okay', 'ok', 'sure', 'fine', 'cool', 'interesting', 'neat', 'haha', 'lol', 'heh', '😊', '😄', '👍', '❤️', '🎉', 'wink', 'smile', 'grin', 'eyes on', 'looking at']
 
         # Negative indicators (weighted)
         negative_strong = ['hate', 'terrible', 'awful', 'horrible', 'disgusting', 'furious', 'outraged', 'worst', 'idiot', 'stupid', 'pathetic', 'loser', 'lowlife']
