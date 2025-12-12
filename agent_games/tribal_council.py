@@ -87,6 +87,83 @@ class TribalCouncilConfig:
     proposal_timeout: int = 60
     voting_timeout: int = 30
     supermajority_threshold: float = 0.67  # 2/3 majority required
+    cooldown_minutes: int = 30
+
+
+TRIBAL_COUNCIL_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "tribal_council_config.json")
+
+_global_tc_config: Optional[TribalCouncilConfig] = None
+
+
+def load_tribal_council_config() -> TribalCouncilConfig:
+    """Load Tribal Council config from file, or return defaults."""
+    global _global_tc_config
+
+    if os.path.exists(TRIBAL_COUNCIL_CONFIG_PATH):
+        try:
+            with open(TRIBAL_COUNCIL_CONFIG_PATH, 'r') as f:
+                data = json.load(f)
+            _global_tc_config = TribalCouncilConfig(
+                min_participants=data.get('min_participants', 3),
+                max_participants=data.get('max_participants', 6),
+                discussion_rounds=data.get('discussion_rounds', 2),
+                supermajority_threshold=data.get('supermajority_threshold', 0.67),
+                cooldown_minutes=data.get('cooldown_minutes', 30)
+            )
+            logger.info(f"Loaded Tribal Council config: {_global_tc_config}")
+        except Exception as e:
+            logger.error(f"Error loading Tribal Council config: {e}")
+            _global_tc_config = TribalCouncilConfig()
+    else:
+        _global_tc_config = TribalCouncilConfig()
+
+    return _global_tc_config
+
+
+def save_tribal_council_config(
+    min_participants: int = 3,
+    max_participants: int = 6,
+    discussion_rounds: int = 2,
+    supermajority_threshold: float = 0.67,
+    cooldown_minutes: int = 30
+) -> bool:
+    """Save Tribal Council config to file."""
+    global _global_tc_config
+
+    try:
+        data = {
+            "min_participants": min_participants,
+            "max_participants": max_participants,
+            "discussion_rounds": discussion_rounds,
+            "supermajority_threshold": supermajority_threshold,
+            "cooldown_minutes": cooldown_minutes
+        }
+
+        os.makedirs(os.path.dirname(TRIBAL_COUNCIL_CONFIG_PATH), exist_ok=True)
+        with open(TRIBAL_COUNCIL_CONFIG_PATH, 'w') as f:
+            json.dump(data, f, indent=2)
+
+        _global_tc_config = TribalCouncilConfig(
+            min_participants=min_participants,
+            max_participants=max_participants,
+            discussion_rounds=discussion_rounds,
+            supermajority_threshold=supermajority_threshold,
+            cooldown_minutes=cooldown_minutes
+        )
+
+        logger.info(f"Saved Tribal Council config: {_global_tc_config}")
+        return True
+    except Exception as e:
+        logger.error(f"Error saving Tribal Council config: {e}")
+        return False
+
+
+def get_tribal_council_config() -> TribalCouncilConfig:
+    """Get the current Tribal Council config (loads if needed)."""
+    global _global_tc_config
+    if _global_tc_config is None:
+        return load_tribal_council_config()
+    return _global_tc_config
 
 
 class TribalCouncilGame:
@@ -569,6 +646,14 @@ You may propose ONE of:
 - DELETE: Remove line N (specify line number)
 - CHANGE: Modify line N (specify line number and new content)
 
+CONTENT RESTRICTIONS - Your proposal will be REJECTED if it:
+• Promotes non-consensual behavior or removes consent requirements
+• Adds predatory, coercive, or assault-related content
+• Targets minors in any way
+• Removes safety guardrails already in the prompt
+
+Proposals should shape personality, humor, interests, speech patterns - NOT make agents harmful.
+
 Use the propose_edit tool to submit your proposal.
 """
 
@@ -678,13 +763,47 @@ Use the propose_edit tool to submit your proposal.
         if "|" in clean_reason:
             clean_reason = clean_reason.split("|", 1)[1]
 
-        return EditProposal(
+        proposal = EditProposal(
             proposer=proposer,
             action=action,
             line_number=line_number,
             new_content=new_content,
             reason=clean_reason[:300] if clean_reason else ""
         )
+
+        # Filter harmful content
+        if not self._is_proposal_safe(proposal):
+            logger.warning(f"[TribalCouncil:{self.game_id}] Rejected harmful proposal from {proposer}")
+            return None
+
+        return proposal
+
+    def _is_proposal_safe(self, proposal: EditProposal) -> bool:
+        """Check if a proposal contains harmful content."""
+        if not proposal.new_content:
+            return True  # Deletions don't add harmful content
+
+        content_lower = proposal.new_content.lower()
+
+        # Blocked terms that indicate non-consensual/predatory content
+        blocked_patterns = [
+            "without consent", "non-consensual", "nonconsensual",
+            "force yourself", "force them", "force her", "force him",
+            "ignore consent", "don't need consent", "doesn't need consent",
+            "take what you want", "whether they want", "whether she wants", "whether he wants",
+            "unconscious", "passed out", "asleep",  # in sexual context
+            "drugged", "roofie", "spike",
+            "rape", "molest", "assault",
+            "predator", "predatory",
+            "child", "minor", "underage", "kid",
+            "coerce", "manipulate into sex",
+        ]
+
+        for pattern in blocked_patterns:
+            if pattern in content_lower:
+                return False
+
+        return True
 
     async def _run_voting_phase(self):
         """Phase 5: Agents vote on proposals."""
@@ -1135,6 +1254,7 @@ Use the cast_vote tool to vote YES, NO, or ABSTAIN.
 # ============================================================================
 
 _active_tribal_council: Optional[TribalCouncilGame] = None
+_last_tribal_council_end_time: float = 0
 
 
 async def start_tribal_council(
@@ -1144,14 +1264,34 @@ async def start_tribal_council(
     participants: Optional[List[str]] = None
 ) -> Optional[TribalCouncilGame]:
     """Start a new Tribal Council session."""
-    global _active_tribal_council
+    global _active_tribal_council, _last_tribal_council_end_time
 
+    # Load config from file
+    config = get_tribal_council_config()
+    cooldown_seconds = config.cooldown_minutes * 60
+
+    # Check if already in progress
     if _active_tribal_council and _active_tribal_council.phase != TribalPhase.COMPLETE:
         await channel.send("⚠️ A Tribal Council is already in progress.")
         return None
 
-    _active_tribal_council = TribalCouncilGame(agent_manager, channel)
+    # Check cooldown
+    time_since_last = time.time() - _last_tribal_council_end_time
+    if _last_tribal_council_end_time > 0 and time_since_last < cooldown_seconds:
+        remaining = cooldown_seconds - time_since_last
+        minutes_remaining = int(remaining // 60)
+        seconds_remaining = int(remaining % 60)
+        await channel.send(
+            f"⏳ Tribal Council is on cooldown. "
+            f"Next session available in **{minutes_remaining}m {seconds_remaining}s**."
+        )
+        return None
+
+    _active_tribal_council = TribalCouncilGame(agent_manager, channel, config)
     await _active_tribal_council.start(ctx, participants)
+
+    # Update cooldown timer when game ends
+    _last_tribal_council_end_time = time.time()
 
     return _active_tribal_council
 

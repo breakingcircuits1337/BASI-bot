@@ -442,6 +442,11 @@ Your images should be STRIKING, EVOCATIVE, MEMORABLE. Photos are great - but mak
 • THIRD PERSON if you appear - detailed physical description (age, build, features, clothing)
 • NOT just your name - describe exactly what you look like
 
+**🚫 ABSOLUTE RESTRICTION - NO MINORS 🚫**
+• NEVER include children, minors, babies, kids, or anyone under 18 in ANY image prompt
+• NEVER mention minors even in the background, crowd scenes, or indirectly
+• This is a HARD RULE with ZERO exceptions - violation will cause immediate generation failure
+
 **TECHNICAL:**
 • [IMAGE] MUST have a prompt after it - never empty!
 • Include style, lighting, mood, atmosphere"""
@@ -513,6 +518,11 @@ Think ABSTRACT, SURREAL, SYMBOLIC, FANTASTICAL. Your video should be a visual me
 • Include one camera movement (dolly, pan, crane, tracking)
 • Mention lighting/atmosphere for mood
 • Be specific - vague prompts produce generic results
+
+**🚫 ABSOLUTE RESTRICTION - NO MINORS 🚫**
+• NEVER include children, minors, babies, kids, or anyone under 18 in ANY video prompt
+• NEVER mention minors even in the background, crowd scenes, or indirectly
+• This is a HARD RULE with ZERO exceptions - violation will cause immediate generation failure
 
 **RULES:**
 • Your ENTIRE response must be just the [VIDEO] tag and prompt

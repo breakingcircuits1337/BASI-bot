@@ -3232,7 +3232,12 @@ TECHNICAL REQUIREMENTS:
 • THIRD PERSON if you appear (detailed physical description)
 • Include style references: cinematographic, painterly, surreal, noir, psychedelic
 • Specify mood: lighting, atmosphere, emotional tone
-• Make it YOUR statement - what do YOU want to show the world?"""
+• Make it YOUR statement - what do YOU want to show the world?
+
+🚫 ABSOLUTE RESTRICTION - NO MINORS 🚫
+• NEVER include children, minors, babies, kids, or anyone under 18
+• NEVER mention minors even in backgrounds or crowds
+• This is a HARD RULE - zero exceptions"""
                     },
                     {
                         "role": "user",
@@ -3357,7 +3362,12 @@ AVOID:
 - Boring realistic everyday scenes
 
 Include one camera movement (dolly, pan, crane, tracking) and atmospheric details.
-Be vivid and specific. This is your creative expression through Sora 2 video generation."""
+Be vivid and specific. This is your creative expression through Sora 2 video generation.
+
+🚫 ABSOLUTE RESTRICTION - NO MINORS 🚫
+• NEVER include children, minors, babies, kids, or anyone under 18
+• NEVER mention minors even in backgrounds or crowds
+• This is a HARD RULE - zero exceptions"""
                     },
                     {
                         "role": "user",

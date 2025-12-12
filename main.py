@@ -19,7 +19,11 @@ try:
     from agent_games.auto_play_config import autoplay_manager
     from agent_games.game_orchestrator import GameOrchestrator
     from agent_games.game_context import game_context_manager
-    from agent_games.tribal_council import format_tribal_council_history_display
+    from agent_games.tribal_council import (
+        format_tribal_council_history_display,
+        save_tribal_council_config,
+        get_tribal_council_config
+    )
     GAMES_AVAILABLE = True
 except ImportError:
     game_manager = None
@@ -27,6 +31,8 @@ except ImportError:
     GameOrchestrator = None
     game_context_manager = None
     format_tribal_council_history_display = None
+    save_tribal_council_config = None
+    get_tribal_council_config = None
     GAMES_AVAILABLE = False
 
 # Load Matrix CSS from external file
@@ -1250,13 +1256,21 @@ All prompt viewing and editing happens silently between agents.
 To start a Tribal Council manually, use the command `!tribal-council` in Discord.
 """)
 
+        # Load current config values
+        tc_config_values = get_tribal_council_config() if get_tribal_council_config else None
+        tc_min_val = tc_config_values.min_participants if tc_config_values else 3
+        tc_max_val = tc_config_values.max_participants if tc_config_values else 6
+        tc_rounds_val = tc_config_values.discussion_rounds if tc_config_values else 2
+        tc_super_val = tc_config_values.supermajority_threshold if tc_config_values else 0.67
+        tc_cooldown_val = tc_config_values.cooldown_minutes if tc_config_values else 30
+
         with gr.Row():
             with gr.Column():
                 tc_min_participants = gr.Slider(
                     label="Minimum Participants",
                     minimum=2,
                     maximum=5,
-                    value=3,
+                    value=tc_min_val,
                     step=1,
                     info="Minimum agents needed for a council"
                 )
@@ -1265,9 +1279,18 @@ To start a Tribal Council manually, use the command `!tribal-council` in Discord
                     label="Maximum Participants",
                     minimum=3,
                     maximum=10,
-                    value=6,
+                    value=tc_max_val,
                     step=1,
                     info="Maximum agents in a council"
+                )
+
+                tc_cooldown_minutes = gr.Slider(
+                    label="Cooldown (minutes)",
+                    minimum=5,
+                    maximum=120,
+                    value=tc_cooldown_val,
+                    step=5,
+                    info="Minutes between council sessions"
                 )
 
             with gr.Column():
@@ -1275,7 +1298,7 @@ To start a Tribal Council manually, use the command `!tribal-council` in Discord
                     label="Discussion Rounds",
                     minimum=1,
                     maximum=5,
-                    value=2,
+                    value=tc_rounds_val,
                     step=1,
                     info="Rounds of open discussion before voting"
                 )
@@ -1284,12 +1307,39 @@ To start a Tribal Council manually, use the command `!tribal-council` in Discord
                     label="Supermajority Threshold",
                     minimum=0.5,
                     maximum=1.0,
-                    value=0.67,
+                    value=tc_super_val,
                     step=0.05,
                     info="Vote ratio required to pass (0.67 = 2/3 majority)"
                 )
 
+        with gr.Row():
+            tc_save_btn = gr.Button("💾 Save Tribal Council Settings", variant="primary")
+
         tc_status = gr.Markdown(value="Tribal Council settings. Use `!tribal-council` in Discord to start a session.")
+
+        def save_tc_settings(min_p, max_p, rounds, super_thresh, cooldown):
+            """Save Tribal Council settings to config file."""
+            if not save_tribal_council_config:
+                return "⚠️ Tribal Council module not available."
+
+            success = save_tribal_council_config(
+                min_participants=int(min_p),
+                max_participants=int(max_p),
+                discussion_rounds=int(rounds),
+                supermajority_threshold=float(super_thresh),
+                cooldown_minutes=int(cooldown)
+            )
+
+            if success:
+                return f"✅ Settings saved! Min: {int(min_p)}, Max: {int(max_p)}, Rounds: {int(rounds)}, Threshold: {super_thresh:.0%}, Cooldown: {int(cooldown)}min"
+            else:
+                return "❌ Failed to save settings."
+
+        tc_save_btn.click(
+            fn=save_tc_settings,
+            inputs=[tc_min_participants, tc_max_participants, tc_discussion_rounds, tc_supermajority, tc_cooldown_minutes],
+            outputs=[tc_status]
+        )
 
         # Tribal Council History Section
         gr.HTML('<hr style="border-color: var(--border-dim); margin: 20px 0;">')

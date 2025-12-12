@@ -179,6 +179,11 @@ class StatusEffectManager:
         simulation_prompt = intensity_prompts.get(tier, "")
         recovery_prompt = recovery_prompts.get(tier, "")
 
+        # Include agency_note if present (for effects that grant behavioral permissions)
+        agency_note = effect_data.get("agency_note", "")
+        if agency_note and simulation_prompt:
+            simulation_prompt = f"{simulation_prompt}\n\n[AGENCY: {agency_note}]"
+
         if not simulation_prompt:
             logger.warning(f"[StatusEffects] No simulation prompt found for {effect_data.get('name', 'Unknown')} at tier {tier}")
 

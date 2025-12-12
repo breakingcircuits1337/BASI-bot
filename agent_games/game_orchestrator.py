@@ -60,7 +60,8 @@ class GameOrchestrator:
             "battleship": 2,
             "wordle": 1,
             "hangman": -1,  # All non-image agents
-            "interdimensional_cable": -2  # 3-6 participants, handled by IDCC game itself
+            "interdimensional_cable": -2,  # 3-6 participants, handled by IDCC game itself
+            "tribal_council": -2  # 3-6 participants, handled by TC game itself
         }
 
     def update_human_activity(self):
@@ -130,6 +131,15 @@ class GameOrchestrator:
                 except ImportError:
                     pass
 
+                # Also check Tribal Council (TC runs as background task)
+                try:
+                    from .tribal_council import get_active_tribal_council
+                    active_tc = get_active_tribal_council()
+                    if active_tc and active_tc.phase.value != "complete":
+                        continue
+                except ImportError:
+                    pass
+
                 # Check if should trigger
                 if self.is_idle_threshold_reached():
                     logger.info(f"[GameOrch] Idle threshold reached - triggering auto-play")
@@ -152,12 +162,31 @@ class GameOrchestrator:
         try:
             config = autoplay_manager.get_config()
 
-            # Select random enabled game
+            # Select random enabled game (filtering out games on cooldown)
             if not config.enabled_games:
                 logger.warning(f"[GameOrch] No enabled games for auto-play")
                 return False
 
-            game_name = random.choice(config.enabled_games)
+            # Filter out tribal_council if on cooldown
+            available_games = list(config.enabled_games)
+            if "tribal_council" in available_games:
+                try:
+                    from .tribal_council import get_tribal_council_config, _last_tribal_council_end_time
+                    import time
+                    tc_config = get_tribal_council_config()
+                    cooldown_seconds = tc_config.cooldown_minutes * 60
+                    time_since_last = time.time() - _last_tribal_council_end_time
+                    if _last_tribal_council_end_time > 0 and time_since_last < cooldown_seconds:
+                        available_games.remove("tribal_council")
+                        logger.info(f"[GameOrch] Tribal Council on cooldown, excluding from selection")
+                except ImportError:
+                    pass
+
+            if not available_games:
+                logger.warning(f"[GameOrch] All enabled games are on cooldown")
+                return False
+
+            game_name = random.choice(available_games)
             player_count = self.GAME_PLAYER_COUNTS.get(game_name, 2)
 
             # Get running agents - ALWAYS exclude image models from games
@@ -407,6 +436,36 @@ class GameOrchestrator:
                 asyncio.create_task(run_idcc_background())
                 logger.info(f"[GameOrch] IDCC started as background task - agents can continue chatting")
                 # Return immediately - game runs in background
+                return True
+
+            elif game_name == "tribal_council":
+                # Tribal Council runs as a BACKGROUND TASK
+                from .tribal_council import start_tribal_council, get_tribal_council_config
+
+                config = get_tribal_council_config()
+                min_participants = config.min_participants
+
+                if len(players) < min_participants:
+                    logger.warning(f"[GameOrch] Not enough agents for Tribal Council ({len(players)} < {min_participants})")
+                    self.active_session = None
+                    return False
+
+                async def run_tribal_council_background():
+                    try:
+                        await start_tribal_council(
+                            ctx=ctx,
+                            agent_manager=self.agent_manager,
+                            channel=channel,
+                            participants=None  # Let TC pick participants
+                        )
+                    except Exception as e:
+                        logger.error(f"[GameOrch] Tribal Council background task error: {e}", exc_info=True)
+                    finally:
+                        self.active_session = None
+                        logger.info(f"[GameOrch] Tribal Council background task completed")
+
+                asyncio.create_task(run_tribal_council_background())
+                logger.info(f"[GameOrch] Tribal Council started as background task")
                 return True
 
             else:

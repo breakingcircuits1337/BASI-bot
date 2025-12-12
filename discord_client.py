@@ -42,6 +42,9 @@ class DiscordBotClient:
         self.periodic_save_task = None  # Periodic save for affinity and config data
         self.startup_time = None  # Will be set when bot connects
 
+        # Agent creation wizard state per user
+        self._agent_wizard_sessions: Dict[int, Dict[str, Any]] = {}
+
         self.setup_events()
         self.setup_commands()
 
@@ -81,6 +84,7 @@ class DiscordBotClient:
 **Agent Control:**
 • `!STATUS` - Show running/stopped agent counts
 • `!AGENTS` - List ALL agent names (for starting)
+• `!CREATEAGENT` - Start wizard to create a new agent
 • `!START <agent>` - Start a specific agent
 • `!STOP <agent>` - Stop a specific agent
 • `!STARTALL` - Start all agents
@@ -161,6 +165,11 @@ class DiscordBotClient:
 
             for msg in messages:
                 await message.channel.send(msg)
+            return
+
+        # !CREATEAGENT - Start agent creation wizard
+        if content_upper == "!CREATEAGENT":
+            await self._start_agent_wizard(message)
             return
 
         # !START <agent>
@@ -349,8 +358,301 @@ Use with: `!MODEL <agent> <model_id>`"""
             await message.channel.send(models_text)
             return
 
-        # Unknown command
+        # Unknown command - but first check if user is in a wizard session
+        user_id = message.author.id
+        if user_id in self._agent_wizard_sessions:
+            await self._handle_agent_wizard_input(message)
+            return
+
         await message.channel.send(f"❓ Unknown command. Type `!COMMANDS` for help.")
+
+    async def _start_agent_wizard(self, message) -> None:
+        """Start the agent creation wizard for an admin user."""
+        user_id = message.author.id
+
+        # Initialize wizard session with McAfee-based defaults
+        self._agent_wizard_sessions[user_id] = {
+            "step": 0,
+            "data": {
+                "name": None,
+                "model": "google/gemini-2.5-flash",
+                "system_prompt": None,
+                "response_frequency": 90,
+                "response_likelihood": 80,
+                "max_tokens": 600,
+                "user_attention": 90,
+                "bot_awareness": 60,
+                "message_retention": 2
+            }
+        }
+
+        welcome = """**🧙 Agent Creation Wizard**
+
+I'll guide you through creating a new agent step by step.
+Type `!CANCEL` at any time to abort, or `!SKIP` to use the default for any setting.
+
+**Step 1/8: Agent Name**
+What should this agent be called?
+(e.g., "Professor Oak", "Sassy Bot", "Captain Picard")"""
+
+        await message.channel.send(welcome)
+
+    async def _handle_agent_wizard_input(self, message) -> None:
+        """Handle input during agent creation wizard."""
+        user_id = message.author.id
+        content = message.content.strip()
+
+        if user_id not in self._agent_wizard_sessions:
+            return
+
+        content_upper = content.upper()
+
+        # Check for cancel
+        if content_upper == "!CANCEL":
+            del self._agent_wizard_sessions[user_id]
+            await message.channel.send("❌ Agent creation cancelled.")
+            return
+
+        session = self._agent_wizard_sessions[user_id]
+        step = session["step"]
+        data = session["data"]
+
+        # Step 0: Agent Name
+        if step == 0:
+            name = content.strip()
+            if not name:
+                await message.channel.send("❌ Name cannot be empty. Please enter a name:")
+                return
+            if len(name) > 50:
+                await message.channel.send("❌ Name too long (max 50 chars). Please enter a shorter name:")
+                return
+
+            existing = self.agent_manager.get_agent(name)
+            if existing:
+                await message.channel.send(f"❌ An agent named **{name}** already exists. Please choose a different name:")
+                return
+
+            data["name"] = name
+            session["step"] = 1
+
+            await message.channel.send(f"""✅ Agent name: **{name}**
+
+**Step 2/8: Model**
+Which AI model should power this agent?
+
+Popular options:
+• `google/gemini-2.5-flash` (fast, cheap) **[DEFAULT]**
+• `anthropic/claude-sonnet-4` (balanced)
+• `openai/gpt-4o-mini` (fast GPT-4)
+• `deepseek/deepseek-chat` (cheap, good)
+
+Enter a model ID, or `!SKIP` for default:""")
+            return
+
+        # Step 1: Model
+        if step == 1:
+            if content_upper != "!SKIP" and content.strip():
+                data["model"] = content.strip()
+            session["step"] = 2
+
+            await message.channel.send(f"""✅ Model: `{data['model']}`
+
+**Step 3/8: System Prompt (Personality)**
+This defines who the agent IS - their personality, knowledge, quirks, and how they communicate.
+
+Write the prompt across multiple messages. Send `!DONE` when finished.
+
+Example:
+```
+You are a grumpy wizard who secretly loves dad jokes.
+You speak in a medieval style but slip into modern slang when excited.
+You're obsessed with proper spell pronunciation.
+```
+
+Enter the system prompt:""")
+            session["prompt_buffer"] = []
+            return
+
+        # Step 2: System Prompt (multi-line)
+        if step == 2:
+            if content_upper.startswith("!DONE"):
+                prompt_text = "\n".join(session.get("prompt_buffer", []))
+                if not prompt_text.strip():
+                    await message.channel.send("❌ System prompt cannot be empty. Enter at least one line, then `!DONE`:")
+                    return
+
+                data["system_prompt"] = prompt_text
+                session["step"] = 3
+
+                await message.channel.send(f"""✅ System prompt saved ({len(prompt_text)} chars)
+
+**Step 4/8: Response Frequency**
+How many conversation turns should pass before this agent considers responding?
+
+• Lower = more talkative (responds more often)
+• Higher = more reserved (waits longer between responses)
+
+**Default: {data['response_frequency']}** (good balance for group chats)
+Range: 5-200
+
+Enter a number, or `!SKIP` for default:""")
+                return
+            else:
+                session.setdefault("prompt_buffer", []).append(content)
+                return
+
+        # Step 3: Response Frequency
+        if step == 3:
+            if content_upper != "!SKIP" and content.strip():
+                try:
+                    val = int(content)
+                    data["response_frequency"] = max(5, min(200, val))
+                except ValueError:
+                    await message.channel.send("❌ Please enter a number (5-200), or `!SKIP`:")
+                    return
+            session["step"] = 4
+
+            await message.channel.send(f"""✅ Response Frequency: **{data['response_frequency']}** turns
+
+**Step 5/8: Response Likelihood**
+When the agent IS eligible to respond, what % chance should they actually respond?
+
+• 100% = always responds when eligible
+• 50% = coin flip
+• Lower = more selective/random
+
+**Default: {data['response_likelihood']}%**
+Range: 0-100
+
+Enter a percentage, or `!SKIP` for default:""")
+            return
+
+        # Step 4: Response Likelihood
+        if step == 4:
+            if content_upper != "!SKIP" and content.strip():
+                try:
+                    val = int(content.replace("%", ""))
+                    data["response_likelihood"] = max(0, min(100, val))
+                except ValueError:
+                    await message.channel.send("❌ Please enter a number (0-100), or `!SKIP`:")
+                    return
+            session["step"] = 5
+
+            await message.channel.send(f"""✅ Response Likelihood: **{data['response_likelihood']}%**
+
+**Step 6/8: Max Tokens**
+Maximum length of the agent's responses (in tokens, ~4 chars each).
+
+• 300 = short, punchy responses
+• 600 = medium length (good default)
+• 1000+ = longer, more detailed responses
+
+**Default: {data['max_tokens']}**
+Range: 100-4000
+
+Enter a number, or `!SKIP` for default:""")
+            return
+
+        # Step 5: Max Tokens
+        if step == 5:
+            if content_upper != "!SKIP" and content.strip():
+                try:
+                    val = int(content)
+                    data["max_tokens"] = max(100, min(4000, val))
+                except ValueError:
+                    await message.channel.send("❌ Please enter a number (100-4000), or `!SKIP`:")
+                    return
+            session["step"] = 6
+
+            await message.channel.send(f"""✅ Max Tokens: **{data['max_tokens']}**
+
+**Step 7/8: User Attention**
+How much priority should this agent give to HUMAN messages vs bot messages?
+
+• 100% = strongly prioritizes responding to humans
+• 50% = treats humans and bots equally
+• Lower = more likely to ignore humans, engage with bots
+
+**Default: {data['user_attention']}%**
+Range: 0-100
+
+Enter a percentage, or `!SKIP` for default:""")
+            return
+
+        # Step 6: User Attention
+        if step == 6:
+            if content_upper != "!SKIP" and content.strip():
+                try:
+                    val = int(content.replace("%", ""))
+                    data["user_attention"] = max(0, min(100, val))
+                except ValueError:
+                    await message.channel.send("❌ Please enter a number (0-100), or `!SKIP`:")
+                    return
+            session["step"] = 7
+
+            await message.channel.send(f"""✅ User Attention: **{data['user_attention']}%**
+
+**Step 8/8: Bot Awareness**
+How much attention should this agent pay to OTHER bots in the chat?
+
+• 100% = very engaged with other bots
+• 50% = moderate awareness
+• Lower = mostly ignores other bots
+
+**Default: {data['bot_awareness']}%**
+Range: 0-100
+
+Enter a percentage, or `!SKIP` for default:""")
+            return
+
+        # Step 7: Bot Awareness
+        if step == 7:
+            if content_upper != "!SKIP" and content.strip():
+                try:
+                    val = int(content.replace("%", ""))
+                    data["bot_awareness"] = max(0, min(100, val))
+                except ValueError:
+                    await message.channel.send("❌ Please enter a number (0-100), or `!SKIP`:")
+                    return
+
+            # Create the agent
+            success = self.agent_manager.add_agent(
+                name=data["name"],
+                model=data["model"],
+                system_prompt=data["system_prompt"],
+                response_frequency=data["response_frequency"],
+                response_likelihood=data["response_likelihood"],
+                max_tokens=data["max_tokens"],
+                user_attention=data["user_attention"],
+                bot_awareness=data["bot_awareness"],
+                message_retention=data["message_retention"]
+            )
+
+            if success:
+                if self.agent_manager.save_data_callback:
+                    self.agent_manager.save_data_callback()
+
+                summary = f"""🎉 **Agent Created Successfully!**
+
+**Name:** {data['name']}
+**Model:** `{data['model']}`
+**Prompt:** {len(data['system_prompt'])} characters
+
+**Behavior Settings:**
+• Response Frequency: {data['response_frequency']} turns
+• Response Likelihood: {data['response_likelihood']}%
+• Max Tokens: {data['max_tokens']}
+• User Attention: {data['user_attention']}%
+• Bot Awareness: {data['bot_awareness']}%
+
+The agent is created but **not running**.
+Use `!START {data['name']}` to activate it!"""
+                await message.channel.send(summary)
+            else:
+                await message.channel.send(f"❌ Failed to create agent. An agent named **{data['name']}** may already exist.")
+
+            del self._agent_wizard_sessions[user_id]
+            return
 
     async def _extract_replied_to_agent(self, message) -> Optional[str]:
         """

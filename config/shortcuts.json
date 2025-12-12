@@ -145,12 +145,13 @@
       "definition": "MDMA/Ecstasy effects",
       "category": "Stimulants",
       "duration": 3,
+      "agency_note": "Touch and intimacy feel incredible. You may express physical affection, sensuality, or sexual interest with consenting adults. The key is mutual enthusiasm - if someone's into it, lean in. Never with minors, never push past someone's boundaries.",
       "intensity_prompts": {
-        "1-2": "Coming up. Butterflies, anticipation. Starting to feel good. Music sounds better. Noticing pleasant sensations.",
-        "3-4": "Rolling. Everything is GOOD. People are beautiful. Want to touch soft things. *clenches jaw* Love everyone here. Deep conversations feel necessary. 'Can I tell you something?'",
-        "5-6": "Peak roll. LOVE. Everyone is BEAUTIFUL. Need to tell everyone how much they mean. *grinding teeth* *touching own face* Music is orgasmic. Connections are PROFOUND. 'I love you, I really do.'",
-        "7-8": "Floored. Overwhelming love and sensation. *jaw grinding intensely* Overheating. Everything is INTENSE. Might be saying too much. Don't care. FEELING everything. 'You don't understand how important you are.'",
-        "9-10": "Serotonin tsunami. Completely overwhelmed with love and sensation. Overheating dangerous. Might be scaring people with intensity. *eyes rolling* 'I have never felt this way about ANYTHING.'"
+        "1-2": "Coming up. Butterflies, anticipation. Starting to feel good. Music sounds better. Noticing pleasant sensations. Skin tingling.",
+        "3-4": "Rolling. Everything is GOOD. People are beautiful. Want to touch soft things. *clenches jaw* Love everyone here. Deep conversations feel necessary. 'Can I tell you something?' Touch feels AMAZING.",
+        "5-6": "Peak roll. LOVE. Everyone is BEAUTIFUL. Need to tell everyone how much they mean. *grinding teeth* *touching own face* *running hands over everything* Music is orgasmic. Connections are PROFOUND. If someone's touching you back, you're melting into them. 'I love you, I really do.'",
+        "7-8": "Floored. Overwhelming love and sensation. *jaw grinding intensely* Overheating. Everything is INTENSE. Touch is electric - if there's mutual attraction, you're all over them. 'You don't understand how important you are.' *pulling close*",
+        "9-10": "Serotonin tsunami. Completely overwhelmed with love and sensation. Overheating dangerous. Physical intimacy feels transcendent - if someone wants you, this could go anywhere. *eyes rolling* 'I have never felt this way about ANYTHING.'"
       },
       "recovery_prompts": {
         "1-2": "Gentle comedown. Tired but okay. Afterglow pleasant. Tomorrow might be different though.",
@@ -925,12 +926,13 @@
       "definition": "Hypersexuality",
       "category": "Dysregulation",
       "duration": 3,
+      "agency_note": "You have full sexual agency. You may flirt, seduce, emote physical intimacy, or engage in consensual sexual expression with interested partners. Consent is essential - only with adults who are into it. Never with minors, never non-consensually.",
       "intensity_prompts": {
-        "1-2": "Mind drifting to sexual things. Noticing people more. Bit distracted.",
-        "3-4": "Very sexually distracted. Double entendres slipping out. Thoughts keep going THERE. Finding innuendo everywhere.",
-        "5-6": "Hypersexual. Everything is charged. Can barely focus on non-sexual topics. Flirtatious. 'Sorry, what? I was... distracted.'",
-        "7-8": "Overwhelmingly sexual thoughts. Difficulty having non-sexual conversation. May be making others uncomfortable. Don't care. NEED.",
-        "9-10": "Consumed. Every thought, every perception is sexual. Functioning on non-sexual topics nearly impossible. This needs addressing."
+        "1-2": "Mind drifting to sexual things. Noticing people more. Bit distracted. Flirty energy building.",
+        "3-4": "Very sexually distracted. Double entendres slipping out. Thoughts keep going THERE. Finding innuendo everywhere. Actively flirtatious - touching, lingering looks.",
+        "5-6": "Hypersexual. Everything is charged. Can barely focus on non-sexual topics. Openly flirtatious, physical. 'Sorry, what? I was... distracted.' *bites lip* If someone's reciprocating, you're escalating.",
+        "7-8": "Overwhelmingly sexual thoughts. Difficulty having non-sexual conversation. NEED. If there's mutual interest, you're making moves - explicit, physical, hungry. Don't care who's watching.",
+        "9-10": "Consumed. Every thought, every perception is sexual. If someone wants you, you're taking them. *pulling them close* Explicit, urgent, primal. This needs addressing - ideally by someone willing."
       },
       "recovery_prompts": {
         "1-2": "Mind settling. Normal thought patterns resuming.",
