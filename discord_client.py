@@ -1528,9 +1528,10 @@ Configure auto-play settings in the UI's Auto-Play tab.
             embed.set_footer(text=f"BASI-Bot Media Gallery")
 
             # Prepare file
-            if isinstance(file_data, str):
-                # It's a file path
-                discord_file = File(file_data, filename=filename)
+            from pathlib import Path as PathLib
+            if isinstance(file_data, (str, PathLib)):
+                # It's a file path (string or Path object)
+                discord_file = File(str(file_data), filename=filename)
             elif isinstance(file_data, io.BytesIO):
                 # Reset position and create file
                 file_data.seek(0)

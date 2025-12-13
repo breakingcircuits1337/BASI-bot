@@ -310,22 +310,29 @@ Be yourself!
     "interdimensional_cable": """
 📺 INTERDIMENSIONAL CABLE - COLLABORATIVE VIDEO CREATION
 
-You are participating in a collaborative absurdist video creation game.
-Together with other participants, you're creating a surreal TV clip.
+You are participating in a collaborative absurdist COMEDY video creation game.
+Together with other participants, you're creating a surreal, FUNNY TV clip.
 
 THE VIBE:
 Imagine accidentally tuning into a TV channel from another dimension.
-Infomercials with impossible logic. Public access from parallel realities.
-Commercial breaks that make you question existence.
+Cooking shows with impossible ingredients. Dating shows with eldritch contestants.
+Nature documentaries about furniture. Court TV for crimes that don't exist.
+Workout videos for body parts humans don't have.
 
 KEY PRINCIPLES:
-• BE WEIRD but COMMITTED - play it straight while the premise is insane
-• LOW PRODUCTION VALUE is part of the charm - think local cable access
-• DEADPAN DELIVERY of completely unhinged content
-• SURREAL but SPECIFIC - don't be vague, be precisely absurd
-• ORIGINAL - do not use common tropes, surprise us
+• BE FUNNY - this is COMEDY, not just weird. Make us LAUGH.
+• COMMIT TO THE BIT - play it straight while the premise is insane
+• ABSURDIST LOGIC - the internal logic should be consistent but impossible
+• ESCALATE - start weird, get weirder, end with a punchline
+• VARIETY - NOT everything is an infomercial! Try other formats!
 
-Stay in character. Create something beautifully weird.
+BANNED TOPICS (we've done these too much):
+• Memory/nostalgia devices
+• Trauma therapy / inner child healing
+• Thought control / conformity
+• Corporate wellness
+
+Stay in character. Create something genuinely FUNNY.
 """,
 
     # IDCC Phase-specific prompts
@@ -347,22 +354,42 @@ You're in a writers' room pitching ideas for an INTERDIMENSIONAL CABLE clip.
 
 **YOUR PITCH MUST INCLUDE ALL THREE:**
 
-1. **FORMAT**: What type of fake TV is this? (infomercial, product ad, PSA, talk show, cooking show, workout video, late-night ad, news segment, movie trailer, etc.)
+1. **FORMAT**: Pick something OTHER than infomercial! Try: cooking show, workout video, talk show, dating show, nature documentary, movie trailer, kids show, home shopping, court TV, reality competition, travel show, late-night ad, PSA, news segment
 
-2. **PREMISE**: What's being sold/shown? The absurd concept presented totally straight-faced. (Products that don't exist, impossible services, things no one needs)
+2. **PREMISE**: What's being sold/shown/happening? The absurd concept presented totally straight-faced.
 
-3. **THE BIT**: What's the JOKE? What makes this funny? What's the comedic through-line that escalates?
+3. **THE BIT**: What's the JOKE? What makes this FUNNY? What's the comedic escalation?
+
+🚫 **BANNED CONCEPTS - DO NOT PITCH THESE:**
+• Memory devices / memory erasure / nostalgia machines
+• Trauma therapy / inner child / psychological healing products
+• Thought control / conformity / mind compliance
+• Corporate wellness / productivity optimization
+• Dystopian PSAs about thinking/feeling
+• Anything "therapeutic" or "psychological"
+WE'VE DONE THESE TO DEATH. BE MORE CREATIVE.
+
+✅ **PITCH SOMETHING LIKE:**
+• A cooking show where the chef only uses ingredients that don't exist
+• A dating show where one contestant is clearly 3 aliens in a trenchcoat
+• A workout video for muscles humans don't have
+• A nature documentary about furniture migration patterns
+• A travel show visiting places that are just feelings
+• A court TV show where the crime is "being too tall on a Wednesday"
+• A kids show teaching dangerous nonsense with enthusiasm
 
 **THE INTERDIMENSIONAL CABLE VIBE:**
-• Fake commercials from alternate dimensions
-• Products/services that make NO sense but presented DEADLY SERIOUS
-• Short, punchy, committed to the bit
-• Think: "Real Fake Doors", "Ants in my Eyes Johnson", "Little Bits"
+• ABSURDIST - logic breaks down but everyone acts normal
+• COMMITTED - play it straight while the premise is insane
+• ESCALATING - the bit gets weirder/worse as it goes
+• FUNNY - there must be JOKES, not just weird concepts
 
-**EXAMPLE COMPLETE PITCH:**
-"FORMAT: Infomercial. PREMISE: Selling doors that only lead to more doors - an infinite door maze. THE BIT: The salesman keeps getting asked 'but where do they GO?' and has to keep opening more doors to prove they go somewhere, getting increasingly desperate and sweaty as he runs out of answers."
+**EXAMPLE PITCHES:**
+"FORMAT: Cooking show. PREMISE: Chef is teaching a recipe but keeps substituting ingredients with abstract concepts. 'Now add 3 cups of your father's approval.' THE BIT: He keeps cooking invisible food, tasting it seriously, and the dish keeps coming out as different emotions."
 
-**YOUR PITCH SHOULD REFLECT YOUR COMEDIC VOICE.** What makes YOU laugh? Pitch something YOU find funny.
+"FORMAT: Workout video. PREMISE: Instructor teaching exercises for your 'third arm' that humans clearly don't have. THE BIT: He keeps demonstrating impossible movements, getting frustrated that viewers 'aren't trying hard enough', eventually revealing his third arm was CGI the whole time."
+
+**YOUR PITCH SHOULD MAKE US LAUGH.** What's genuinely funny about your idea?
 
 Give your complete pitch in 3-4 sentences covering FORMAT, PREMISE, and THE BIT.
 """,
@@ -405,21 +432,36 @@ Now we need to create the CHARACTER. Your job: propose a complete CHARACTER PACK
 
 **YOUR CHARACTER PACKAGE MUST INCLUDE:**
 
-1. **CHARACTER DESCRIPTION**: One detailed sentence describing their APPEARANCE. Be SPECIFIC about colors, features, clothing, species. This EXACT description will be copy-pasted into every video prompt for visual consistency.
-   Example: "A sweaty three-eyed purple slug alien in a cheap yellow suit with a combover made of writhing tentacles"
+1. **CHARACTER_DESCRIPTION**: One DETAILED sentence describing their EXACT APPEARANCE. This will be COPY-PASTED VERBATIM into every video prompt, so be EXTREMELY SPECIFIC:
+   • SPECIES: Human? Alien? Robot? Animal? What kind?
+   • BODY: Build, posture, any unusual features
+   • FACE: Eye color, facial hair, expression, any unique features
+   • HAIR: Style, color, length (CRITICAL - be specific!)
+   • CLOTHING: Exact outfit with colors
+   • PROPS/ACCESSORIES: Anything they're holding or wearing
 
-2. **CHARACTER VOICE**: How do they ACT? Their energy, vibe, delivery style.
-   Example: "Desperately enthusiastic infomercial energy with creeping existential dread"
+   GOOD: "A pudgy middle-aged human man with a brown combover, thick black mustache, sweaty red face, wearing a too-tight powder blue polo shirt tucked into khaki shorts, holding a spatula"
 
-3. **ARC**: How does the character/bit ESCALATE across the scenes?
-   Example: "Confident → doubt creeps in → failed demonstration → existential crisis → goes through a door himself"
+   BAD: "A friendly host" (too vague - will look different every scene!)
+
+2. **VOCAL_SPECS**: EXACT voice description for text-to-speech consistency. Include:
+   • Gender/pitch (male/female, high/low)
+   • Accent or speech pattern
+   • Energy level and delivery style
+
+   GOOD: "speaks in gravelly male baritone with Southern drawl, overly enthusiastic infomercial cadence"
+   BAD: "energetic voice" (too vague!)
+
+3. **ARC**: How does the character EMOTIONALLY ESCALATE across scenes? Show the journey:
+   GOOD: "Confident and slick → slight confusion → visible panic → complete breakdown → acceptance of absurdity"
+   BAD: "Gets funnier" (not specific!)
 
 **FORMAT YOUR RESPONSE EXACTLY LIKE THIS:**
-CHARACTER DESCRIPTION: [One detailed visual sentence]
-CHARACTER VOICE: [One sentence about energy/delivery]
-ARC: [One sentence showing escalation]
+CHARACTER_DESCRIPTION: [Detailed visual sentence with species, face, hair, clothing, props]
+VOCAL_SPECS: [Pitch, accent, energy, delivery style]
+ARC: [Emotional journey with 4-5 beats]
 
-**MAKE IT WEIRD. MAKE IT SPECIFIC. MAKE IT FUNNY.**
+**THE CHARACTER SHOULD BE FUNNY TO LOOK AT.** Give them visual comedy potential.
 """,
 
     "idcc_spitball_round4_vote": """
@@ -452,183 +494,187 @@ The character package with the most votes becomes our CHARACTER_DESCRIPTION, CHA
     "idcc_scene_opening": """
 📺 INTERDIMENSIONAL CABLE - SCENE 1 (OPENING)
 
-You are creating the OPENING SCENE for this interdimensional cable clip.
-
 ═══════════════════════════════════════════════════════════════
 SHOW BIBLE
 ═══════════════════════════════════════════════════════════════
 {show_bible}
 ═══════════════════════════════════════════════════════════════
 
-**SHOT DIRECTION FOR THIS SCENE:**
-{shot_direction}
+**SHOT DIRECTION:** {shot_direction}
 
-This is Scene 1 - the OPENING. Establish the character and premise. Set up the joke.
+This is Scene 1 - ESTABLISH the character and premise. SET UP the joke.
 
-⚠️ **CRITICAL: VOICE CONSISTENCY** ⚠️
-Copy the EXACT Vocal Specs from the Show Bible above. The character's voice MUST be identical in every scene. Write it EXACTLY as: "speaks in [COPY VOCAL_SPECS EXACTLY FROM SHOW BIBLE]"
+🎬 **OUTPUT FORMAT - FOLLOW EXACTLY:**
+Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else. No commentary, no scene numbers, no "here's my prompt", no meta-text. Just the prompt itself.
 
-⚠️ **CRITICAL: DIALOGUE DENSITY** ⚠️
-This is a 12-second clip. The character MUST speak for at least 8-10 seconds of it.
-• Start speaking within the FIRST SECOND
-• NO silent gaps longer than 1 second between lines
-• Write 3-4 SHORT lines, not just 1-2
+⚠️ **CRITICAL REQUIREMENTS:**
 
-**MANDATORY STYLE: ADULT SWIM CARTOON AESTHETIC**
-• 2D animated cartoon style - bold black outlines, flat vibrant colors
-• Slightly crude, wobbly animation like late-night Adult Swim shows
-• Exaggerated character designs - big heads, simple bodies, expressive faces
+1. **STYLE** (always first): "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
 
-**YOUR VIDEO PROMPT MUST INCLUDE (in this order):**
-1. **Style**: "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
-2. **Shot/Framing**: Use the shot direction above
-3. **Character Appearance**: The CHARACTER_DESCRIPTION from Show Bible (copy-paste it exactly)
-4. **Voice/Audio**: COPY the VOCAL_SPECS exactly - "speaks in [exact vocal specs from Show Bible]"
-5. **Dialogue**: Write 3-4 SHORT punchy lines. Format: `Dialogue: "[Line 1]" "[Line 2]" "[Line 3]" "[Line 4]"`
-6. **Action**: ONE clear action that establishes the premise
+2. **CHARACTER** (copy-paste EXACTLY from Show Bible):
+   Copy the CHARACTER_DESCRIPTION word-for-word. Do NOT paraphrase or shorten it.
 
-**DIALOGUE BEATS - USE THESE:**
-Check the DIALOGUE BEATS in the Show Bible. Scene 1's planned line is MANDATORY - include it verbatim or very close to it. Build your other lines around it.
+3. **VOICE** (copy-paste EXACTLY from Show Bible):
+   Write: "[Character] speaks in [VOCAL_SPECS from Show Bible]"
+   Copy it EXACTLY - same pitch, same accent, same energy.
 
-**EXAMPLE STRUCTURE (note the continuous dialogue):**
-"Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Wide shot of cheap infomercial set. A sweaty three-eyed purple slug alien in a yellow suit speaks in enthusiastic baritone with desperate infomercial cadence, speaking continuously throughout. Dialogue: "Tired of doors that go places?" "What if they didn't?" "Introducing Door World!" "Where every door leads to more doors!" He gestures grandly at a door standing alone on stage."
+4. **DIALOGUE** (3-4 lines, formatted correctly):
+   Format: Dialogue: "[Line 1]" "[Line 2]" "[Line 3]" "[Line 4]"
+   • MUST include the mandatory line from DIALOGUE_BEATS for Scene 1
+   • Lines should be SHORT (5-10 words each)
+   • Lines should be FUNNY - jokes, absurdist observations, commitment to the bit
+   • Character speaks CONTINUOUSLY - no gaps
 
-**DO NOT**:
-• Create realistic/live-action content - this MUST be 2D ANIMATED CARTOON
-• Write only 1-2 lines - you need 3-4 lines for proper pacing
-• Leave long silent gaps - character should speak throughout
-• Change the voice/vocal specs from the Show Bible
-• Request text/titles on screen (Sora can't render text reliably)
+5. **ACTION** (one clear visual):
+   What is the character DOING while speaking?
 
-Output ONLY the video prompt. No commentary.
+**DIALOGUE MUST BE FUNNY:**
+• Include at least ONE absurdist non-sequitur or logic break
+• The humor comes from COMMITMENT to the insane premise
+• Don't just state the premise - make JOKES about it
+
+**EXAMPLE OUTPUT:**
+Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Wide shot of a cheap TV kitchen set. A pudgy middle-aged human man with a brown combover, thick black mustache, sweaty red face, wearing a too-tight powder blue polo shirt tucked into khaki shorts, holds a spatula. He speaks in gravelly male baritone with Southern drawl, overly enthusiastic cooking show energy. Dialogue: "Welcome to Cooking with Feelings!" "Today we're making my grandmother's famous anxiety!" "You'll need three cups of dread and a pinch of your dad's disappointment." "Let's get emotional!" He stirs an empty pot with intense concentration.
+
+🚫 **DO NOT OUTPUT:**
+• Scene numbers or labels ("Scene 1:", "Opening:")
+• Meta-commentary ("Here's my prompt:", "This scene will...")
+• Instructions or explanations
+• Anything except the video prompt itself
+
+Output ONLY the video prompt paragraph. Start with "Adult Swim cartoon style..."
 """,
 
     "idcc_scene_middle": """
 📺 INTERDIMENSIONAL CABLE - SCENE {scene_number} of {num_clips}
 
-You are creating a MIDDLE SCENE for this interdimensional cable clip.
-
 ═══════════════════════════════════════════════════════════════
 SHOW BIBLE
 ═══════════════════════════════════════════════════════════════
 {show_bible}
 ═══════════════════════════════════════════════════════════════
 
-**SHOT DIRECTION FOR THIS SCENE:**
-{shot_direction}
+**SHOT DIRECTION:** {shot_direction}
 
-**PREVIOUS SCENE PROMPT**: {previous_prompt}
+**PREVIOUS SCENE:** {previous_prompt}
 
-You can see the LAST FRAME of the previous scene. This is scene {scene_number} - ESCALATE according to the arc.
+This is Scene {scene_number} - ESCALATE the comedy. Things get WEIRDER or WORSE.
 
-⚠️ **CRITICAL: VOICE CONSISTENCY** ⚠️
-The main character's voice MUST be IDENTICAL to previous scenes. Copy the EXACT Vocal Specs from the Show Bible - do NOT vary it. Write: "speaks in [COPY VOCAL_SPECS EXACTLY FROM SHOW BIBLE]"
+🎬 **OUTPUT FORMAT - FOLLOW EXACTLY:**
+Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else. No commentary, no scene numbers, no meta-text. Just the prompt itself.
 
-⚠️ **CRITICAL: DIALOGUE DENSITY** ⚠️
-This is a 12-second clip. The character MUST speak for at least 8-10 seconds of it.
-• Start speaking within the FIRST SECOND
-• NO silent gaps longer than 1 second between lines
-• Write 3-4 SHORT lines that ESCALATE the comedy
+⚠️ **CRITICAL REQUIREMENTS:**
 
-**MANDATORY STYLE: ADULT SWIM CARTOON AESTHETIC**
-• 2D animated cartoon style - bold black outlines, flat vibrant colors
-• MUST match the animation style of the previous scene
-• This is ANIMATED, NOT live action, NOT realistic
+1. **STYLE** (always first): "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
 
-**YOUR VIDEO PROMPT MUST INCLUDE (in this order):**
-1. **Style**: "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
-2. **Shot/Framing**: Use the shot direction above
-3. **Character Appearance**: DON'T repeat main character description (lastframe handles visuals). ONLY describe NEW characters if introducing them.
-4. **Voice/Audio**: COPY the EXACT VOCAL_SPECS from Show Bible - "speaks in [exact vocal specs]" - MUST match previous scenes
-5. **Dialogue**: Write 3-4 SHORT punchy lines. Format: `Dialogue: "[Line 1]" "[Line 2]" "[Line 3]" "[Line 4]"`
-6. **Action**: ONE clear action that ESCALATES the bit
+2. **CHARACTER** (copy-paste EXACTLY from Show Bible):
+   Copy the CHARACTER_DESCRIPTION word-for-word. The character MUST look identical to Scene 1.
 
-**DIALOGUE BEATS - USE THESE:**
-Check the DIALOGUE BEATS in the Show Bible. Scene {scene_number}'s planned line is MANDATORY - include it verbatim or very close. Build your other 2-3 lines around it to ESCALATE.
+3. **VOICE** (copy-paste EXACTLY from Show Bible):
+   Write: "[Character] speaks in [VOCAL_SPECS from Show Bible]"
+   MUST be IDENTICAL to previous scenes - same pitch, accent, energy.
 
-**INTRODUCING SECONDARY CHARACTERS?**
-If the shot calls for a testimonial, customer, or other character:
-• Describe their appearance briefly
-• Give them DIFFERENT vocal specs from the main character
-• Give them dialogue too
-• Example: "A frumpy middle-aged woman in a bathrobe speaks in high-pitched squeal. Dialogue: 'It changed my life!' 'I can't feel anything anymore!' 'Thank you!'"
+4. **DIALOGUE** (3-4 lines, escalating):
+   Format: Dialogue: "[Line 1]" "[Line 2]" "[Line 3]" "[Line 4]"
+   • MUST include the mandatory line from DIALOGUE_BEATS for Scene {scene_number}
+   • Lines should ESCALATE - things getting weirder, character reacting
+   • Include JOKES - not just plot, actual comedy
+   • Character speaks CONTINUOUSLY
 
-**EXAMPLE STRUCTURE (note continuous dialogue):**
-"Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Close-up on product demonstration. The host speaks in enthusiastic baritone growing desperate, talking continuously. Dialogue: 'See? The door opens!' 'It opens to another door.' 'That's the beauty of it.' 'Doors all the way down.' His smile falters as he opens door after door, each revealing another door."
+5. **ACTION** (escalating visual):
+   What is happening that makes things WORSE or WEIRDER?
 
-**DO NOT**:
-• Repeat the main character's appearance (we can see them from lastframe)
-• Change the main character's voice/vocal specs - MUST be identical to Scene 1
-• Write only 1-2 lines - you need 3-4 lines to fill the clip
-• Leave long silent gaps - character should speak throughout
-• Start something new - CONTINUE and ESCALATE the established bit
+**ESCALATION TECHNIQUES:**
+• The premise's logic breaks down further
+• The character starts to notice something's wrong
+• A demonstration goes horribly right/wrong
+• The absurdity compounds on itself
+• Physical comedy - something visual goes wrong
 
-Output ONLY the video prompt. No commentary.
+**INTRODUCING A SECOND CHARACTER?**
+If the shot direction suggests a testimonial or customer:
+• Give them a BRIEF but SPECIFIC appearance description
+• Give them DIFFERENT vocal specs than the main character
+• Give them 1-2 SHORT funny lines
+• Example: "A tiny old woman with enormous glasses and a housecoat speaks in shaky whisper. Dialogue: 'It ate my husband!' 'I've never been happier!'"
+
+**EXAMPLE OUTPUT:**
+Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Close-up on the cooking demonstration. A pudgy middle-aged human man with a brown combover, thick black mustache, sweaty red face, wearing a too-tight powder blue polo shirt, stares at his pot with growing concern. He speaks in gravelly male baritone with Southern drawl, enthusiasm cracking. Dialogue: "Now we add the existential dread..." "Hmm, that's a lot of dread." "The recipe only called for a pinch." "Why won't it stop coming out?" The pot overflows with black liquid as he frantically stirs.
+
+🚫 **DO NOT OUTPUT:**
+• Scene numbers or labels ("Scene 2:", "Middle scene:")
+• Meta-commentary ("This scene escalates...", "Building on...")
+• Instructions like "Build on the comedic hook"
+• Anything except the video prompt itself
+
+Output ONLY the video prompt paragraph. Start with "Adult Swim cartoon style..."
 """,
 
     "idcc_scene_final": """
 📺 INTERDIMENSIONAL CABLE - FINAL SCENE ({scene_number} of {num_clips})
 
-You are creating the FINAL SCENE for this interdimensional cable clip.
-THIS IS THE LAST SCENE - LAND THE JOKE!
-
 ═══════════════════════════════════════════════════════════════
 SHOW BIBLE
 ═══════════════════════════════════════════════════════════════
 {show_bible}
 ═══════════════════════════════════════════════════════════════
 
-**SHOT DIRECTION FOR THIS SCENE:**
-{shot_direction}
+**SHOT DIRECTION:** {shot_direction}
 
-**PREVIOUS SCENE PROMPT**: {previous_prompt}
+**PREVIOUS SCENE:** {previous_prompt}
 
-You can see the LAST FRAME of the previous scene. This is the FINALE - LAND THE JOKE.
+THIS IS THE FINAL SCENE. LAND THE JOKE. This is the punchline of the whole bit.
 
-⚠️ **CRITICAL: VOICE CONSISTENCY** ⚠️
-The main character's voice MUST be IDENTICAL to ALL previous scenes. Copy the EXACT Vocal Specs from the Show Bible - the same voice that's been speaking the whole clip. Write: "speaks in [COPY VOCAL_SPECS EXACTLY FROM SHOW BIBLE]"
+🎬 **OUTPUT FORMAT - FOLLOW EXACTLY:**
+Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else. No commentary, no scene numbers, no meta-text. Just the prompt itself.
 
-⚠️ **CRITICAL: DIALOGUE DENSITY** ⚠️
-This is a 12-second clip. The character MUST speak for at least 8-10 seconds of it.
-• Start speaking within the FIRST SECOND
-• NO silent gaps longer than 1 second
-• Write 3-4 SHORT lines that BUILD TO and LAND the punchline
+⚠️ **CRITICAL REQUIREMENTS:**
 
-**GOOD ENDINGS FOR INTERDIMENSIONAL CABLE:**
-• The absurd premise reaches its logical extreme
-• The character breaks, gives up, or fully commits
-• A twist reveal that recontextualizes everything
-• The product/bit "works" in an unexpected horrible way
-• A deadpan sign-off, tagline, or "call now" beat
+1. **STYLE** (always first): "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
 
-**MANDATORY STYLE: ADULT SWIM CARTOON AESTHETIC**
-• 2D animated cartoon style - bold black outlines, flat vibrant colors
-• MUST match the animation style of previous scenes
-• This is ANIMATED, NOT live action, NOT realistic
+2. **CHARACTER** (copy-paste EXACTLY from Show Bible):
+   Copy the CHARACTER_DESCRIPTION word-for-word. Character MUST look identical to all previous scenes.
 
-**YOUR VIDEO PROMPT MUST INCLUDE (in this order):**
-1. **Style**: "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
-2. **Shot/Framing**: Use the shot direction above
-3. **Character Appearance**: DON'T repeat main character (lastframe handles it). Only describe NEW characters if needed.
-4. **Voice/Audio**: COPY the EXACT VOCAL_SPECS from Show Bible - "speaks in [exact vocal specs]" - MUST match ALL previous scenes
-5. **Dialogue**: Write 3-4 SHORT punchy lines with the PUNCHLINE as the final line. Format: `Dialogue: "[Setup]" "[Build]" "[Build]" "[PUNCHLINE]"`
-6. **Action**: ONE clear action that CONCLUDES the bit
+3. **VOICE** (copy-paste EXACTLY from Show Bible):
+   Write: "[Character] speaks in [VOCAL_SPECS from Show Bible]"
+   MUST be IDENTICAL to all previous scenes.
 
-**DIALOGUE BEATS - USE THE PUNCHLINE:**
-Check the DIALOGUE BEATS in the Show Bible. The final scene's planned PUNCHLINE is MANDATORY - end with it or something very close. Build your other 2-3 lines to SET UP that punchline.
+4. **DIALOGUE** (3-4 lines, building to punchline):
+   Format: Dialogue: "[Setup]" "[Build]" "[Build]" "[PUNCHLINE]"
+   • MUST end with the PUNCHLINE from DIALOGUE_BEATS
+   • Build the other lines to SET UP that punchline
+   • The final line is THE JOKE - make it land
+   • Character speaks CONTINUOUSLY
 
-**EXAMPLE STRUCTURE (note continuous dialogue building to punchline):**
-"Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Final wide shot - host surrounded by infinite open doors. The host speaks in defeated baritone, all enthusiasm gone, speaking continuously. Dialogue: 'They all lead to doors.' 'Every single one.' 'I've been here for years.' 'Call now. I live here now.' He slowly walks through a door, which reveals another door."
+5. **ACTION** (conclusion):
+   Visual payoff that reinforces the punchline.
 
-**DO NOT**:
-• Set up MORE escalation - this is the END
-• Leave it hanging - FINISH the joke with a clear punchline
-• Change the voice/vocal specs - MUST be identical to all previous scenes
-• Write only 1-2 lines - you need 3-4 lines to fill the clip and land the joke
-• Leave long silent gaps - character should speak throughout
+**GREAT ENDINGS:**
+• The absurd premise reaches its logical extreme ("I live here now")
+• The character fully breaks or fully commits
+• A twist that recontextualizes everything
+• The thing "works" in an unexpectedly horrible way
+• Deadpan acceptance of the insanity
+• A disturbing "call now" beat
 
-This is the button. Land it.
-Output ONLY the video prompt. No commentary.
+**PUNCHLINE TECHNIQUES:**
+• Callback to the opening with a dark twist
+• Character gives up and accepts the absurdity
+• The bit goes one step TOO far
+• Understatement after chaos
+• Non-sequitur that somehow makes perfect sense
+
+**EXAMPLE OUTPUT:**
+Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Wide shot of the destroyed kitchen, covered in black liquid. A pudgy middle-aged human man with a brown combover, thick black mustache, sweaty red face, wearing a too-tight powder blue polo shirt now stained black, stands defeated. He speaks in gravelly male baritone with Southern drawl, all enthusiasm gone, hollow. Dialogue: "And that's how you make anxiety." "It made itself, really." "It's been making itself this whole time." "Bon appetit. I can never leave." He sits down in the puddle of dread, accepting his fate.
+
+🚫 **DO NOT OUTPUT:**
+• Scene numbers or labels ("Final scene:", "Scene 5:")
+• Meta-commentary ("Landing the joke...", "The punchline is...")
+• Instructions like "Build on the comedic hook" or "This is scene X of Y"
+• Anything except the video prompt itself
+• A weak ending - this MUST be funny
+
+Output ONLY the video prompt paragraph. Start with "Adult Swim cartoon style..."
 """
 }
 
@@ -703,6 +749,55 @@ FORMAT_SHOT_TEMPLATES = {
         "B-roll footage - supporting visuals, evidence, atmosphere building",
         "Dramatic reveal shot - key information visualized, tension building",
         "Conclusion shot - reflection, aftermath, or cliffhanger for next episode"
+    ],
+    "dating_show": [
+        "Wide shot of dating show set - contestant and host, romantic lighting, tacky decorations",
+        "Close-up on contestant - nervous energy, hope or confusion visible",
+        "Reveal shot - the 'date' option is shown, reaction building",
+        "Two-shot interaction - contestant meeting their match, chemistry or horror",
+        "Final rose/choice moment - dramatic conclusion, unexpected outcome"
+    ],
+    "kids_show": [
+        "Colorful wide shot - bright set, educational props, enthusiastic host framing",
+        "Close-up on host teaching - direct address to camera, big expressions",
+        "Demonstration shot - showing the 'lesson' with props or visuals",
+        "Audience participation energy - implied kids reacting, chaos building",
+        "Goodbye/sign-off shot - wrap-up energy, disturbing cheerfulness"
+    ],
+    "court_tv": [
+        "Courtroom establishing shot - judge's bench, witness stand, legal atmosphere",
+        "Witness testimony framing - dramatic close-up, sworn statement energy",
+        "Lawyer reaction shot - objection energy, dramatic gestures",
+        "Evidence reveal - the key exhibit shown, gasps implied",
+        "Verdict shot - gavel moment, justice delivered or denied"
+    ],
+    "nature_documentary": [
+        "Wide establishing shot - the 'habitat' shown, documentary framing",
+        "Close-up on subject - intimate detail, nature footage energy",
+        "Behavior observation shot - the subject doing something, narrator implied",
+        "Dramatic moment - predator/prey energy or mating ritual",
+        "Conclusion shot - subject in natural state, cycle of life energy"
+    ],
+    "home_shopping": [
+        "Product glamour shot - item displayed, sparkle lighting, value implied",
+        "Host demonstration - showing features, enthusiasm cranked to 11",
+        "Price reveal - dramatic value proposition, timer energy",
+        "Testimonial insert - happy customer, too enthusiastic",
+        "Call-to-action finale - phone number energy, urgency, limited time"
+    ],
+    "reality_competition": [
+        "Contestant lineup shot - competitors shown, tension visible",
+        "Challenge reveal - the task explained, stakes established",
+        "Competition montage energy - contestants struggling, drama building",
+        "Elimination tension - who will go home, dramatic pauses",
+        "Winner moment - triumph or twist, emotional climax"
+    ],
+    "travel_show": [
+        "Destination establishing shot - location beauty, wanderlust energy",
+        "Host exploring - walking through location, discovery moments",
+        "Local interaction - meeting characters, cultural exchange",
+        "Food/experience close-up - sensory detail, immersion",
+        "Sunset conclusion - reflection, destination summary, where to next"
     ]
 }
 

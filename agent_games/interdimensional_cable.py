@@ -2773,6 +2773,8 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
                     f"File saved to: `{self.state.final_video_path}`\n\n"
                     f"{credits}"
                 )
+                # Still try to cross-post to media channel (might have higher limits)
+                await self._crosspost_to_media_channel()
             else:
                 # Upload to Discord
                 await self._send_gamemaster_message(
@@ -2797,21 +2799,8 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
 
                 logger.info(f"[IDCC:{self.game_id}] Final video posted to Discord")
 
-                # Cross-post to media channel if configured
-                if self.discord_client.media_channel_id:
-                    try:
-                        show_title = self.state.show_bible.get("title", "Unknown Show") if self.state.show_bible else "Interdimensional Cable"
-                        await self.discord_client.post_to_media_channel(
-                            media_type="video",
-                            agent_name="Interdimensional Cable",
-                            model_name=f"IDCC Game #{self.game_id}",
-                            prompt=f"**{show_title}**\n{self.state.show_bible.get('logline', '')}" if self.state.show_bible else "Interdimensional Cable Broadcast",
-                            file_data=self.state.final_video_path,
-                            filename="interdimensional_cable.mp4"
-                        )
-                        logger.info(f"[IDCC:{self.game_id}] Final video cross-posted to media channel")
-                    except Exception as e:
-                        logger.error(f"[IDCC:{self.game_id}] Failed to cross-post to media channel: {e}")
+                # Cross-post to media channel
+                await self._crosspost_to_media_channel()
 
         except Exception as e:
             logger.error(f"[IDCC:{self.game_id}] Failed to post video: {e}", exc_info=True)
@@ -2837,6 +2826,60 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
         except Exception as e:
             logger.error(f"[IDCC:{self.game_id}] Failed to send message: {e}")
         return None
+
+    async def _crosspost_to_media_channel(self):
+        """Cross-post the final video to the secondary media channel."""
+        if not self.discord_client:
+            logger.warning(f"[IDCC:{self.game_id}] No discord_client for media cross-post")
+            return
+
+        if not self.discord_client.media_channel_id:
+            logger.debug(f"[IDCC:{self.game_id}] No media_channel_id configured, skipping cross-post")
+            return
+
+        if not self.state.final_video_path or not self.state.final_video_path.exists():
+            logger.warning(f"[IDCC:{self.game_id}] No final video to cross-post")
+            return
+
+        try:
+            # Build description from show bible
+            show_title = "Interdimensional Cable"
+            description = "A transmission from beyond..."
+
+            if self.state.show_bible:
+                show_title = self.state.show_bible.get("title", show_title)
+                logline = self.state.show_bible.get("logline", "")
+                if logline:
+                    description = f"**{show_title}**\n{logline}"
+                else:
+                    description = f"**{show_title}**"
+
+            # Build creator credits
+            creators = []
+            for clip in self.state.clips:
+                if clip.success:
+                    creators.append(clip.creator_name)
+            if creators:
+                description += f"\n\n*Created by: {', '.join(creators)}*"
+
+            logger.info(f"[IDCC:{self.game_id}] Cross-posting to media channel {self.discord_client.media_channel_id}")
+
+            result = await self.discord_client.post_to_media_channel(
+                media_type="video",
+                agent_name="Interdimensional Cable",
+                model_name=f"Game #{self.game_id}",
+                prompt=description,
+                file_data=str(self.state.final_video_path),  # Convert Path to string
+                filename="interdimensional_cable.mp4"
+            )
+
+            if result:
+                logger.info(f"[IDCC:{self.game_id}] Successfully cross-posted to media channel")
+            else:
+                logger.warning(f"[IDCC:{self.game_id}] post_to_media_channel returned False")
+
+        except Exception as e:
+            logger.error(f"[IDCC:{self.game_id}] Failed to cross-post to media channel: {e}", exc_info=True)
 
 
 # ============================================================================
