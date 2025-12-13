@@ -814,6 +814,12 @@ def _create_discord_tab(discord_token_initial: str, discord_channel_initial: str
                 stop_all_btn = gr.Button("STOP ALL AGENTS", variant="stop", size="lg")
                 refresh_discord_btn = gr.Button("Refresh Status")
 
+                gr.HTML('<div class="panel-header" style="margin-top: 20px;"><h3>IDCC Media Channel</h3></div>')
+                with gr.Row():
+                    post_idcc_btn = gr.Button("Post Unpublished IDCC Videos", variant="primary", size="sm")
+                    clear_idcc_tracking_btn = gr.Button("Clear Tracking", variant="secondary", size="sm")
+                idcc_post_status = gr.Textbox(label="Status", interactive=False, lines=2, max_lines=3)
+
                 gr.HTML('<div class="panel-header" style="margin-top: 20px;"><h3>Help</h3></div>')
                 gr.Markdown("""
 **Getting Started:**
@@ -950,7 +956,8 @@ Admin users can remotely start/stop agents, change models, clear memory, etc.
     # Return components for wiring up in main block (where header_display is available)
     return (connect_discord_btn, disconnect_discord_btn, refresh_discord_btn, stop_all_btn,
             discord_status, connection_card, discord_token_input, discord_channel_input,
-            discord_media_channel_input, active_admin_display)
+            discord_media_channel_input, active_admin_display, post_idcc_btn, clear_idcc_tracking_btn,
+            idcc_post_status)
 
 def _create_config_tab(openrouter_key_initial: str, cometapi_key_initial: str, initial_models: List[str], initial_video_models: List[str], agent_model_input):
     """Create the CONFIG tab for system configuration and management."""
@@ -2483,7 +2490,8 @@ def create_gradio_ui():
             _create_games_tab()
             (connect_discord_btn, disconnect_discord_btn, refresh_discord_btn, stop_all_btn,
              discord_status, connection_card, discord_token_input, discord_channel_input,
-             discord_media_channel_input, active_admin_display) = \
+             discord_media_channel_input, active_admin_display, post_idcc_btn, clear_idcc_tracking_btn,
+             idcc_post_status) = \
                 _create_discord_tab(discord_token_initial, discord_channel_initial, discord_media_channel_initial)
             _create_live_feed_tab()
             _create_config_tab(openrouter_key_initial, cometapi_key_initial, initial_models, initial_video_models, agent_model_input)
@@ -2532,6 +2540,92 @@ def create_gradio_ui():
             fn=refresh_status_card_header,
             inputs=[],
             outputs=[discord_status, connection_card, header_display, active_admin_display]
+        )
+
+        def post_unpublished_idcc_videos():
+            """Find and post unpublished IDCC videos to the media channel."""
+            from pathlib import Path
+            import asyncio
+
+            video_dir = Path("data/video_temp")
+            if not video_dir.exists():
+                return "No video directory found"
+
+            if not discord_client:
+                return "Discord client not connected"
+
+            if not discord_client.media_channel_id:
+                return "No media channel configured"
+
+            # Find all IDCC videos
+            idcc_videos = list(video_dir.glob("idcc_final_*.mp4"))
+            if not idcc_videos:
+                return "No IDCC videos found in data/video_temp/"
+
+            # Get already-posted videos
+            posted = config_manager.load_idcc_posted_videos()
+
+            # Filter to unpublished ones
+            unpublished = [v for v in idcc_videos if v.name not in posted]
+            if not unpublished:
+                return f"All {len(idcc_videos)} IDCC videos already posted to media channel"
+
+            # Post each unpublished video
+            posted_count = 0
+            errors = []
+
+            for video_path in unpublished:
+                try:
+                    # Create a coroutine and run it
+                    async def post_video(path):
+                        result = await discord_client.post_to_media_channel(
+                            media_type="video",
+                            agent_name="Interdimensional Cable",
+                            model_name="IDCC Game",
+                            prompt=f"IDCC video: {path.name}",
+                            file_data=str(path),
+                            filename="interdimensional_cable.mp4"
+                        )
+                        return result
+
+                    # Run the async function
+                    if discord_client.discord_loop and discord_client.discord_loop.is_running():
+                        future = asyncio.run_coroutine_threadsafe(
+                            post_video(video_path),
+                            discord_client.discord_loop
+                        )
+                        result = future.result(timeout=60)
+                        if result:
+                            config_manager.add_idcc_posted_video(video_path.name)
+                            posted_count += 1
+                        else:
+                            errors.append(f"{video_path.name}: post returned None")
+                    else:
+                        errors.append("Discord event loop not running")
+                        break
+                except Exception as e:
+                    errors.append(f"{video_path.name}: {str(e)[:50]}")
+
+            status = f"Posted {posted_count}/{len(unpublished)} IDCC videos"
+            if errors:
+                status += f"\nErrors: {'; '.join(errors[:3])}"
+            return status
+
+        def clear_idcc_tracking():
+            """Clear the IDCC video tracking."""
+            config_manager.clear_idcc_posted_videos()
+            return "Cleared IDCC video tracking"
+
+        post_idcc_btn.click(
+            fn=post_unpublished_idcc_videos,
+            inputs=[],
+            outputs=[idcc_post_status]
+        )
+
+        clear_idcc_tracking_btn.click(
+            fn=clear_idcc_tracking,
+            inputs=[],
+            outputs=[idcc_post_status]
         )
 
         # Load initial agent details on app startup

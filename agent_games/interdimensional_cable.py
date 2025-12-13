@@ -2829,12 +2829,14 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
 
     async def _crosspost_to_media_channel(self):
         """Cross-post the final video to the secondary media channel."""
+        logger.info(f"[IDCC:{self.game_id}] _crosspost_to_media_channel called")
+
         if not self.discord_client:
             logger.warning(f"[IDCC:{self.game_id}] No discord_client for media cross-post")
             return
 
         if not self.discord_client.media_channel_id:
-            logger.debug(f"[IDCC:{self.game_id}] No media_channel_id configured, skipping cross-post")
+            logger.info(f"[IDCC:{self.game_id}] No media_channel_id on discord_client (value={self.discord_client.media_channel_id}), skipping cross-post")
             return
 
         if not self.state.final_video_path or not self.state.final_video_path.exists():

@@ -340,6 +340,40 @@ class ConfigManager:
             print(f"Error loading conversation_history.json: {e}")
             return []
 
+    def get_idcc_posted_videos_file(self) -> Path:
+        """Get the path to the IDCC posted videos tracking file."""
+        return self.config_dir / "idcc_posted_videos.json"
+
+    def load_idcc_posted_videos(self) -> List[str]:
+        """Load list of IDCC video filenames that have been posted to media channel."""
+        posted_file = self.get_idcc_posted_videos_file()
+        if not posted_file.exists():
+            return []
+        try:
+            with open(posted_file, "r") as f:
+                data = json.load(f)
+                return data.get("posted_videos", [])
+        except Exception as e:
+            print(f"Error loading IDCC posted videos: {e}")
+            return []
+
+    def save_idcc_posted_videos(self, video_filenames: List[str]):
+        """Save list of IDCC video filenames that have been posted to media channel."""
+        posted_file = self.get_idcc_posted_videos_file()
+        with open(posted_file, "w") as f:
+            json.dump({"posted_videos": video_filenames}, f, indent=2)
+
+    def add_idcc_posted_video(self, video_filename: str):
+        """Add a video filename to the posted list."""
+        posted = self.load_idcc_posted_videos()
+        if video_filename not in posted:
+            posted.append(video_filename)
+            self.save_idcc_posted_videos(posted)
+
+    def clear_idcc_posted_videos(self):
+        """Clear all IDCC posted video tracking."""
+        self.save_idcc_posted_videos([])
+
 
 # Global instance for use throughout the application
 config_manager = ConfigManager()

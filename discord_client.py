@@ -1288,6 +1288,43 @@ Configure auto-play settings in the UI's Auto-Play tab.
                 logger.error(f"[Discord] Error starting IDCC: {e}", exc_info=True)
                 await ctx.send(f"Error starting game: {str(e)[:100]}")
 
+        @self.client.command(name='test-media-crosspost')
+        async def test_media_crosspost(ctx: commands.Context):
+            """Debug command to test media channel crossposting."""
+            await ctx.send(f"**Testing media channel crosspost...**\n"
+                          f"media_channel_id = `{self.media_channel_id}`\n"
+                          f"is_connected = `{self.is_connected}`")
+
+            if not self.media_channel_id:
+                await ctx.send("❌ No media_channel_id configured!")
+                return
+
+            # Find a recent video file to test with
+            import os
+            from pathlib import Path
+            video_dir = Path("data/video_temp")
+            if video_dir.exists():
+                videos = list(video_dir.glob("*.mp4"))
+                if videos:
+                    # Use most recent video
+                    test_video = max(videos, key=lambda p: p.stat().st_mtime)
+                    await ctx.send(f"📹 Found test video: `{test_video.name}`\nSize: {test_video.stat().st_size / 1024 / 1024:.2f}MB")
+
+                    # Call post_to_media_channel directly like IDCC does
+                    result = await self.post_to_media_channel(
+                        media_type="video",
+                        agent_name="IDCC Test",
+                        model_name="Debug Test",
+                        prompt="Testing IDCC crosspost path",
+                        file_data=str(test_video),
+                        filename="test_crosspost.mp4"
+                    )
+                    await ctx.send(f"Result: `{result}`")
+                else:
+                    await ctx.send("❌ No video files found in data/video_temp/")
+            else:
+                await ctx.send("❌ data/video_temp directory doesn't exist")
+
         @self.client.command(name='tribal-council')
         async def start_tribal_council(ctx: commands.Context):
             """
@@ -1494,20 +1531,32 @@ Configure auto-play settings in the UI's Auto-Play tab.
             file_data: File bytes (BytesIO) or file path (str) to upload
             filename: Filename for the upload
         """
-        if not self.media_channel_id or not self.is_connected:
+        logger.info(f"[Discord] post_to_media_channel called: media_type={media_type}, agent={agent_name}, media_channel_id={self.media_channel_id}, is_connected={self.is_connected}")
+
+        if not self.media_channel_id:
+            logger.warning(f"[Discord] post_to_media_channel: No media_channel_id configured (value={self.media_channel_id})")
+            return False
+
+        if not self.is_connected:
+            logger.warning(f"[Discord] post_to_media_channel: Not connected to Discord")
             return False
 
         try:
+            logger.info(f"[Discord] post_to_media_channel: Getting channel {self.media_channel_id}")
             media_channel = self.client.get_channel(self.media_channel_id)
             if not media_channel:
+                logger.info(f"[Discord] post_to_media_channel: Channel not in cache, fetching...")
                 media_channel = await self.client.fetch_channel(self.media_channel_id)
 
             if not media_channel:
                 logger.error(f"[Discord] Could not find media channel {self.media_channel_id}")
                 return False
 
+            logger.info(f"[Discord] post_to_media_channel: Got channel {media_channel.name}")
+
             # Ensure media webhook exists
             if not self.media_webhook:
+                logger.info(f"[Discord] post_to_media_channel: Creating media webhook...")
                 await self.ensure_media_webhook(media_channel)
 
             # Create embed for stylized display
@@ -1529,9 +1578,18 @@ Configure auto-play settings in the UI's Auto-Play tab.
 
             # Prepare file
             from pathlib import Path as PathLib
+            import os
+            logger.info(f"[Discord] post_to_media_channel: Preparing file, file_data type={type(file_data).__name__}")
+
             if isinstance(file_data, (str, PathLib)):
                 # It's a file path (string or Path object)
-                discord_file = File(str(file_data), filename=filename)
+                file_path_str = str(file_data)
+                if not os.path.exists(file_path_str):
+                    logger.error(f"[Discord] post_to_media_channel: File does not exist: {file_path_str}")
+                    return False
+                file_size = os.path.getsize(file_path_str)
+                logger.info(f"[Discord] post_to_media_channel: File path={file_path_str}, size={file_size/1024/1024:.2f}MB")
+                discord_file = File(file_path_str, filename=filename)
             elif isinstance(file_data, io.BytesIO):
                 # Reset position and create file
                 file_data.seek(0)
@@ -1541,6 +1599,8 @@ Configure auto-play settings in the UI's Auto-Play tab.
                 file_buffer = io.BytesIO(file_data)
                 file_buffer.seek(0)
                 discord_file = File(fp=file_buffer, filename=filename)
+
+            logger.info(f"[Discord] post_to_media_channel: Sending file via {'webhook' if self.media_webhook else 'channel'}...")
 
             # Send with embed using "Media Reposter" as consistent username
             if self.media_webhook:
