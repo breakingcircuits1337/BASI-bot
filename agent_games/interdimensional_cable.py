@@ -89,7 +89,7 @@ class IDCCConfigManager:
                     data = json.load(f)
                     self.config = IDCCConfig(**data)
                 logger.info(f"[IDCC] Loaded config: max_clips={self.config.max_clips}, "
-                           f"duration={idcc_config.clip_duration_seconds}s, "
+                           f"duration={self.config.clip_duration_seconds}s, "
                            f"resolution={self.config.video_resolution}")
             else:
                 self._save_config()
