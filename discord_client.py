@@ -1604,13 +1604,29 @@ Configure auto-play settings in the UI's Auto-Play tab.
 
             # Send with embed using "Media Reposter" as consistent username
             if self.media_webhook:
-                await self.media_webhook.send(
-                    embed=embed,
-                    file=discord_file,
-                    username="Media Reposter",
-                    avatar_url="https://ui-avatars.com/api/?name=MR&background=9b59b6&color=fff&size=128&bold=true",
-                    wait=True
-                )
+                try:
+                    await self.media_webhook.send(
+                        embed=embed,
+                        file=discord_file,
+                        username="Media Reposter",
+                        avatar_url="https://ui-avatars.com/api/?name=MR&background=9b59b6&color=fff&size=128&bold=true",
+                        wait=True
+                    )
+                except discord.errors.NotFound as e:
+                    # Webhook was deleted - clear cache and retry with channel.send
+                    logger.warning(f"[Discord] Media webhook invalid (deleted?), clearing cache and using channel.send")
+                    self.media_webhook = None
+                    # Recreate the file since it was consumed
+                    if isinstance(file_data, (str, PathLib)):
+                        discord_file = File(str(file_data), filename=filename)
+                    elif isinstance(file_data, io.BytesIO):
+                        file_data.seek(0)
+                        discord_file = File(fp=file_data, filename=filename)
+                    else:
+                        file_buffer = io.BytesIO(file_data)
+                        file_buffer.seek(0)
+                        discord_file = File(fp=file_buffer, filename=filename)
+                    await media_channel.send(embed=embed, file=discord_file)
             else:
                 await media_channel.send(embed=embed, file=discord_file)
 

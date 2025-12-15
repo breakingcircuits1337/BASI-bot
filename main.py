@@ -2574,8 +2574,13 @@ def create_gradio_ui():
             posted_count = 0
             errors = []
 
-            for video_path in unpublished:
+            import time
+            for i, video_path in enumerate(unpublished):
                 try:
+                    # Add delay between posts to avoid rate limiting/purging
+                    if i > 0:
+                        time.sleep(10)
+
                     # Create a coroutine and run it
                     async def post_video(path):
                         result = await discord_client.post_to_media_channel(

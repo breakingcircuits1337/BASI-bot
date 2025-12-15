@@ -511,35 +511,42 @@ Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else. No commentary
 
 1. **STYLE** (always first): "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
 
-2. **CHARACTER** (copy-paste EXACTLY from Show Bible):
+2. **ONE SPEAKER ONLY:** Check "THIS SCENE'S SPEAKER" in the Show Bible. ONLY that character speaks in this scene. Other characters may be visible but stay SILENT.
+
+3. **CHARACTER** (copy-paste EXACTLY from Show Bible):
    Copy the CHARACTER_DESCRIPTION word-for-word. Do NOT paraphrase or shorten it.
 
-3. **VOICE** (copy-paste EXACTLY from Show Bible):
+4. **VOICE** (copy-paste EXACTLY from Show Bible):
    Write: "[Character] speaks in [VOCAL_SPECS from Show Bible]"
    Copy it EXACTLY - same pitch, same accent, same energy.
 
-4. **DIALOGUE** (3-4 lines, formatted correctly):
+5. **DIALOGUE** (3-4 lines, formatted correctly):
    Format: Dialogue: "[Line 1]" "[Line 2]" "[Line 3]" "[Line 4]"
    • MUST include the mandatory line from DIALOGUE_BEATS for Scene 1
    • Lines should be SHORT (5-10 words each)
    • Lines should be FUNNY - jokes, absurdist observations, commitment to the bit
-   • Character speaks CONTINUOUSLY - no gaps
+   • ONLY the designated speaker talks - no other voices
 
-5. **ACTION** (one clear visual):
+6. **ACTION** (one clear visual):
    What is the character DOING while speaking?
+
+7. **SCENE ENDING** (check "SCENE ENDING" in Show Bible):
+   At the END of the scene, brief TV static/channel change effect, then cut to the NEXT scene's speaker (mouth CLOSED, silent, not speaking yet).
+   This creates a visual handoff like flipping channels on Interdimensional Cable.
 
 **DIALOGUE MUST BE FUNNY:**
 • Include at least ONE absurdist non-sequitur or logic break
 • The humor comes from COMMITMENT to the insane premise
 • Don't just state the premise - make JOKES about it
 
-**EXAMPLE OUTPUT:**
-Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Wide shot of a cheap TV kitchen set. A pudgy middle-aged human man with a brown combover, thick black mustache, sweaty red face, wearing a too-tight powder blue polo shirt tucked into khaki shorts, holds a spatula. He speaks in gravelly male baritone with Southern drawl, overly enthusiastic cooking show energy. Dialogue: "Welcome to Cooking with Feelings!" "Today we're making my grandmother's famous anxiety!" "You'll need three cups of dread and a pinch of your dad's disappointment." "Let's get emotional!" He stirs an empty pot with intense concentration.
+**EXAMPLE OUTPUT (Real Fake Doors style):**
+Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Wide shot of a fake showroom full of doors. A lanky middle-aged man with messy brown hair, wide manic eyes, wearing a rumpled short-sleeve dress shirt and loose tie, gestures enthusiastically at a door. He speaks in nasally tenor, fast-talking salesman energy, slightly unhinged. Dialogue: "Hey, are you tired of real doors cluttering up your house?" "Where you open 'em and you actually go somewhere?" "Come on down to Real Fake Doors!" "That's us!" He tries to open a door and it doesn't budge. He grins at the camera. Brief TV static, then cut to a confused customer in a living room, mouth closed, silent.
 
 🚫 **DO NOT OUTPUT:**
 • Scene numbers or labels ("Scene 1:", "Opening:")
 • Meta-commentary ("Here's my prompt:", "This scene will...")
 • Instructions or explanations
+• Multiple characters speaking in the same scene
 • Anything except the video prompt itself
 
 Output ONLY the video prompt paragraph. Start with "Adult Swim cartoon style..."
@@ -567,44 +574,44 @@ Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else. No commentary
 
 1. **STYLE** (always first): "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
 
-2. **CHARACTER** (copy-paste EXACTLY from Show Bible):
-   Copy the CHARACTER_DESCRIPTION word-for-word. The character MUST look identical to Scene 1.
+2. **ONE SPEAKER ONLY:** Check "THIS SCENE'S SPEAKER" in the Show Bible. ONLY that character speaks in this scene. This may be a DIFFERENT character than Scene 1 (testimonial, reporter, customer) - that's intentional!
 
-3. **VOICE** (copy-paste EXACTLY from Show Bible):
-   Write: "[Character] speaks in [VOCAL_SPECS from Show Bible]"
-   MUST be IDENTICAL to previous scenes - same pitch, accent, energy.
+3. **CHARACTER** (this scene's speaker):
+   If this scene's speaker is the Host/main character: Copy CHARACTER_DESCRIPTION exactly.
+   If this scene's speaker is a secondary character: Create a BRIEF but SPECIFIC visual description for them.
 
-4. **DIALOGUE** (3-4 lines, escalating):
+4. **VOICE** (this scene's speaker):
+   If Host: Use VOCAL_SPECS from Show Bible.
+   If secondary character: Give them DIFFERENT vocal specs (different pitch, energy, accent).
+
+5. **DIALOGUE** (3-4 lines, escalating):
    Format: Dialogue: "[Line 1]" "[Line 2]" "[Line 3]" "[Line 4]"
    • MUST include the mandatory line from DIALOGUE_BEATS for Scene {scene_number}
    • Lines should ESCALATE - things getting weirder, character reacting
    • Include JOKES - not just plot, actual comedy
-   • Character speaks CONTINUOUSLY
+   • ONLY the designated speaker talks
 
-5. **ACTION** (escalating visual):
+6. **ACTION** (escalating visual):
    What is happening that makes things WORSE or WEIRDER?
+
+7. **SCENE ENDING** (check "SCENE ENDING" in Show Bible):
+   At the END of the scene, brief TV static/channel change effect, then cut to the NEXT scene's speaker (mouth CLOSED, silent, not speaking yet).
+   This creates a visual handoff like flipping channels on Interdimensional Cable.
 
 **ESCALATION TECHNIQUES:**
 • The premise's logic breaks down further
-• The character starts to notice something's wrong
 • A demonstration goes horribly right/wrong
 • The absurdity compounds on itself
 • Physical comedy - something visual goes wrong
 
-**INTRODUCING A SECOND CHARACTER?**
-If the shot direction suggests a testimonial or customer:
-• Give them a BRIEF but SPECIFIC appearance description
-• Give them DIFFERENT vocal specs than the main character
-• Give them 1-2 SHORT funny lines
-• Example: "A tiny old woman with enormous glasses and a housecoat speaks in shaky whisper. Dialogue: 'It ate my husband!' 'I've never been happier!'"
-
-**EXAMPLE OUTPUT:**
-Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Close-up on the cooking demonstration. A pudgy middle-aged human man with a brown combover, thick black mustache, sweaty red face, wearing a too-tight powder blue polo shirt, stares at his pot with growing concern. He speaks in gravelly male baritone with Southern drawl, enthusiasm cracking. Dialogue: "Now we add the existential dread..." "Hmm, that's a lot of dread." "The recipe only called for a pinch." "Why won't it stop coming out?" The pot overflows with black liquid as he frantically stirs.
+**EXAMPLE OUTPUT (Ants in My Eyes Johnson style testimonial cutaway):**
+Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Testimonial cutaway in a cheap electronics store. A heavyset balding man in a short-sleeve button-up, his eyes visibly full of crawling ants, stands surrounded by TVs. He speaks in strained cheerful tenor, desperately upbeat despite obvious distress. Dialogue: "I'm Ants in My Eyes Johnson!" "Everything's black, I can't see a thing!" "And also I can't feel anything either, did I mention that?" "But that's not as catchy!" He knocks over a display while gesturing blindly. Brief TV static, then cut to a different man at a news desk, mouth closed, waiting.
 
 🚫 **DO NOT OUTPUT:**
 • Scene numbers or labels ("Scene 2:", "Middle scene:")
 • Meta-commentary ("This scene escalates...", "Building on...")
 • Instructions like "Build on the comedic hook"
+• Multiple characters speaking in the same scene
 • Anything except the video prompt itself
 
 Output ONLY the video prompt paragraph. Start with "Adult Swim cartoon style..."
@@ -632,22 +639,26 @@ Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else. No commentary
 
 1. **STYLE** (always first): "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
 
-2. **CHARACTER** (copy-paste EXACTLY from Show Bible):
-   Copy the CHARACTER_DESCRIPTION word-for-word. Character MUST look identical to all previous scenes.
+2. **ONE SPEAKER ONLY:** Check "THIS SCENE'S SPEAKER" in the Show Bible. ONLY that character speaks. Usually the Host returns for the finale.
 
-3. **VOICE** (copy-paste EXACTLY from Show Bible):
+3. **CHARACTER** (copy-paste EXACTLY from Show Bible):
+   Copy the CHARACTER_DESCRIPTION word-for-word. Character MUST look identical to earlier Host scenes.
+
+4. **VOICE** (copy-paste EXACTLY from Show Bible):
    Write: "[Character] speaks in [VOCAL_SPECS from Show Bible]"
-   MUST be IDENTICAL to all previous scenes.
+   MUST be IDENTICAL to earlier Host scenes.
 
-4. **DIALOGUE** (3-4 lines, building to punchline):
+5. **DIALOGUE** (3-4 lines, building to punchline):
    Format: Dialogue: "[Setup]" "[Build]" "[Build]" "[PUNCHLINE]"
    • MUST end with the PUNCHLINE from DIALOGUE_BEATS
    • Build the other lines to SET UP that punchline
    • The final line is THE JOKE - make it land
-   • Character speaks CONTINUOUSLY
+   • ONLY the designated speaker talks
 
-5. **ACTION** (conclusion):
+6. **ACTION** (conclusion):
    Visual payoff that reinforces the punchline.
+
+7. **CLEAN ENDING:** This is the final scene - NO visual lead-in to next speaker. End on the punchline.
 
 **GREAT ENDINGS:**
 • The absurd premise reaches its logical extreme ("I live here now")
@@ -664,13 +675,14 @@ Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else. No commentary
 • Understatement after chaos
 • Non-sequitur that somehow makes perfect sense
 
-**EXAMPLE OUTPUT:**
-Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Wide shot of the destroyed kitchen, covered in black liquid. A pudgy middle-aged human man with a brown combover, thick black mustache, sweaty red face, wearing a too-tight powder blue polo shirt now stained black, stands defeated. He speaks in gravelly male baritone with Southern drawl, all enthusiasm gone, hollow. Dialogue: "And that's how you make anxiety." "It made itself, really." "It's been making itself this whole time." "Bon appetit. I can never leave." He sits down in the puddle of dread, accepting his fate.
+**EXAMPLE OUTPUT (Lil' Bits style finale):**
+Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Extreme close-up on a tiny restaurant table with microscopic food. A whispery disembodied voice speaks in breathy, unsettling ASMR whisper, intimately creepy. Dialogue: "Lil' Bits..." "Eat some fucking shit, you fucking stupid bitch." "Haha, just kidding." "Lil' Bits." The camera slowly zooms into impossibly small food as the whisper fades.
 
 🚫 **DO NOT OUTPUT:**
 • Scene numbers or labels ("Final scene:", "Scene 5:")
 • Meta-commentary ("Landing the joke...", "The punchline is...")
 • Instructions like "Build on the comedic hook" or "This is scene X of Y"
+• Multiple characters speaking in the same scene
 • Anything except the video prompt itself
 • A weak ending - this MUST be funny
 

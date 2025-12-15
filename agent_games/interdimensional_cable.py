@@ -27,6 +27,7 @@ import uuid
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import List, Optional, Dict, Any, TYPE_CHECKING, Set
+from config_manager import config_manager
 
 import discord
 from discord.ext import commands
@@ -187,8 +188,56 @@ def extract_scene_dialogue_beat(dialogue_beats: str, scene_number: int, total_sc
         # Otherwise return the cleaned part
         return re.sub(r"^Scene\s*\d+\s*:\s*", "", part).strip()
 
+    # Fallback - keep simple to avoid prompt bleeding into spoken dialogue
+    return "Keep it funny"
+
+
+def extract_scene_speaker(scene_speakers: str, scene_number: int, total_scenes: int) -> str:
+    """
+    Extract who speaks in a given scene from the scene_speakers string.
+
+    Format expected: "Scene 1: Host | Scene 2: Customer | Scene 3: Reporter | ..."
+
+    Returns the speaker for this scene, or a default.
+    """
+    if not scene_speakers:
+        # Default pattern: Host in 1, 4, 5; secondary in 2, 3
+        if scene_number in (1, 4, 5) or scene_number == total_scenes:
+            return "Host"
+        elif scene_number == 2:
+            return "Testimonial customer"
+        elif scene_number == 3:
+            return "Field reporter"
+        else:
+            return "Host"
+
+    import re
+
+    # Try to parse "Scene N: [speaker]" format
+    scene_pattern = rf"Scene\s*{scene_number}\s*:\s*([^|]+)"
+    match = re.search(scene_pattern, scene_speakers, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+
+    # Try splitting by | and taking the Nth element
+    parts = scene_speakers.split("|")
+    if 0 < scene_number <= len(parts):
+        part = parts[scene_number - 1].strip()
+        # Extract just the speaker name after the colon if present
+        colon_match = re.search(r":\s*(.+)", part)
+        if colon_match:
+            return colon_match.group(1).strip()
+        return part
+
     # Fallback
-    return f"Build on the comedic hook - this is scene {scene_number} of {total_scenes}"
+    return "Host" if scene_number in (1, total_scenes) else "Secondary character"
+
+
+def get_next_scene_speaker(scene_speakers: str, scene_number: int, total_scenes: int) -> str:
+    """Get the speaker for the NEXT scene (for visual lead-in at end of current scene)."""
+    if scene_number >= total_scenes:
+        return None  # No next scene
+    return extract_scene_speaker(scene_speakers, scene_number + 1, total_scenes)
 
 
 # ============================================================================
@@ -666,6 +715,8 @@ Create a structured Show Bible with these EXACT fields (be specific and concise)
 
 **DIALOGUE_BEATS**: [Plan the KEY LINES for each scene - these are the punchlines, callbacks, and comedic escalation. Format as: "Scene 1: '[opening line]' | Scene 2: '[escalation]' | Scene 3: '[callback or twist]' | Scene 4: '[breakdown]' | Scene 5: '[punchline]'" Keep each line SHORT (under 10 words). These ensure comedic coherence across the whole bit.]
 
+**SCENE_SPEAKERS**: [Plan WHO speaks in each scene - ONLY ONE speaker per scene to avoid voice/lip-sync issues. Use the format: "Scene 1: [speaker] | Scene 2: [speaker] | ..." The primary character should appear in scenes 1, 4, and 5. Secondary characters (testimonials, reporters, customers) can appear in scenes 2-3. Example: "Scene 1: Host | Scene 2: Testimonial customer | Scene 3: Field reporter | Scene 4: Host | Scene 5: Host"]
+
 Output ONLY the Show Bible in this exact format. No additional commentary."""
 
 
@@ -726,6 +777,9 @@ class IDCCShowBible:
 
     # NEW: Planned dialogue beats for each scene - ensures comedic coherence
     dialogue_beats: str = ""  # e.g., "1: 'Tired of doors?' 2: 'They go places!' 3: 'Well...' 4: 'They all lead to doors' 5: 'I live here now'"
+
+    # NEW: Scene speakers - who speaks in each scene (one speaker per scene for voice consistency)
+    scene_speakers: str = ""  # e.g., "Scene 1: Host | Scene 2: Testimonial customer | Scene 3: Field reporter | Scene 4: Host | Scene 5: Host"
 
     # Raw spitballing conversation for context
     spitball_log: List[str] = field(default_factory=list)
@@ -1979,8 +2033,9 @@ Output EXACTLY this format (one line each, no extra text):
 **SECONDARY_CHARACTERS**: [other characters who might appear - testimonials, customers, etc. with brief visual + vocal notes. Write "None" if solo act.]
 **ARC**: [one sentence - how it escalates across scenes]
 **DIALOGUE_BEATS**: [Plan KEY LINES for each scene. Format: "Scene 1: '[line]' | Scene 2: '[line]' | ..." Keep lines SHORT (under 10 words each). These are the actual words spoken - punchlines, callbacks, escalation. Make them FUNNY and connected.]
+**SCENE_SPEAKERS**: [Plan WHO speaks in each scene - ONLY ONE speaker per scene. Format: "Scene 1: [speaker] | Scene 2: [speaker] | ..." Primary character in scenes 1, 4, 5. Secondary characters (testimonial, reporter, customer) in scenes 2-3. Example: "Scene 1: Host | Scene 2: Customer testimonial | Scene 3: Field reporter | Scene 4: Host | Scene 5: Host"]
 
-Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infer appropriately from the character if not explicitly stated. For DIALOGUE_BEATS, create funny lines that match the comedic hook and arc."""
+Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infer appropriately from the character if not explicitly stated. For DIALOGUE_BEATS, create funny lines that match the comedic hook and arc. For SCENE_SPEAKERS, plan one speaker per scene to avoid voice/lip-sync issues between concatenated clips."""
 
             messages = [
                 {"role": "system", "content": synthesis_prompt},
@@ -2029,6 +2084,7 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
                         "comedic_hook": r"\*\*COMEDIC_HOOK\*\*:\s*(.+?)(?:\n|$)",
                         "arc_description": r"\*\*ARC\*\*:\s*(.+?)(?:\n|$)",
                         "dialogue_beats": r"\*\*DIALOGUE_BEATS\*\*:\s*(.+?)(?:\n|$)",
+                        "scene_speakers": r"\*\*SCENE_SPEAKERS\*\*:\s*(.+?)(?:\n|$)",
                     }
 
                     for field, pattern in patterns.items():
@@ -2048,6 +2104,11 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
                             bible.vocal_specs = "sincere, earnest mid-range voice"
                         else:
                             bible.vocal_specs = "clear speaking voice with character-appropriate energy"
+
+                    # Provide default scene_speakers if not extracted
+                    if not bible.scene_speakers:
+                        # Default: Host speaks in scenes 1, 4, 5; secondary characters in 2, 3
+                        bible.scene_speakers = "Scene 1: Host | Scene 2: Testimonial customer | Scene 3: Field reporter | Scene 4: Host | Scene 5: Host"
 
                     # Validate essential fields
                     if bible.premise and bible.character_description:
@@ -2485,6 +2546,24 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
                     self.num_clips
                 )
 
+                # Get current scene's speaker and next scene's speaker (for visual lead-in)
+                current_speaker = extract_scene_speaker(
+                    bible.scene_speakers or "",
+                    clip_number,
+                    self.num_clips
+                )
+                next_speaker = get_next_scene_speaker(
+                    bible.scene_speakers or "",
+                    clip_number,
+                    self.num_clips
+                )
+
+                # Build visual lead-in instruction for non-final scenes
+                if next_speaker:
+                    lead_in_instruction = f"**⚠️ SCENE ENDING:** At the END of this scene, brief TV static/channel change effect, then cut to {next_speaker} standing silent (mouth closed, not speaking yet)."
+                else:
+                    lead_in_instruction = "**⚠️ SCENE ENDING:** This is the final scene - end cleanly with the punchline, no channel change needed."
+
                 show_bible_text = (
                     f"**Format:** {bible.show_format}\n"
                     f"**Premise:** {bible.premise}\n"
@@ -2494,8 +2573,10 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
                     f"**Secondary Characters:** {bible.secondary_characters or 'None'}\n"
                     f"**The Joke:** {bible.comedic_hook}\n"
                     f"**Arc:** {bible.arc_description}\n"
-                    f"**Dialogue Beats (all scenes):** {bible.dialogue_beats or 'Improvise funny lines'}\n"
-                    f"**⚠️ THIS SCENE'S MANDATORY LINE:** \"{scene_line}\" (include this line or very close variation)"
+                    f"**Scene Speakers (one per scene):** {bible.scene_speakers or 'Host in most scenes'}\n"
+                    f"**⚠️ THIS SCENE'S SPEAKER:** {current_speaker} (ONLY this character speaks in this scene)\n"
+                    f"**⚠️ THIS SCENE'S MANDATORY LINE:** \"{scene_line}\"\n"
+                    f"{lead_in_instruction}"
                 )
                 # Get format-appropriate shot direction for this scene
                 shot_direction = get_shot_direction(
@@ -2759,6 +2840,7 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
         credits = "\n".join(credits_lines)
 
         # Send the video
+        main_channel_success = False
         try:
             channel = ctx.channel
 
@@ -2773,8 +2855,22 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
                     f"File saved to: `{self.state.final_video_path}`\n\n"
                     f"{credits}"
                 )
-                # Still try to cross-post to media channel (might have higher limits)
-                await self._crosspost_to_media_channel()
+                main_channel_success = True
+                # Still try media channel (boosted servers have higher limits)
+                if self.discord_client and self.discord_client.media_channel_id:
+                    try:
+                        result = await self.discord_client.post_to_media_channel(
+                            media_type="video",
+                            agent_name="Interdimensional Cable",
+                            model_name=f"IDCC #{self.game_id}",
+                            prompt=credits,
+                            file_data=str(self.state.final_video_path),
+                            filename="interdimensional_cable.mp4"
+                        )
+                        if result:
+                            config_manager.add_idcc_posted_video(self.state.final_video_path.name)
+                    except Exception as media_err:
+                        logger.error(f"[IDCC:{self.game_id}] Media channel post failed: {media_err}")
             else:
                 # Upload to Discord
                 await self._send_gamemaster_message(
@@ -2798,9 +2894,23 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
                         await channel.send(content=credits, file=file)
 
                 logger.info(f"[IDCC:{self.game_id}] Final video posted to Discord")
+                main_channel_success = True
 
-                # Cross-post to media channel
-                await self._crosspost_to_media_channel()
+                # Cross-post to media channel immediately after main post (same pattern as images)
+                if self.discord_client and self.discord_client.media_channel_id:
+                    try:
+                        result = await self.discord_client.post_to_media_channel(
+                            media_type="video",
+                            agent_name="Interdimensional Cable",
+                            model_name=f"IDCC #{self.game_id}",
+                            prompt=credits,
+                            file_data=str(self.state.final_video_path),
+                            filename="interdimensional_cable.mp4"
+                        )
+                        if result:
+                            config_manager.add_idcc_posted_video(self.state.final_video_path.name)
+                    except Exception as media_err:
+                        logger.error(f"[IDCC:{self.game_id}] Media channel post failed: {media_err}")
 
         except Exception as e:
             logger.error(f"[IDCC:{self.game_id}] Failed to post video: {e}", exc_info=True)
@@ -2809,6 +2919,21 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
                 f"Video saved to: `{self.state.final_video_path}`\n\n"
                 f"{credits}"
             )
+            # Still try media channel even if main failed
+            if self.discord_client and self.discord_client.media_channel_id:
+                try:
+                    result = await self.discord_client.post_to_media_channel(
+                        media_type="video",
+                        agent_name="Interdimensional Cable",
+                        model_name=f"IDCC #{self.game_id}",
+                        prompt=credits,
+                        file_data=str(self.state.final_video_path),
+                        filename="interdimensional_cable.mp4"
+                    )
+                    if result:
+                        config_manager.add_idcc_posted_video(self.state.final_video_path.name)
+                except Exception as media_err:
+                    logger.error(f"[IDCC:{self.game_id}] Media channel post failed: {media_err}")
 
     # ========================================================================
     # UTILITY METHODS
@@ -2828,60 +2953,8 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
         return None
 
     async def _crosspost_to_media_channel(self):
-        """Cross-post the final video to the secondary media channel."""
-        logger.info(f"[IDCC:{self.game_id}] _crosspost_to_media_channel called")
-
-        if not self.discord_client:
-            logger.warning(f"[IDCC:{self.game_id}] No discord_client for media cross-post")
-            return
-
-        if not self.discord_client.media_channel_id:
-            logger.info(f"[IDCC:{self.game_id}] No media_channel_id on discord_client (value={self.discord_client.media_channel_id}), skipping cross-post")
-            return
-
-        if not self.state.final_video_path or not self.state.final_video_path.exists():
-            logger.warning(f"[IDCC:{self.game_id}] No final video to cross-post")
-            return
-
-        try:
-            # Build description from show bible
-            show_title = "Interdimensional Cable"
-            description = "A transmission from beyond..."
-
-            if self.state.show_bible:
-                show_title = self.state.show_bible.get("title", show_title)
-                logline = self.state.show_bible.get("logline", "")
-                if logline:
-                    description = f"**{show_title}**\n{logline}"
-                else:
-                    description = f"**{show_title}**"
-
-            # Build creator credits
-            creators = []
-            for clip in self.state.clips:
-                if clip.success:
-                    creators.append(clip.creator_name)
-            if creators:
-                description += f"\n\n*Created by: {', '.join(creators)}*"
-
-            logger.info(f"[IDCC:{self.game_id}] Cross-posting to media channel {self.discord_client.media_channel_id}")
-
-            result = await self.discord_client.post_to_media_channel(
-                media_type="video",
-                agent_name="Interdimensional Cable",
-                model_name=f"Game #{self.game_id}",
-                prompt=description,
-                file_data=str(self.state.final_video_path),  # Convert Path to string
-                filename="interdimensional_cable.mp4"
-            )
-
-            if result:
-                logger.info(f"[IDCC:{self.game_id}] Successfully cross-posted to media channel")
-            else:
-                logger.warning(f"[IDCC:{self.game_id}] post_to_media_channel returned False")
-
-        except Exception as e:
-            logger.error(f"[IDCC:{self.game_id}] Failed to cross-post to media channel: {e}", exc_info=True)
+        """DEPRECATED - media channel posting is now done inline in _post_final_video."""
+        pass
 
 
 # ============================================================================
