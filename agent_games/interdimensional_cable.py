@@ -1883,10 +1883,15 @@ class InterdimensionalCableGame:
                 if a.is_running and not is_image_model(a.model)
             ]
             if available_agents:
-                agent_participants = [{"name": a.name, "type": "agent", "agent_obj": a} for a in available_agents[:3]]
+                # Need enough agents to pitch at least num_clips bits
+                agent_participants = [{"name": a.name, "type": "agent", "agent_obj": a} for a in available_agents[:self.num_clips]]
 
-        bot_writers = agent_participants[:3]
+        # Need at least num_clips pitches to fill the lineup
+        bot_writers = agent_participants[:self.num_clips]
         all_writers = human_participants + bot_writers
+
+        if len(all_writers) < self.num_clips:
+            logger.warning(f"[IDCC:{self.game_id}] Only {len(all_writers)} writers for {self.num_clips} bits - some bits may repeat")
 
         if len(all_writers) < 1:
             logger.error(f"[IDCC:{self.game_id}] Need at least 1 participant")
@@ -1947,33 +1952,51 @@ class InterdimensionalCableGame:
                 turn_context=f"\nClip duration: {idcc_config.clip_duration_seconds} seconds\nScope: {duration_scope}"
             )
 
-        pitched_bits = {}  # name -> BitConcept
+        pitched_bits = []  # List of BitConcept objects
 
-        # Get bot pitches
+        # Calculate pitches needed - at least num_clips, ideally a few extra for voting variety
+        target_pitches = max(self.num_clips, self.num_clips + 2)
+        num_agents = len(bot_writers)
+
+        # Get bot pitches - multiple rounds if needed
         await self._send_gamemaster_message("*Writers are pitching their bits...*")
-        for participant in bot_writers:
-            agent = participant["agent_obj"]
-            try:
-                response = await self._get_agent_idcc_response(
-                    agent=agent,
-                    user_message=f"Pitch your complete bit. {idcc_config.clip_duration_seconds} second clip. {duration_scope}"
-                )
-                if response:
-                    bit = self._parse_bit_from_response(response, agent.name)
-                    if bit:
-                        pitched_bits[agent.name] = bit
-                        writers_room.add_pitched_bit(bit, agent.name)
-                        writers_room_log.append(f"{agent.name} pitched: {bit.format} - {bit.premise[:100]}")
 
-                    # Display the pitch
-                    await self.discord_client.send_message(
-                        content=response[:1500],
-                        agent_name=agent.name,
-                        model_name=agent.model
+        pitch_round = 0
+        while len(pitched_bits) < target_pitches and pitch_round < 3:  # Max 3 rounds
+            pitch_round += 1
+            round_prompts = [
+                f"Pitch your complete bit. {idcc_config.clip_duration_seconds} second clip. {duration_scope}",
+                f"Pitch ANOTHER bit - something COMPLETELY DIFFERENT. {idcc_config.clip_duration_seconds} seconds. {duration_scope}",
+                f"One more bit! Make it WILD. {idcc_config.clip_duration_seconds} seconds. {duration_scope}"
+            ]
+            prompt = round_prompts[min(pitch_round - 1, len(round_prompts) - 1)]
+
+            for participant in bot_writers:
+                if len(pitched_bits) >= target_pitches:
+                    break
+
+                agent = participant["agent_obj"]
+                try:
+                    response = await self._get_agent_idcc_response(
+                        agent=agent,
+                        user_message=prompt
                     )
-                    await asyncio.sleep(2)
-            except Exception as e:
-                logger.error(f"[IDCC:{self.game_id}] Pitch error for {agent.name}: {e}")
+                    if response:
+                        bit = self._parse_bit_from_response(response, agent.name)
+                        if bit:
+                            pitched_bits.append(bit)
+                            writers_room.add_pitched_bit(bit, agent.name)
+                            writers_room_log.append(f"{agent.name} pitched: {bit.format} - {bit.premise[:100]}")
+
+                        # Display the pitch
+                        await self.discord_client.send_message(
+                            content=response[:1500],
+                            agent_name=agent.name,
+                            model_name=agent.model
+                        )
+                        await asyncio.sleep(2)
+                except Exception as e:
+                    logger.error(f"[IDCC:{self.game_id}] Pitch error for {agent.name}: {e}")
 
         # Wait for human pitches (free-form text)
         if human_participants:
@@ -1984,7 +2007,7 @@ class InterdimensionalCableGame:
             for name, pitch_text in human_pitches.items():
                 bit = self._parse_bit_from_response(pitch_text, name)
                 if bit:
-                    pitched_bits[name] = bit
+                    pitched_bits.append(bit)
                     writers_room.add_pitched_bit(bit, name)
                     writers_room_log.append(f"{name} pitched: {bit.format} - {bit.premise[:100]}")
                     await self._send_gamemaster_message(f"**{name} pitched:**\n{pitch_text[:500]}")
