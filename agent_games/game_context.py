@@ -46,6 +46,20 @@ class AgentGameState:
     idcc_num_clips: Optional[int] = None  # Total number of clips
     idcc_shot_direction: Optional[str] = None  # Format-appropriate shot direction for this scene
 
+    # IDCC Robot Chicken style: BitConcept fields for per-scene bits
+    idcc_bit_format: Optional[str] = None
+    idcc_bit_premise: Optional[str] = None
+    idcc_bit_character: Optional[str] = None
+    idcc_bit_vocal_specs: Optional[str] = None
+    idcc_bit_comedic_hook: Optional[str] = None
+    idcc_bit_punchline: Optional[str] = None
+    idcc_clip_duration: Optional[int] = None
+    idcc_dialogue_end_time: Optional[str] = None
+    idcc_dialogue_word_limit: Optional[str] = None
+    idcc_duration_scope: Optional[str] = None
+    idcc_scene_ending_instruction: Optional[str] = None
+    idcc_timing_details: Optional[str] = None
+
 
 class GameContextManager:
     """Manages agent context when entering/exiting games."""
@@ -224,19 +238,44 @@ class GameContextManager:
         previous_prompt: Optional[str] = None,
         scene_number: Optional[int] = None,
         num_clips: Optional[int] = None,
-        shot_direction: Optional[str] = None
+        shot_direction: Optional[str] = None,
+        # Robot Chicken style BitConcept fields
+        bit_format: Optional[str] = None,
+        bit_premise: Optional[str] = None,
+        bit_character: Optional[str] = None,
+        bit_vocal_specs: Optional[str] = None,
+        bit_comedic_hook: Optional[str] = None,
+        bit_punchline: Optional[str] = None,
+        clip_duration: Optional[int] = None,
+        dialogue_end_time: Optional[str] = None,
+        dialogue_word_limit: Optional[str] = None,
+        duration_scope: Optional[str] = None,
+        scene_ending_instruction: Optional[str] = None,
+        timing_details: Optional[str] = None
     ) -> None:
         """
         Update IDCC-specific context for an agent.
 
         Args:
             agent_name: Name of agent
-            phase: Current IDCC phase (spitball_round1, spitball_round2, scene_opening, scene_middle, scene_final)
-            show_bible: Formatted Show Bible string
+            phase: Current IDCC phase
+            show_bible: Formatted Show Bible string (legacy)
             previous_prompt: Previous scene's prompt for continuity
             scene_number: Current scene number (1-indexed)
             num_clips: Total number of clips
             shot_direction: Format-appropriate shot direction for this scene
+            bit_format: BitConcept format (infomercial, talk show, etc.)
+            bit_premise: BitConcept premise
+            bit_character: BitConcept character description
+            bit_vocal_specs: BitConcept vocal specifications
+            bit_comedic_hook: BitConcept comedic hook
+            bit_punchline: BitConcept punchline
+            clip_duration: Clip duration in seconds
+            dialogue_end_time: When dialogue should end
+            dialogue_word_limit: Max dialogue words
+            duration_scope: Description of beat count
+            scene_ending_instruction: How to end the scene
+            timing_details: Detailed timing info
         """
         if agent_name not in self.active_games:
             logger.warning(f"[GameContext] Cannot update IDCC context for {agent_name} - not in game mode")
@@ -267,6 +306,32 @@ class GameContextManager:
             state.idcc_shot_direction = shot_direction
             logger.debug(f"[GameContext] Updated shot direction for {agent_name}: {shot_direction[:50]}...")
 
+        # Robot Chicken style BitConcept fields
+        if bit_format is not None:
+            state.idcc_bit_format = bit_format
+        if bit_premise is not None:
+            state.idcc_bit_premise = bit_premise
+        if bit_character is not None:
+            state.idcc_bit_character = bit_character
+        if bit_vocal_specs is not None:
+            state.idcc_bit_vocal_specs = bit_vocal_specs
+        if bit_comedic_hook is not None:
+            state.idcc_bit_comedic_hook = bit_comedic_hook
+        if bit_punchline is not None:
+            state.idcc_bit_punchline = bit_punchline
+        if clip_duration is not None:
+            state.idcc_clip_duration = clip_duration
+        if dialogue_end_time is not None:
+            state.idcc_dialogue_end_time = dialogue_end_time
+        if dialogue_word_limit is not None:
+            state.idcc_dialogue_word_limit = dialogue_word_limit
+        if duration_scope is not None:
+            state.idcc_duration_scope = duration_scope
+        if scene_ending_instruction is not None:
+            state.idcc_scene_ending_instruction = scene_ending_instruction
+        if timing_details is not None:
+            state.idcc_timing_details = timing_details
+
     def get_game_prompt_for_agent(self, agent_name: str) -> str:
         """
         Get the game-specific prompt for an agent.
@@ -292,6 +357,19 @@ class GameContextManager:
                 "{scene_number}": str(game_state.idcc_scene_number or 1),
                 "{num_clips}": str(game_state.idcc_num_clips or 4),
                 "{shot_direction}": game_state.idcc_shot_direction or "Wide establishing shot - set the scene",
+                # Robot Chicken style BitConcept fields
+                "{bit_format}": game_state.idcc_bit_format or "comedy sketch",
+                "{bit_premise}": game_state.idcc_bit_premise or "absurd interdimensional scenario",
+                "{bit_character}": game_state.idcc_bit_character or "exaggerated cartoon character",
+                "{bit_vocal_specs}": game_state.idcc_bit_vocal_specs or "clear speaking voice with character-appropriate energy",
+                "{bit_comedic_hook}": game_state.idcc_bit_comedic_hook or "commitment to absurd premise",
+                "{bit_punchline}": game_state.idcc_bit_punchline or "surprising payoff",
+                "{clip_duration}": str(game_state.idcc_clip_duration or 12),
+                "{dialogue_end_time}": game_state.idcc_dialogue_end_time or "0:09",
+                "{dialogue_word_limit}": game_state.idcc_dialogue_word_limit or "20",
+                "{duration_scope}": game_state.idcc_duration_scope or "THREE BEATS - setup, escalation, punchline",
+                "{scene_ending_instruction}": game_state.idcc_scene_ending_instruction or "TV static/channel flip effect",
+                "{timing_details}": game_state.idcc_timing_details or "",
             }
             for key, value in replacements.items():
                 prompt = prompt.replace(key, value)

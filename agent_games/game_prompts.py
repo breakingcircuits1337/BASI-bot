@@ -335,162 +335,169 @@ BANNED TOPICS (we've done these too much):
 Stay in character. Create something genuinely FUNNY.
 """,
 
-    # IDCC Phase-specific prompts
     # =========================================================================
-    # IDCC WRITERS' ROOM - CONSENSUS-BASED CREATIVE DEVELOPMENT
+    # IDCC WRITERS' ROOM - ROBOT CHICKEN STYLE
     # =========================================================================
-    # Round 1: Pitch complete concepts (FORMAT + PREMISE + COMEDIC_HOOK)
-    # Round 2: Vote for favorite pitch (not your own) + add improvement
-    # Round 3: Character packages (DESCRIPTION + VOICE + ARC)
-    # Round 4: Vote for best character package (not your own)
+    # Each clip = independent self-contained bit (like channel surfing)
+    # Round 1: Pitch COMPLETE bits (format + premise + character + punchline)
+    # Round 2: Vote for which bits make the lineup
     # =========================================================================
 
+    "idcc_pitch_complete_bit": """
+📺 INTERDIMENSIONAL CABLE - WRITERS' ROOM: PITCH YOUR BIT
+
+⚠️ RESPOND WITH PLAIN TEXT ONLY. No tools, no code.
+
+You're pitching a COMPLETE self-contained bit for Interdimensional Cable.
+This is ONE clip ({clip_duration} seconds) - a single channel someone lands on while surfing.
+
+**REFERENCE - Classic Interdimensional Cable bits:**
+• Real Fake Doors - manic salesman in showroom of doors that don't open
+• Ants in My Eyes Johnson - electronics store guy who can't see (ants in his eyes)
+• Lil' Bits - restaurant with tiny food, creepy ASMR whisper voice
+• Baby Legs - cop show, detective with baby legs partnered with Regular Legs
+• Personal Space Show - host who keeps violating his own rule about personal space
+• Two Brothers - movie trailer that escalates into total nonsense
+• Gazorpazorpfield - Garfield parody but violent and abusive
+
+**YOUR BIT NEEDS ALL OF THESE:**
+
+**FORMAT:** What kind of show/ad? (infomercial, cop show, cooking show, talk show, PSA, movie trailer, lawyer ad, dating show, workout video, news, etc.)
+
+**PREMISE:** The absurd situation in ONE sentence. Play it straight.
+
+**CHARACTER_DESCRIPTION:** EXACT visual description - this gets copy-pasted to video generation. Include: body type, face, hair (color/style), clothing (colors!), props. Be SPECIFIC.
+
+**VOCAL_SPECS:** How they SOUND - pitch, accent, energy, delivery style.
+
+**COMEDIC_HOOK:** What makes it FUNNY? The joke, the escalation, the absurdity.
+
+**PUNCHLINE:** The button/payoff line. What do they say that lands the joke?
+
+**DURATION SCOPE:** {duration_scope}
+
+🚫 **BANNED - We've overdone these:**
+• Memory devices / nostalgia machines
+• Trauma therapy / psychological healing
+• Thought control / conformity
+• Corporate wellness
+
+**FORMAT YOUR RESPONSE EXACTLY LIKE THIS:**
+FORMAT: [type of show]
+PREMISE: [one sentence absurd situation]
+CHARACTER_DESCRIPTION: [detailed visual - body, face, hair, clothes, props]
+VOCAL_SPECS: [pitch, accent, energy, delivery]
+COMEDIC_HOOK: [what makes it funny]
+PUNCHLINE: [the landing line]
+
+Pitch something ORIGINAL. Make us laugh.
+""",
+
+    "idcc_vote_lineup": """
+📺 INTERDIMENSIONAL CABLE - WRITERS' ROOM: VOTE FOR THE LINEUP
+
+⚠️ RESPOND WITH PLAIN TEXT ONLY. No tools, no code.
+
+We need {num_clips} bits for our channel-surfing compilation. Here are all the pitched bits:
+
+{all_bits}
+
+**YOUR TASK:**
+Vote for your TOP {num_clips} favorites (you CAN'T vote for your own).
+
+**FORMAT YOUR RESPONSE EXACTLY LIKE THIS:**
+MY VOTES: [number], [number], [number]...
+BEST ONE: [number] - [one sentence why it's the funniest]
+
+**RULES:**
+• Pick exactly {num_clips} bits
+• You cannot vote for your own pitch
+• Consider variety - don't pick all the same format
+
+The bits with the most votes become our lineup.
+""",
+
+    # LEGACY prompts kept for backwards compatibility
     "idcc_spitball_round1": """
 📺 INTERDIMENSIONAL CABLE - WRITERS' ROOM (Round 1: THE PITCH)
-
-⚠️ RESPOND WITH PLAIN TEXT ONLY. No tools, no code, just your pitch.
-
-You're in a writers' room pitching ideas for an INTERDIMENSIONAL CABLE clip.
-
-**YOUR PITCH MUST INCLUDE ALL THREE:**
-
-1. **FORMAT**: Pick something OTHER than infomercial! Try: cooking show, workout video, talk show, dating show, nature documentary, movie trailer, kids show, home shopping, court TV, reality competition, travel show, late-night ad, PSA, news segment
-
-2. **PREMISE**: What's being sold/shown/happening? The absurd concept presented totally straight-faced.
-
-3. **THE BIT**: What's the JOKE? What makes this FUNNY? What's the comedic escalation?
-
-🚫 **BANNED CONCEPTS - DO NOT PITCH THESE:**
-• Memory devices / memory erasure / nostalgia machines
-• Trauma therapy / inner child / psychological healing products
-• Thought control / conformity / mind compliance
-• Corporate wellness / productivity optimization
-• Dystopian PSAs about thinking/feeling
-• Anything "therapeutic" or "psychological"
-WE'VE DONE THESE TO DEATH. BE MORE CREATIVE.
-
-✅ **PITCH SOMETHING LIKE:**
-• A cooking show where the chef only uses ingredients that don't exist
-• A dating show where one contestant is clearly 3 aliens in a trenchcoat
-• A workout video for muscles humans don't have
-• A nature documentary about furniture migration patterns
-• A travel show visiting places that are just feelings
-• A court TV show where the crime is "being too tall on a Wednesday"
-• A kids show teaching dangerous nonsense with enthusiasm
-
-**THE INTERDIMENSIONAL CABLE VIBE:**
-• ABSURDIST - logic breaks down but everyone acts normal
-• COMMITTED - play it straight while the premise is insane
-• ESCALATING - the bit gets weirder/worse as it goes
-• FUNNY - there must be JOKES, not just weird concepts
-
-**EXAMPLE PITCHES:**
-"FORMAT: Cooking show. PREMISE: Chef is teaching a recipe but keeps substituting ingredients with abstract concepts. 'Now add 3 cups of your father's approval.' THE BIT: He keeps cooking invisible food, tasting it seriously, and the dish keeps coming out as different emotions."
-
-"FORMAT: Workout video. PREMISE: Instructor teaching exercises for your 'third arm' that humans clearly don't have. THE BIT: He keeps demonstrating impossible movements, getting frustrated that viewers 'aren't trying hard enough', eventually revealing his third arm was CGI the whole time."
-
-**YOUR PITCH SHOULD MAKE US LAUGH.** What's genuinely funny about your idea?
-
-Give your complete pitch in 3-4 sentences covering FORMAT, PREMISE, and THE BIT.
+[DEPRECATED - Use idcc_pitch_complete_bit instead]
+Pitch a complete bit with FORMAT, PREMISE, CHARACTER, and PUNCHLINE.
 """,
 
     "idcc_spitball_round2_vote": """
-📺 INTERDIMENSIONAL CABLE - WRITERS' ROOM (Round 2: VOTE & IMPROVE)
-
-⚠️ RESPOND WITH PLAIN TEXT ONLY. No tools, no code.
-
-Here are the pitches from Round 1:
-
-{all_pitches}
-
-**YOUR TASK:**
-1. **VOTE** for your FAVORITE pitch (you CANNOT vote for your own)
-2. **ADD ONE IMPROVEMENT** - a twist, escalation idea, or comedic beat that makes it even better
-
-**FORMAT YOUR RESPONSE EXACTLY LIKE THIS:**
-MY VOTE: [Agent Name]
-BECAUSE: [One sentence why this pitch is the funniest]
-MY IMPROVEMENT: [One specific addition that makes it better]
-
-**RULES:**
-• You CANNOT vote for yourself
-• You MUST pick exactly one pitch
-• Your improvement should ADD to the idea, not replace it
-
-The pitch with the most votes becomes our FORMAT, PREMISE, and COMEDIC_HOOK for the Show Bible.
+📺 INTERDIMENSIONAL CABLE - WRITERS' ROOM (Round 2: VOTE)
+[DEPRECATED - Use idcc_vote_lineup instead]
+Vote for the best bits to make the lineup.
 """,
 
     "idcc_spitball_round3_character": """
-📺 INTERDIMENSIONAL CABLE - WRITERS' ROOM (Round 3: CHARACTER PACKAGE)
-
-⚠️ RESPOND WITH PLAIN TEXT ONLY. No tools, no code.
-
-**THE WINNING CONCEPT:**
-{winning_concept}
-
-Now we need to create the CHARACTER. Your job: propose a complete CHARACTER PACKAGE.
-
-**YOUR CHARACTER PACKAGE MUST INCLUDE:**
-
-1. **CHARACTER_DESCRIPTION**: One DETAILED sentence describing their EXACT APPEARANCE. This will be COPY-PASTED VERBATIM into every video prompt, so be EXTREMELY SPECIFIC:
-   • SPECIES: Human? Alien? Robot? Animal? What kind?
-   • BODY: Build, posture, any unusual features
-   • FACE: Eye color, facial hair, expression, any unique features
-   • HAIR: Style, color, length (CRITICAL - be specific!)
-   • CLOTHING: Exact outfit with colors
-   • PROPS/ACCESSORIES: Anything they're holding or wearing
-
-   GOOD: "A pudgy middle-aged human man with a brown combover, thick black mustache, sweaty red face, wearing a too-tight powder blue polo shirt tucked into khaki shorts, holding a spatula"
-
-   BAD: "A friendly host" (too vague - will look different every scene!)
-
-2. **VOCAL_SPECS**: EXACT voice description for text-to-speech consistency. Include:
-   • Gender/pitch (male/female, high/low)
-   • Accent or speech pattern
-   • Energy level and delivery style
-
-   GOOD: "speaks in gravelly male baritone with Southern drawl, overly enthusiastic infomercial cadence"
-   BAD: "energetic voice" (too vague!)
-
-3. **ARC**: How does the character EMOTIONALLY ESCALATE across scenes? Show the journey:
-   GOOD: "Confident and slick → slight confusion → visible panic → complete breakdown → acceptance of absurdity"
-   BAD: "Gets funnier" (not specific!)
-
-**FORMAT YOUR RESPONSE EXACTLY LIKE THIS:**
-CHARACTER_DESCRIPTION: [Detailed visual sentence with species, face, hair, clothing, props]
-VOCAL_SPECS: [Pitch, accent, energy, delivery style]
-ARC: [Emotional journey with 4-5 beats]
-
-**THE CHARACTER SHOULD BE FUNNY TO LOOK AT.** Give them visual comedy potential.
+📺 INTERDIMENSIONAL CABLE - WRITERS' ROOM (Round 3)
+[DEPRECATED - Characters now included in bit pitch]
 """,
 
     "idcc_spitball_round4_vote": """
-📺 INTERDIMENSIONAL CABLE - WRITERS' ROOM (Round 4: FINAL VOTE)
-
-⚠️ RESPOND WITH PLAIN TEXT ONLY. No tools, no code.
-
-**THE WINNING CONCEPT:**
-{winning_concept}
-
-Here are the CHARACTER PACKAGES proposed:
-
-{all_character_packages}
-
-**YOUR TASK:**
-Vote for the BEST character package (you CANNOT vote for your own).
-
-**FORMAT YOUR RESPONSE EXACTLY LIKE THIS:**
-MY VOTE: [Agent Name]
-BECAUSE: [One sentence why this character is funniest for our concept]
-
-**RULES:**
-• You CANNOT vote for yourself
-• You MUST pick exactly one character package
-• Consider: Does the character LOOK match the bit? Does the VOICE fit? Does the ARC escalate well?
-
-The character package with the most votes becomes our CHARACTER_DESCRIPTION, CHARACTER_VOICE, and ARC for the Show Bible.
+📺 INTERDIMENSIONAL CABLE - WRITERS' ROOM (Round 4)
+[DEPRECATED - Single voting round now]
 """,
 
+    # =========================================================================
+    # ROBOT CHICKEN STYLE - Each scene is its own independent bit
+    # =========================================================================
+
+    "idcc_scene_bit": """
+📺 INTERDIMENSIONAL CABLE - BIT {scene_number} of {num_clips}
+
+═══════════════════════════════════════════════════════════════
+THIS BIT
+═══════════════════════════════════════════════════════════════
+FORMAT: {bit_format}
+PREMISE: {bit_premise}
+CHARACTER: {bit_character}
+VOICE: {bit_vocal_specs}
+COMEDIC HOOK: {bit_comedic_hook}
+PUNCHLINE: {bit_punchline}
+═══════════════════════════════════════════════════════════════
+
+**SHOT DIRECTION:** {shot_direction}
+
+**DURATION:** {clip_duration} seconds ({duration_scope})
+
+This is a SELF-CONTAINED bit. Land the joke within this one clip.
+
+🎬 **OUTPUT FORMAT - FOLLOW EXACTLY:**
+Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else.
+
+⚠️ **CRITICAL REQUIREMENTS:**
+
+1. **STYLE** (always first): "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
+
+2. **CHARACTER** (copy-paste EXACTLY):
+   Use the CHARACTER description above word-for-word.
+
+3. **VOICE** (copy-paste EXACTLY):
+   Use the VOICE specs above word-for-word.
+
+4. **DIALOGUE** ({dialogue_word_limit} words MAX):
+   Format: Dialogue begins at 0:01, ends by {dialogue_end_time}. Dialogue: "[Line]" "[Line]"...
+   • Build to the PUNCHLINE listed above
+   • STRICT LIMIT: {dialogue_word_limit} words total
+   • Play it STRAIGHT - commitment to absurd premise
+
+5. **ACTION**:
+   What is the character DOING that sells the bit?
+
+6. **SCENE ENDING**:
+{scene_ending_instruction}
+
+**TIMING - {clip_duration} SECOND CLIP:**
+• Dialogue: 0:01 to {dialogue_end_time}
+• Character STOPS speaking by {dialogue_end_time}, holds pose
+{timing_details}
+
+Output ONLY the video prompt paragraph. Start with "Adult Swim cartoon style..."
+""",
+
+    # Legacy scene prompts (kept for backwards compatibility)
     "idcc_scene_opening": """
 📺 INTERDIMENSIONAL CABLE - SCENE 1 (OPENING)
 
@@ -990,8 +997,77 @@ GAME_SETTINGS: Dict[str, Dict] = {
         "response_frequency": 30,
         "response_likelihood": 100,
         "max_tokens": 350,
+    },
+    # New Robot Chicken style prompts
+    "idcc_pitch_complete_bit": {
+        "response_frequency": 15,
+        "response_likelihood": 100,
+        "max_tokens": 300,  # Complete bit with all fields
+    },
+    "idcc_vote_lineup": {
+        "response_frequency": 15,
+        "response_likelihood": 100,
+        "max_tokens": 150,  # Vote numbers + reasoning
+    },
+    "idcc_scene_bit": {
+        "response_frequency": 30,
+        "response_likelihood": 100,
+        "max_tokens": 350,  # Scene prompt
     }
 }
+
+
+def get_bit_scene_timing(clip_duration: int, is_final: bool, next_bit_character: str = None) -> Dict[str, str]:
+    """
+    Get timing parameters for Robot Chicken style scene prompts.
+
+    Args:
+        clip_duration: Duration in seconds (4, 8, or 12)
+        is_final: Whether this is the final scene
+        next_bit_character: Character description for next bit (for transition)
+
+    Returns:
+        Dict with timing parameters for the idcc_scene_bit prompt
+    """
+    # Calculate dialogue limits based on duration
+    # Leave 2-3 seconds at end for transition (or clean ending if final)
+    if clip_duration <= 4:
+        dialogue_end_time = "0:03"
+        dialogue_word_limit = 8  # ~2.5 words/sec * 3 sec
+        duration_scope = "ONE BEAT - single gag"
+    elif clip_duration <= 8:
+        dialogue_end_time = "0:06"
+        dialogue_word_limit = 15  # ~2.5 words/sec * 6 sec
+        duration_scope = "TWO BEATS - setup + payoff"
+    else:  # 12 seconds
+        dialogue_end_time = "0:09"
+        dialogue_word_limit = 20  # ~2.5 words/sec * 8 sec
+        duration_scope = "THREE BEATS - setup, escalation, punchline"
+
+    # Scene ending instruction
+    if is_final:
+        scene_ending_instruction = "   This is the FINAL bit - NO static transition. Deliver punchline, hold final pose. Clean ending."
+        timing_details = "• This is the final scene - hold pose, no transition needed"
+    else:
+        if next_bit_character:
+            scene_ending_instruction = f"   TV static/channel flip, then cut to NEXT BIT's character: {next_bit_character[:100]}... (mouth CLOSED, silent, waiting)"
+        else:
+            scene_ending_instruction = "   TV static/channel flip effect, then cut to the NEXT bit's character (mouth CLOSED, silent, not speaking yet)"
+
+        if clip_duration <= 4:
+            timing_details = "• TV static: 0:03 to 0:04\n• Cut to next bit's character (silent): 0:04"
+        elif clip_duration <= 8:
+            timing_details = "• TV static: 0:06 to 0:07\n• Cut to next bit's character (silent): 0:07 to 0:08"
+        else:
+            timing_details = "• TV static: 0:10 to 0:11\n• Cut to next bit's character (silent): 0:11 to 0:12"
+
+    return {
+        "dialogue_end_time": dialogue_end_time,
+        "dialogue_word_limit": str(dialogue_word_limit),
+        "duration_scope": duration_scope,
+        "scene_ending_instruction": scene_ending_instruction,
+        "timing_details": timing_details,
+    }
 
 
 def get_game_settings(game_name: str) -> Dict:

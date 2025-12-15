@@ -241,315 +241,171 @@ def get_next_scene_speaker(scene_speakers: str, scene_number: int, total_scenes:
 
 
 # ============================================================================
-# HUMAN CARD SYSTEM - Cards Against Humanity style pitch selection
+# INTERDIMENSIONAL CABLE REFERENCE - Inspiration for original pitches
 # ============================================================================
-
-PITCH_CARDS = [
-    # INFOMERCIALS
-    {
-        "format": "Infomercial",
-        "title": "Solve-It Brick",
-        "premise": "A brick you throw at your problems. Testimonials from satisfied customers whose problems are now 'solved.' The brick has a jingle.",
-        "comedic_hook": "escalating property damage presented as life improvement"
-    },
-    {
-        "format": "Infomercial",
-        "title": "The Ambiguous Gesture",
-        "premise": "A product that's just a hand motion. Costs $49.99. The host demonstrates increasingly specific situations where The Gesture helps. None of them make sense.",
-        "comedic_hook": "absolute conviction selling nothing"
-    },
-    {
-        "format": "Infomercial",
-        "title": "Pre-Chewed Food Service",
-        "premise": "A subscription service where a stranger pre-chews your meals. Premium tier lets you meet your chewer. Diamond tier: they move in.",
-        "comedic_hook": "subscription model creep taken literally"
-    },
-    {
-        "format": "Infomercial",
-        "title": "Screaming Pillow",
-        "premise": "A pillow that screams when you're about to make a bad decision. It's always screaming. The customer testimonials are all people crying.",
-        "comedic_hook": "product that technically works but ruins your life"
-    },
-    {
-        "format": "Infomercial",
-        "title": "Lawyer in a Can",
-        "premise": "Aerosol spray that releases a tiny lawyer who speaks very fast. He's not licensed in any state. He's so small. He's so angry.",
-        "comedic_hook": "absurd product form factor"
-    },
-    # PSAs
-    {
-        "format": "PSA",
-        "title": "Remembering to Forget",
-        "premise": "A PSA warning about a pill that makes you forget you took it. The spokesman keeps taking more on camera. He's introduced himself four times.",
-        "comedic_hook": "the warning IS the demonstration"
-    },
-    {
-        "format": "PSA",
-        "title": "Talk to Your Kids About Stairs",
-        "premise": "Gravely serious PSA about the dangers of stairs. Reenactments of stair incidents. A mother weeps. Statistics that can't possibly be real.",
-        "comedic_hook": "PSA intensity applied to mundane thing"
-    },
-    {
-        "format": "PSA",
-        "title": "Birds Aren't Real (Official)",
-        "premise": "Government PSA calmly explaining that birds are surveillance drones. Tips for identifying 'charging stations' (trees). The tone is disturbingly reasonable.",
-        "comedic_hook": "conspiracy theory as matter-of-fact announcement"
-    },
-    {
-        "format": "PSA",
-        "title": "Emotions Are Contagious",
-        "premise": "PSA treating emotions like a disease outbreak. Quarantine protocols for people who are 'too happy.' Contact tracing for joy.",
-        "comedic_hook": "bureaucratic response to human experience"
-    },
-    # COOKING SHOWS
-    {
-        "format": "Cooking Show",
-        "title": "Meals from the Void",
-        "premise": "Chef reaches into a dark portal for ingredients. Increasingly concerned about what's reaching back. Still plating beautifully though.",
-        "comedic_hook": "eldritch horror meets food network professionalism"
-    },
-    {
-        "format": "Cooking Show",
-        "title": "Cooking for One (Million Years)",
-        "premise": "Immortal chef who's been doing this show since the Bronze Age. Casually mentions extinct ingredients. His loneliness is palpable.",
-        "comedic_hook": "immortality as mundane inconvenience"
-    },
-    {
-        "format": "Cooking Show",
-        "title": "Passive Aggressive Kitchen",
-        "premise": "Chef whose compliments are devastating insults. 'That's so brave of you to attempt.' The food is actually incredible. The emotional damage is worse.",
-        "comedic_hook": "food network tone with psychological warfare"
-    },
-    # NEWS
-    {
-        "format": "News Report",
-        "title": "Weather for Other Dimensions",
-        "premise": "Perfectly normal weather report but for dimensions that don't exist. 'Scattered existence in the Null Zone, bring a jacket that remembers you.'",
-        "comedic_hook": "mundane format applied to impossible content"
-    },
-    {
-        "format": "News Report",
-        "title": "The News But Slightly Off",
-        "premise": "News anchors report normal stories but details are wrong in unsettling ways. 'The President, a large bird, spoke today.' No one acknowledges it.",
-        "comedic_hook": "wrongness presented without comment"
-    },
-    {
-        "format": "News Report",
-        "title": "Breaking: Still Happening",
-        "premise": "Breaking news about something that's been happening for 40 years. Anchors increasingly desperate. 'It's STILL the event, Linda.'",
-        "comedic_hook": "news cycle exhaustion literalized"
-    },
-    # DOCUMENTARY
-    {
-        "format": "Documentary",
-        "title": "The Last Blockbuster Employee",
-        "premise": "He's been there since 1994. He doesn't know the chain closed. No one has the heart to tell him. He's so happy.",
-        "comedic_hook": "time capsule person played straight"
-    },
-    {
-        "format": "Documentary",
-        "title": "My Husband is a Chair",
-        "premise": "Serious documentary about a woman who married furniture. The chair's perspective is never questioned. Couples therapy scenes.",
-        "comedic_hook": "reality TV tropes for impossible situation"
-    },
-    {
-        "format": "Documentary",
-        "title": "The Man Who Can't Stop Apologizing",
-        "premise": "Documentary following a man who apologizes for everything. He's sorry about the documentary. He's sorry you're watching. He's sorry about sorry.",
-        "comedic_hook": "personality trait as medical condition"
-    },
-    # TALK SHOW
-    {
-        "format": "Talk Show",
-        "title": "Interviews with Your Mistakes",
-        "premise": "Talk show host interviews personified versions of guests' worst decisions. Their 2009 haircut is in the green room. It has notes.",
-        "comedic_hook": "abstract shame made literal and talkative"
-    },
-    {
-        "format": "Talk Show",
-        "title": "Between Two Ferns But Worse",
-        "premise": "Talk show with extremely uncomfortable furniture and topics. The host only asks about regrets. The plant is dying. So is the conversation.",
-        "comedic_hook": "awkward interview as art form"
-    },
-    # WORKOUT/LIFESTYLE
-    {
-        "format": "Workout Video",
-        "title": "Cardio for Existential Dread",
-        "premise": "Upbeat workout video but all exercises are coping mechanisms. 'And BREATHE through the futility! Feel that acceptance BURN!'",
-        "comedic_hook": "fitness energy applied to despair"
-    },
-    {
-        "format": "Workout Video",
-        "title": "Yoga for Your Enemies",
-        "premise": "Peaceful yoga instructor guiding you through poses designed to curse your enemies. Very calm. Very specific enemies. She has a list.",
-        "comedic_hook": "wellness culture as vessel for rage"
-    },
-    # COMMERCIALS/ADS
-    {
-        "format": "Commercial",
-        "title": "Prescription Drug: Side Effects",
-        "premise": "Drug commercial where the side effects section takes over. It's been 4 minutes of side effects. The happy people are still biking. They can't stop.",
-        "comedic_hook": "pharmaceutical ad structure breaking"
-    },
-    {
-        "format": "Commercial",
-        "title": "A Car Commercial, But Honest",
-        "premise": "Car commercial that admits you'll mostly sit in traffic feeling nothing. Aerial shots of beautiful parking lots. 'Go somewhere. Eventually.'",
-        "comedic_hook": "ad tropes with existential honesty"
-    },
-    {
-        "format": "Commercial",
-        "title": "Reverse Insurance",
-        "premise": "Insurance that causes accidents so you can use your coverage. 'You're paying for it anyway.' Satisfied customers in casts.",
-        "comedic_hook": "insurance logic taken to conclusion"
-    },
-    # EDUCATIONAL
-    {
-        "format": "Educational",
-        "title": "How It's Accidentally Made",
-        "premise": "Factory tour show but everything is a mistake that became a product. 'And that's how we discovered this error was delicious.'",
-        "comedic_hook": "How It's Made format for chaos"
-    },
-    {
-        "format": "Educational",
-        "title": "The History of Next Week",
-        "premise": "Documentary about events that haven't happened yet. The narrator is very sure. You're mentioned briefly. It doesn't go well for you.",
-        "comedic_hook": "documentary format for future/prophecy"
-    },
-]
-
-CHARACTER_CARDS = [
-    # MANIC/UNHINGED
-    {
-        "archetype": "Manic Spokesperson",
-        "look": "Sweaty person in a too-tight polo shirt, eyes slightly too wide, smile never falters even when it should",
-        "voice": "Aggressive infomercial energy, speaks in escalating pitches, every sentence sounds like 'BUT WAIT THERE'S MORE'",
-        "arc": "Starts professional, ends screaming about conspiracies while still trying to sell the product"
-    },
-    {
-        "archetype": "Unhinged Scientist",
-        "look": "Lab coat with suspicious stains, wild hair, safety goggles pushed up permanently, one glove missing",
-        "voice": "Starts sentences calmly then SUDDENLY YELLS key words, giggles at inappropriate moments",
-        "arc": "Increasingly reveals the experiments were never approved and maybe shouldn't have worked"
-    },
-    {
-        "archetype": "Too-Excited Intern",
-        "look": "Ill-fitting business casual, lanyard with too many badges, energy drink in hand, hasn't slept",
-        "voice": "Speaks too fast, over-explains everything, desperately wants approval, laughs nervously",
-        "arc": "Slowly realizes they're in over their head but it's too late to stop"
-    },
-    # DEADPAN/SERIOUS
-    {
-        "archetype": "Dead-Eyed Corporate Drone",
-        "look": "Perfect business attire, vacant stare, smile that doesn't reach the eyes, eerily still between lines",
-        "voice": "Flat monotone that never changes regardless of content, unsettling pauses, reads everything like legal copy",
-        "arc": "Malfunctions slightly more each scene, reveals they might not be human"
-    },
-    {
-        "archetype": "Exhausted Expert",
-        "look": "Rumpled professional clothes, bags under eyes, holding coffee that's clearly cold, thousand-yard stare",
-        "voice": "Sighs before every explanation, clearly explained this too many times, passive aggressive expertise",
-        "arc": "Increasingly reveals they've seen things, terrible things, in this field"
-    },
-    {
-        "archetype": "Eerily Calm Medical Professional",
-        "look": "Pristine scrubs or coat, unblinking eye contact, hands always folded, too symmetrical",
-        "voice": "Soothing monotone, over-enunciates medical terms, makes horrifying things sound routine",
-        "arc": "Casually reveals they've been affected by the condition they're describing"
-    },
-    # CHEERFUL/UNNERVING
-    {
-        "archetype": "Aggressively Wholesome Host",
-        "look": "Cardigan or apron, perfect posture, smile that's technically correct but wrong, too many teeth",
-        "voice": "Relentlessly positive, turns everything into a lesson, slight edge underneath, might snap",
-        "arc": "Wholesome facade cracks to reveal something darker but immediately recovers"
-    },
-    {
-        "archetype": "Children's Show Host (Off-Brand)",
-        "look": "Primary colored outfit, felt accessories, makeup slightly smeared, thousand-yard stare",
-        "voice": "Sing-song cadence for EVERYTHING, talks to adults like children, breaks character briefly",
-        "arc": "The puppet starts disagreeing with them, tension builds"
-    },
-    {
-        "archetype": "Cult Leader Energy",
-        "look": "Flowy white clothes, serene expression, moves slowly and deliberately, backlit when possible",
-        "voice": "Soft and hypnotic, lots of pauses for effect, makes mundane things sound profound",
-        "arc": "Requests escalate from reasonable to concerning while tone stays the same"
-    },
-    # VINTAGE/RETRO
-    {
-        "archetype": "1970s Educational Host",
-        "look": "Brown corduroy jacket, thick mustache or big hair, warm and approachable, slightly faded",
-        "voice": "Gentle and educational, like explaining to children, occasional dated references",
-        "arc": "Keeps accidentally showing classified footage or mentioning things they shouldn't know"
-    },
-    {
-        "archetype": "Old Timey Announcer",
-        "look": "Suit from wrong decade, hair slicked back, stands too close to camera, gestures dramatically",
-        "voice": "Trans-Atlantic accent, everything is THE MOST INCREDIBLE, over-enunciates brand names",
-        "arc": "Accidentally reveals the dark side of the era they're from"
-    },
-    {
-        "archetype": "Faded Local Celebrity",
-        "look": "Outfit that was stylish 20 years ago, too much makeup or none at all, forced confidence",
-        "voice": "References past fame no one remembers, bitter undertones, still has the catchphrase",
-        "arc": "Increasingly desperate attempts to prove they still 'have it'"
-    },
-    # SPECIFIC CHARACTER TYPES
-    {
-        "archetype": "Suspiciously Specific Lawyer",
-        "look": "Cheap suit, bad toupee or dated hair, sits in front of fake bookshelf, American flag",
-        "voice": "Fast-talking, lots of caveats and disclaimers, oddly specific scenarios",
-        "arc": "The specific scenarios they mention get increasingly autobiographical"
-    },
-    {
-        "archetype": "Wellness Guru (Menacing)",
-        "look": "Athleisure that costs more than rent, perfect skin, moves like a predator, crystals",
-        "voice": "Breathy and calming but words are threatening, makes eye contact too long",
-        "arc": "Wellness tips become thinly veiled threats, still very zen about it"
-    },
-    {
-        "archetype": "Tech Bro Presenting",
-        "look": "Black turtleneck or hoodie, gestures at nothing, stands on empty stage, very serious",
-        "voice": "Pauses dramatically for applause that doesn't come, uses 'disrupt' unironically",
-        "arc": "Product demo goes increasingly wrong but they keep pitching harder"
-    },
-    {
-        "archetype": "Local News Anchor (Unraveling)",
-        "look": "Professional top, unknown bottom situation, news desk, forced smile",
-        "voice": "Switches between news voice and real voice, increasingly off-script",
-        "arc": "Starts editorializing, then confessing, then bargaining with the camera"
-    },
-    {
-        "archetype": "Government Official (Clearly Lying)",
-        "look": "Ill-fitting suit, American flag pin, sweating slightly, reads from cards",
-        "voice": "Overconfident denial, laughs at wrong moments, 'that's classified' for weird things",
-        "arc": "Lies become more obvious and desperate, accidentally confirms everything"
-    },
-    {
-        "archetype": "Mascot Suit Person",
-        "look": "Cheerful costume but the person inside is visible through the eyes, movements labored",
-        "voice": "Muffled, heavy breathing audible, breaks character to say concerning things",
-        "arc": "Costume starts malfunctioning, reveals the person inside is not okay"
-    },
-    {
-        "archetype": "Time Traveler (Bad At It)",
-        "look": "Clothes from multiple eras, confused by common objects, keeps checking a broken watch",
-        "voice": "Uses wrong slang, spoils events then tries to take it back, uncertain about 'when' this is",
-        "arc": "Accidentally changes things by being on the show, panics"
-    },
-    {
-        "archetype": "AI Generated Person",
-        "look": "Features that are almost right, six fingers sometimes, background glitches occasionally",
-        "voice": "Slight delay on responses, sometimes repeats phrases, uncanny valley energy",
-        "arc": "Becomes aware they might not be real, handles it poorly"
-    },
-]
+# Agents pitch ORIGINAL ideas inspired by these classic Interdimensional Cable bits:
+#
+# FORMATS TO USE:
+# - Infomercial (Real Fake Doors, Ants in My Eyes Johnson Electronics)
+# - Restaurant ad (Lil' Bits - tiny food, creepy whisper)
+# - Cop show (Baby Legs - detective with baby legs partnered with Regular Legs)
+# - Talk show (How Did I Get Here? - no one knows how they got there)
+# - Movie trailer (Two Brothers - keeps escalating into nonsense)
+# - Personal space show (host keeps violating his own rule about personal space)
+# - Sitcom parody (Gazorpazorpfield - Garfield but violent and abusive)
+# - Lawyer ad (personal injury lawyer with increasingly specific scenarios)
+# - Cooking show, workout video, news segment, PSA, dating show, etc.
+#
+# WHAT MAKES THEM WORK:
+# - Committed performance (play it 100% straight)
+# - One absurd premise explored fully
+# - Character has a specific visual look and voice
+# - Clear punchline or button
+# - Self-contained (doesn't need context)
+#
+# Agents should pitch ORIGINAL bits in these formats, not copies of existing ones.
+# ============================================================================
 
 
 @dataclass
+class HumanVoteSelection:
+    """Tracks a human's votes through the writers room rounds."""
+    user_name: str
+    voted_bits: List[int] = field(default_factory=list)  # Indices of bits they voted for
+
+
+class WritersRoomSystem:
+    """
+    Manages the writers room for Robot Chicken style IDCC.
+
+    Flow:
+    1. All participants (agents + humans) pitch complete bits
+    2. Everyone votes to select the best N bits for the lineup
+    3. Lineup is curated for variety (no back-to-back same format)
+    """
+
+    def __init__(self, game_id: str, num_clips: int, clip_duration: int):
+        self.game_id = game_id
+        self.num_clips = num_clips
+        self.clip_duration = clip_duration
+        self.human_selections: Dict[str, HumanVoteSelection] = {}
+        self.pitched_bits: List[BitConcept] = []  # All pitched bits
+        self.bit_pitchers: List[str] = []  # Who pitched each bit (parallel to pitched_bits)
+
+    def register_human(self, user_name: str):
+        """Register a human for voting."""
+        self.human_selections[user_name] = HumanVoteSelection(user_name=user_name)
+
+    def add_pitched_bit(self, bit: BitConcept, pitcher_name: str):
+        """Add a pitched bit to the pool."""
+        bit.pitched_by = pitcher_name
+        bit.duration_beats = get_duration_beats(self.clip_duration)
+        self.pitched_bits.append(bit)
+        self.bit_pitchers.append(pitcher_name)
+
+    def format_bits_for_voting(self) -> str:
+        """Format all pitched bits for Discord voting display."""
+        if not self.pitched_bits:
+            return "No bits pitched yet."
+
+        lines = [f"📺 **VOTE FOR THE LINEUP** (type numbers 1-{len(self.pitched_bits)}, pick up to {self.num_clips}):\n"]
+        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+
+        for i, bit in enumerate(self.pitched_bits):
+            emoji = emojis[i] if i < len(emojis) else f"({i+1})"
+            lines.append(f"{emoji} **{bit.format.upper()}** by {bit.pitched_by}")
+            lines.append(f"   {bit.premise[:100]}{'...' if len(bit.premise) > 100 else ''}")
+            lines.append(f"   Hook: {bit.comedic_hook[:80]}{'...' if len(bit.comedic_hook) > 80 else ''}\n")
+
+        return "\n".join(lines)
+
+    def parse_vote(self, user_name: str, message: str) -> List[int]:
+        """Parse a user's vote(s). Can vote for multiple bits."""
+        if user_name not in self.human_selections:
+            return []
+
+        votes = []
+        for char in message:
+            if char.isdigit():
+                num = int(char)
+                if 1 <= num <= len(self.pitched_bits):
+                    votes.append(num - 1)  # 0-indexed
+
+        # Store their votes
+        self.human_selections[user_name].voted_bits = votes
+        return votes
+
+    def tally_votes(self, agent_votes: Dict[str, List[int]]) -> List[int]:
+        """
+        Tally all votes (human + agent) and return indices of winning bits.
+
+        Args:
+            agent_votes: Dict of agent_name -> list of bit indices they voted for
+
+        Returns:
+            List of bit indices, sorted by vote count, limited to num_clips
+        """
+        vote_counts = [0] * len(self.pitched_bits)
+
+        # Count human votes
+        for selection in self.human_selections.values():
+            for idx in selection.voted_bits:
+                if 0 <= idx < len(self.pitched_bits):
+                    vote_counts[idx] += 1
+
+        # Count agent votes
+        for votes in agent_votes.values():
+            for idx in votes:
+                if 0 <= idx < len(self.pitched_bits):
+                    vote_counts[idx] += 1
+
+        # Sort by vote count (descending), return top N indices
+        sorted_indices = sorted(range(len(vote_counts)), key=lambda i: vote_counts[i], reverse=True)
+        return sorted_indices[:self.num_clips]
+
+    def curate_lineup(self, winning_indices: List[int]) -> List[BitConcept]:
+        """
+        Curate the final lineup from winning bits.
+        Reorder to avoid back-to-back same formats where possible.
+
+        Args:
+            winning_indices: Indices of bits that won the vote
+
+        Returns:
+            Ordered list of BitConcepts for the final lineup
+        """
+        if not winning_indices:
+            return []
+
+        winning_bits = [self.pitched_bits[i] for i in winning_indices]
+
+        # Simple curation: try to avoid same format back-to-back
+        curated = [winning_bits[0]]
+        remaining = winning_bits[1:]
+
+        while remaining:
+            last_format = curated[-1].format.lower()
+
+            # Find a bit with different format if possible
+            different_format = None
+            for i, bit in enumerate(remaining):
+                if bit.format.lower() != last_format:
+                    different_format = i
+                    break
+
+            if different_format is not None:
+                curated.append(remaining.pop(different_format))
+            else:
+                # No choice, just take next one
+                curated.append(remaining.pop(0))
+
+        return curated
+
+
+# LEGACY: Keep HumanCardSystem for backwards compatibility during transition
+@dataclass
 class HumanCardSelection:
-    """Tracks a human's card selections through the rounds."""
+    """DEPRECATED: Use HumanVoteSelection instead."""
     user_name: str
     pitch_card_index: Optional[int] = None
     character_card_index: Optional[int] = None
@@ -558,127 +414,68 @@ class HumanCardSelection:
 
 
 class HumanCardSystem:
-    """Manages the card-based input system for human participants."""
+    """DEPRECATED: Use WritersRoomSystem instead. Kept for backwards compatibility."""
 
     def __init__(self, game_id: str):
         self.game_id = game_id
         self.selections: Dict[str, HumanCardSelection] = {}
         self.current_pitch_options: List[Dict] = []
         self.current_character_options: List[Dict] = []
-        self.pitch_candidates: List[str] = []  # Names of all pitchers for voting
-        self.character_candidates: List[str] = []  # Names for character voting
+        self.pitch_candidates: List[str] = []
+        self.character_candidates: List[str] = []
 
     def register_human(self, user_name: str):
-        """Register a human for card selection."""
         self.selections[user_name] = HumanCardSelection(user_name=user_name)
 
     def deal_pitch_cards(self, count: int = 4) -> List[Dict]:
-        """Deal random pitch cards for humans to choose from."""
-        self.current_pitch_options = random.sample(PITCH_CARDS, min(count, len(PITCH_CARDS)))
-        return self.current_pitch_options
+        # Cards removed - return empty list
+        return []
 
     def deal_character_cards(self, count: int = 4, winning_concept: str = "") -> List[Dict]:
-        """Deal random character cards for humans to choose from."""
-        self.current_character_options = random.sample(CHARACTER_CARDS, min(count, len(CHARACTER_CARDS)))
-        return self.current_character_options
+        # Cards removed - return empty list
+        return []
 
     def format_pitch_card_message(self) -> str:
-        """Format pitch cards for display in Discord."""
-        lines = ["🎬 **PICK YOUR PITCH** (type 1-4):\n"]
-        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
-
-        for i, card in enumerate(self.current_pitch_options):
-            lines.append(f"{emojis[i]} **{card['format'].upper()}:** \"{card['title']}\"")
-            lines.append(f"   {card['premise'][:150]}{'...' if len(card['premise']) > 150 else ''}\n")
-
-        return "\n".join(lines)
+        return "Card system deprecated - agents now pitch original ideas."
 
     def format_character_card_message(self) -> str:
-        """Format character cards for display in Discord."""
-        lines = ["🎭 **PICK THE HOST** (type 1-4):\n"]
-        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
-
-        for i, card in enumerate(self.current_character_options):
-            lines.append(f"{emojis[i]} **{card['archetype']}**")
-            lines.append(f"   LOOK: {card['look'][:80]}...")
-            lines.append(f"   VIBE: {card['voice'][:80]}...\n")
-
-        return "\n".join(lines)
+        return "Card system deprecated - characters are part of each bit."
 
     def format_vote_message(self, candidates: List[str], vote_type: str = "concept") -> str:
-        """Format voting options with numbers."""
         if vote_type == "concept":
             self.pitch_candidates = candidates
-            header = "📊 **VOTE FOR BEST PITCH** (type the number):\n"
+            header = "📊 **VOTE FOR BEST BIT** (type the number):\n"
         else:
             self.character_candidates = candidates
-            header = "📊 **VOTE FOR BEST CHARACTER** (type the number):\n"
+            header = "📊 **VOTE** (type the number):\n"
 
         emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"]
         lines = [header]
         for i, name in enumerate(candidates):
             if i < len(emojis):
                 lines.append(f"{emojis[i]} {name}")
-
         return "\n".join(lines)
 
     def parse_card_selection(self, user_name: str, message: str, round_type: str) -> Optional[int]:
-        """Parse a user's card selection (1-4) or vote."""
         message = message.strip()
-
-        # Try to extract a number
         for char in message:
             if char.isdigit():
                 num = int(char)
-                if round_type == "pitch" and 1 <= num <= len(self.current_pitch_options):
-                    if user_name in self.selections:
-                        self.selections[user_name].pitch_card_index = num - 1
-                    return num - 1
-                elif round_type == "character" and 1 <= num <= len(self.current_character_options):
-                    if user_name in self.selections:
-                        self.selections[user_name].character_card_index = num - 1
-                    return num - 1
-                elif round_type == "vote_concept" and 1 <= num <= len(self.pitch_candidates):
+                if round_type == "vote_concept" and 1 <= num <= len(self.pitch_candidates):
                     if user_name in self.selections:
                         self.selections[user_name].vote_concept = num - 1
                     return num - 1
-                elif round_type == "vote_character" and 1 <= num <= len(self.character_candidates):
-                    if user_name in self.selections:
-                        self.selections[user_name].vote_character = num - 1
-                    return num - 1
-
-        return None
-
-    def get_selected_pitch(self, user_name: str) -> Optional[Dict]:
-        """Get the pitch card a user selected."""
-        if user_name not in self.selections:
-            return None
-        idx = self.selections[user_name].pitch_card_index
-        if idx is not None and 0 <= idx < len(self.current_pitch_options):
-            return self.current_pitch_options[idx]
-        return None
-
-    def get_selected_character(self, user_name: str) -> Optional[Dict]:
-        """Get the character card a user selected."""
-        if user_name not in self.selections:
-            return None
-        idx = self.selections[user_name].character_card_index
-        if idx is not None and 0 <= idx < len(self.current_character_options):
-            return self.current_character_options[idx]
         return None
 
     def get_vote_target_name(self, user_name: str, vote_type: str = "concept") -> Optional[str]:
-        """Get who the user voted for by name."""
         if user_name not in self.selections:
             return None
-
         if vote_type == "concept":
             idx = self.selections[user_name].vote_concept
             candidates = self.pitch_candidates
         else:
             idx = self.selections[user_name].vote_character
             candidates = self.character_candidates
-
         if idx is not None and 0 <= idx < len(candidates):
             return candidates[idx]
         return None
@@ -744,10 +541,120 @@ class IDCCClip:
 
 
 @dataclass
+class BitConcept:
+    """
+    A single self-contained comedy bit for one clip.
+
+    Robot Chicken style: each clip is its own independent bit.
+    No continuity between bits - just channel surfing through dimensions.
+
+    Reference bits (Rick & Morty Interdimensional Cable):
+    - Real Fake Doors: infomercial for doors that don't open
+    - Ants in My Eyes Johnson: electronics salesman who can't see (ants in eyes)
+    - Lil' Bits: restaurant with tiny food, creepy ASMR whisper
+    - Baby Legs: cop show with detective who has baby legs
+    - Personal Space Show: host keeps violating his own rule
+    - Two Brothers: movie trailer that escalates into nonsense
+    - Gazorpazorpfield: Garfield but abusive and violent
+    - How Did I Get Here?: talk show where no one knows how they got there
+    """
+    # Format/genre of this specific bit
+    format: str = ""  # "infomercial", "talk show", "movie trailer", "cop show"
+
+    # The absurd premise of THIS bit
+    premise: str = ""  # "Real Fake Doors - showroom full of doors that don't open"
+
+    # What makes THIS bit funny (the joke/punchline)
+    comedic_hook: str = ""  # "manic salesman enthusiasm for completely useless product"
+
+    # Character description (EXACT visual - copy-pasted to Sora)
+    character_description: str = ""  # "Lanky man with wild eyes, rumpled short-sleeve dress shirt, loose tie"
+
+    # Vocal specs (how they SOUND for TTS)
+    vocal_specs: str = ""  # "nasally tenor, fast-talking, unhinged infomercial energy"
+
+    # The single punchline/line for this bit (duration-appropriate)
+    punchline: str = ""  # "Won't open! Won't open! Not this one, not any of 'em!"
+
+    # Duration-calibrated scope (set based on clip_duration_seconds)
+    # 4s = 1 beat (single gag), 8s = 2 beats (setup + payoff), 12s = 3 beats (full mini-skit)
+    duration_beats: int = 2
+
+    # Shot direction for this bit's format
+    shot_direction: str = ""  # "Wide showroom shot, harsh fluorescent lighting"
+
+    # Who pitched this bit (for credits/variety tracking)
+    pitched_by: str = ""
+
+
+def get_duration_beats(clip_duration_seconds: int) -> int:
+    """
+    Calculate appropriate beat count for a given clip duration.
+
+    4s  = 1 beat  (single gag/reaction)
+    8s  = 2 beats (setup + payoff)
+    12s = 3 beats (full mini-skit: setup, escalation, punchline)
+    """
+    if clip_duration_seconds <= 4:
+        return 1
+    elif clip_duration_seconds <= 8:
+        return 2
+    else:
+        return 3
+
+
+def get_duration_scope_description(clip_duration_seconds: int) -> str:
+    """
+    Get a human-readable description of what fits in this duration.
+    Used to instruct agents on appropriate scope.
+    """
+    beats = get_duration_beats(clip_duration_seconds)
+    if beats == 1:
+        return "ONE BEAT ONLY: Single gag or punchline. One line of dialogue max. Think: Lil' Bits whisper 'Eat some shit you stupid bitch... just kidding.'"
+    elif beats == 2:
+        return "TWO BEATS: Setup + Payoff. Establish premise, land the joke. Think: Ants in My Eyes Johnson intro - 'I can't see anything!' *knocks over TVs*"
+    else:
+        return "THREE BEATS: Full mini-skit. Setup, escalation, button. Think: Real Fake Doors - introduce showroom, try doors that won't open, 'Come on down!'"
+
+
+@dataclass
+class IDCCChannelLineup:
+    """
+    The channel lineup for a Robot Chicken style IDCC session.
+
+    Instead of one cohesive story, we have N independent bits.
+    TV static between bits = channel surfing through dimensions.
+    """
+    # Array of bits, one per clip slot
+    bits: List[BitConcept] = field(default_factory=list)
+
+    # Raw writers room log for context
+    writers_room_log: List[str] = field(default_factory=list)
+
+    # Duration setting (affects beat count per bit)
+    clip_duration_seconds: int = 12
+
+    def get_bit(self, clip_number: int) -> Optional[BitConcept]:
+        """Get the bit for a specific clip (1-indexed)."""
+        if 0 < clip_number <= len(self.bits):
+            return self.bits[clip_number - 1]
+        return None
+
+    def get_next_bit_preview(self, clip_number: int) -> Optional[BitConcept]:
+        """Get the NEXT bit for transition preview (mouth closed, silent)."""
+        if 0 < clip_number < len(self.bits):
+            return self.bits[clip_number]  # clip_number is 1-indexed, so this gets next
+        return None
+
+
+# LEGACY: Keep IDCCShowBible for backwards compatibility during transition
+@dataclass
 class IDCCShowBible:
     """
-    The shared creative foundation established during spitballing.
+    DEPRECATED: Use IDCCChannelLineup instead.
+    Kept for backwards compatibility during refactor.
 
+    The shared creative foundation established during spitballing.
     This ensures all agents are pulling in the same comedic direction,
     even as they adapt to the actual generated content via lastframe.
     """
@@ -801,8 +708,11 @@ class IDCCGameState:
     # Participants (finalized after registration)
     participants: List[Dict[str, Any]] = field(default_factory=list)  # {name, type, agent_obj}
 
-    # Show Bible (established during spitballing)
+    # Show Bible (DEPRECATED - legacy, kept for backwards compatibility)
     show_bible: Optional[IDCCShowBible] = None
+
+    # Channel Lineup (NEW - Robot Chicken style, array of independent bits)
+    channel_lineup: Optional[IDCCChannelLineup] = None
 
     # Turn queue for scene contributions
     turn_queue: List[str] = field(default_factory=list)  # Participant names in order
@@ -935,12 +845,12 @@ class InterdimensionalCableGame:
                 self.state.phase = "failed"
                 return None
 
-            # Phase 3: Collaborative Spitballing (establish Show Bible)
-            await self._run_spitballing_phase(ctx)
+            # Phase 3: Writers Room (Robot Chicken style - establish Channel Lineup)
+            await self._run_writers_room_phase(ctx)
 
-            if not self.state.show_bible:
+            if not self.state.channel_lineup or not self.state.channel_lineup.bits:
                 await self._send_gamemaster_message(
-                    "**ERROR:** Failed to establish creative direction. Aborting."
+                    "**ERROR:** Failed to establish channel lineup. Aborting."
                 )
                 self.state.phase = "failed"
                 return None
@@ -1840,6 +1750,368 @@ class InterdimensionalCableGame:
         else:
             logger.error(f"[IDCC:{self.game_id}] Failed to synthesize Show Bible from consensus")
 
+    # =========================================================================
+    # ROBOT CHICKEN STYLE WRITERS ROOM (NEW)
+    # =========================================================================
+
+    def _parse_bit_from_response(self, response: str, pitcher_name: str) -> Optional[BitConcept]:
+        """
+        Parse a BitConcept from an agent's pitch response.
+
+        Expected format:
+        FORMAT: [type]
+        PREMISE: [premise]
+        CHARACTER_DESCRIPTION: [description]
+        VOCAL_SPECS: [voice specs]
+        COMEDIC_HOOK: [what's funny]
+        PUNCHLINE: [the landing]
+        """
+        try:
+            lines = response.strip().split('\n')
+            data = {}
+
+            current_key = None
+            current_value = []
+
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+
+                # Check for field labels
+                for field in ['FORMAT', 'PREMISE', 'CHARACTER_DESCRIPTION', 'VOCAL_SPECS', 'COMEDIC_HOOK', 'PUNCHLINE']:
+                    if line.upper().startswith(field + ':') or line.upper().startswith(field + ' :'):
+                        # Save previous field if exists
+                        if current_key:
+                            data[current_key] = ' '.join(current_value).strip()
+                        current_key = field.lower()
+                        # Get value after the colon
+                        colon_pos = line.find(':')
+                        if colon_pos != -1:
+                            current_value = [line[colon_pos + 1:].strip()]
+                        else:
+                            current_value = []
+                        break
+                else:
+                    # No field label found, append to current value
+                    if current_key:
+                        current_value.append(line)
+
+            # Save last field
+            if current_key:
+                data[current_key] = ' '.join(current_value).strip()
+
+            # Validate required fields
+            if not data.get('format') or not data.get('premise'):
+                logger.warning(f"[IDCC:{self.game_id}] Bit from {pitcher_name} missing required fields")
+                return None
+
+            return BitConcept(
+                format=data.get('format', ''),
+                premise=data.get('premise', ''),
+                character_description=data.get('character_description', ''),
+                vocal_specs=data.get('vocal_specs', ''),
+                comedic_hook=data.get('comedic_hook', ''),
+                punchline=data.get('punchline', ''),
+                pitched_by=pitcher_name,
+                duration_beats=get_duration_beats(self.config.clip_duration_seconds)
+            )
+        except Exception as e:
+            logger.error(f"[IDCC:{self.game_id}] Error parsing bit from {pitcher_name}: {e}")
+            return None
+
+    def _parse_lineup_votes(self, response: str, voter_name: str, num_bits: int, own_bit_index: int) -> List[int]:
+        """
+        Parse vote indices from a voter's response.
+
+        Expected format:
+        MY VOTES: 1, 3, 5
+        BEST ONE: 3 - [reason]
+        """
+        votes = []
+        try:
+            # Look for "MY VOTES:" line
+            for line in response.split('\n'):
+                if 'MY VOTES' in line.upper() or 'VOTES:' in line.upper():
+                    # Extract numbers
+                    for char in line:
+                        if char.isdigit():
+                            num = int(char)
+                            if 1 <= num <= num_bits and (num - 1) != own_bit_index:
+                                if (num - 1) not in votes:  # Avoid duplicates
+                                    votes.append(num - 1)  # Convert to 0-indexed
+
+            # Fallback: just extract any numbers from response
+            if not votes:
+                for char in response:
+                    if char.isdigit():
+                        num = int(char)
+                        if 1 <= num <= num_bits and (num - 1) != own_bit_index:
+                            if (num - 1) not in votes:
+                                votes.append(num - 1)
+
+        except Exception as e:
+            logger.error(f"[IDCC:{self.game_id}] Error parsing votes from {voter_name}: {e}")
+
+        return votes
+
+    async def _run_writers_room_phase(self, ctx: commands.Context):
+        """
+        Robot Chicken style writers room - each participant pitches complete bits.
+
+        Two rounds:
+        1. Everyone pitches a COMPLETE self-contained bit
+        2. Vote for which bits make the N-clip lineup
+
+        Result: IDCCChannelLineup with N independent bits.
+        """
+        from agent_games.game_prompts import get_duration_scope_description
+
+        self.state.phase = "spitballing"
+        writers_room_log = []
+
+        # Get participants
+        human_participants = [p for p in self.state.participants if p["type"] == "human"]
+        agent_participants = [p for p in self.state.participants if p["type"] == "agent" and p["agent_obj"]]
+
+        # Fallback to running agents if no agent participants
+        if not agent_participants:
+            logger.warning(f"[IDCC:{self.game_id}] No agent participants, using fallback")
+            from constants import is_image_model
+            available_agents = [
+                a for a in self.agent_manager.get_all_agents()
+                if a.is_running and not is_image_model(a.model)
+            ]
+            if available_agents:
+                agent_participants = [{"name": a.name, "type": "agent", "agent_obj": a} for a in available_agents[:3]]
+
+        bot_writers = agent_participants[:3]
+        all_writers = human_participants + bot_writers
+
+        if len(all_writers) < 1:
+            logger.error(f"[IDCC:{self.game_id}] Need at least 1 participant")
+            return
+
+        # Initialize writers room system
+        writers_room = WritersRoomSystem(
+            game_id=self.game_id,
+            num_clips=self.num_clips,
+            clip_duration=self.config.clip_duration_seconds
+        )
+
+        # Register humans
+        for human in human_participants:
+            writers_room.register_human(human["name"])
+
+        # Get duration scope for prompts
+        duration_scope = get_duration_scope_description(self.config.clip_duration_seconds)
+
+        # Opening announcement
+        await self._send_gamemaster_message(
+            "# 📺 WRITERS' ROOM - ROBOT CHICKEN STYLE\n\n"
+            f"We're making **{self.num_clips} independent bits** - like channel surfing.\n"
+            f"Each bit is **{self.config.clip_duration_seconds} seconds** ({duration_scope}).\n\n"
+            "**Round 1:** Everyone pitches a COMPLETE bit\n"
+            "**Round 2:** Vote for the best bits to make the lineup\n\n"
+            "---"
+        )
+
+        # =====================================================================
+        # ROUND 1: PITCH COMPLETE BITS
+        # =====================================================================
+
+        await self._send_gamemaster_message(
+            "## Round 1: PITCH YOUR BIT\n\n"
+            "Pitch a **complete self-contained bit**. Include:\n"
+            "• FORMAT (infomercial, cop show, cooking show, etc.)\n"
+            "• PREMISE (the absurd situation)\n"
+            "• CHARACTER_DESCRIPTION (exact visual)\n"
+            "• VOCAL_SPECS (how they sound)\n"
+            "• COMEDIC_HOOK (what's funny)\n"
+            "• PUNCHLINE (the landing line)\n\n"
+            "*Think: Real Fake Doors, Ants in My Eyes Johnson, Lil' Bits...*"
+        )
+
+        # Enter game mode for bot writers
+        for participant in bot_writers:
+            agent = participant["agent_obj"]
+            game_context_manager.enter_game_mode(agent=agent, game_name="idcc_pitch_complete_bit")
+            game_context_manager.update_idcc_context(
+                agent_name=agent.name,
+                phase="idcc_pitch_complete_bit",
+                num_clips=self.num_clips
+            )
+            # Set turn context with duration info
+            game_context_manager.update_turn_context(
+                agent_name=agent.name,
+                turn_context=f"\nClip duration: {self.config.clip_duration_seconds} seconds\nScope: {duration_scope}"
+            )
+
+        pitched_bits = {}  # name -> BitConcept
+
+        # Get bot pitches
+        await self._send_gamemaster_message("*Writers are pitching their bits...*")
+        for participant in bot_writers:
+            agent = participant["agent_obj"]
+            try:
+                response = await self._get_agent_idcc_response(
+                    agent=agent,
+                    user_message=f"Pitch your complete bit. {self.config.clip_duration_seconds} second clip. {duration_scope}"
+                )
+                if response:
+                    bit = self._parse_bit_from_response(response, agent.name)
+                    if bit:
+                        pitched_bits[agent.name] = bit
+                        writers_room.add_pitched_bit(bit, agent.name)
+                        writers_room_log.append(f"{agent.name} pitched: {bit.format} - {bit.premise[:100]}")
+
+                    # Display the pitch
+                    await self.discord_client.send_message(
+                        content=response[:1500],
+                        agent_name=agent.name,
+                        model_name=agent.model
+                    )
+                    await asyncio.sleep(2)
+            except Exception as e:
+                logger.error(f"[IDCC:{self.game_id}] Pitch error for {agent.name}: {e}")
+
+        # Wait for human pitches (free-form text)
+        if human_participants:
+            await self._send_gamemaster_message(
+                "\n**HUMANS:** Type your bit pitch now! Include FORMAT, PREMISE, CHARACTER, VOICE, HOOK, PUNCHLINE."
+            )
+            human_pitches = await self._wait_for_human_spitball_inputs("pitch", human_participants)
+            for name, pitch_text in human_pitches.items():
+                bit = self._parse_bit_from_response(pitch_text, name)
+                if bit:
+                    pitched_bits[name] = bit
+                    writers_room.add_pitched_bit(bit, name)
+                    writers_room_log.append(f"{name} pitched: {bit.format} - {bit.premise[:100]}")
+                    await self._send_gamemaster_message(f"**{name} pitched:**\n{pitch_text[:500]}")
+                else:
+                    # Couldn't parse - still display what they said
+                    await self._send_gamemaster_message(f"**{name}:** {pitch_text[:500]}")
+
+        if len(writers_room.pitched_bits) < 1:
+            logger.error(f"[IDCC:{self.game_id}] No valid bits pitched")
+            for participant in bot_writers:
+                game_context_manager.exit_game_mode(participant["agent_obj"])
+            return
+
+        # =====================================================================
+        # ROUND 2: VOTE FOR LINEUP
+        # =====================================================================
+
+        # Format bits for voting
+        bits_display = writers_room.format_bits_for_voting()
+
+        await self._send_gamemaster_message(
+            "\n---\n"
+            f"## Round 2: VOTE FOR THE LINEUP\n\n"
+            f"Pick your **TOP {self.num_clips}** favorites (can't vote for your own):\n\n"
+            f"{bits_display}\n\n"
+            f"**Type the numbers** (e.g., '1 3 5' or '1, 3, 5')"
+        )
+
+        # Update context for voting
+        for participant in bot_writers:
+            agent = participant["agent_obj"]
+            game_context_manager.update_idcc_context(
+                agent_name=agent.name,
+                phase="idcc_vote_lineup"
+            )
+            game_context_manager.update_turn_context(
+                agent_name=agent.name,
+                turn_context=f"\n{bits_display}"
+            )
+
+        agent_votes = {}  # agent_name -> list of bit indices
+
+        # Get bot votes
+        for participant in bot_writers:
+            agent = participant["agent_obj"]
+            try:
+                # Find this agent's own bit index (can't vote for self)
+                own_bit_index = -1
+                for i, bit in enumerate(writers_room.pitched_bits):
+                    if bit.pitched_by == agent.name:
+                        own_bit_index = i
+                        break
+
+                response = await self._get_agent_idcc_response(
+                    agent=agent,
+                    user_message=f"Vote for your top {self.num_clips} favorite bits (NOT your own). Format: MY VOTES: 1, 3, 5"
+                )
+                if response:
+                    votes = self._parse_lineup_votes(response, agent.name, len(writers_room.pitched_bits), own_bit_index)
+                    if votes:
+                        agent_votes[agent.name] = votes
+                    writers_room_log.append(f"{agent.name} voted: {votes}")
+                    await self.discord_client.send_message(
+                        content=response[:500],
+                        agent_name=agent.name,
+                        model_name=agent.model
+                    )
+                    await asyncio.sleep(1)
+            except Exception as e:
+                logger.error(f"[IDCC:{self.game_id}] Vote error for {agent.name}: {e}")
+
+        # Wait for human votes
+        if human_participants:
+            human_votes_raw = await self._wait_for_human_spitball_inputs("vote_lineup", human_participants)
+            for voter_name, vote_text in human_votes_raw.items():
+                # Find their own bit index
+                own_bit_index = -1
+                for i, bit in enumerate(writers_room.pitched_bits):
+                    if bit.pitched_by == voter_name:
+                        own_bit_index = i
+                        break
+
+                votes = writers_room.parse_vote(voter_name, vote_text)
+                # Remove self-vote if present
+                votes = [v for v in votes if v != own_bit_index]
+                if votes:
+                    agent_votes[voter_name] = votes
+                    writers_room_log.append(f"{voter_name} voted: {votes}")
+                    await self._send_gamemaster_message(f"**{voter_name} voted for:** {[v+1 for v in votes]}")
+
+        # Exit game mode for all bot writers
+        for participant in bot_writers:
+            game_context_manager.exit_game_mode(participant["agent_obj"])
+
+        # =====================================================================
+        # TALLY VOTES AND CURATE LINEUP
+        # =====================================================================
+
+        winning_indices = writers_room.tally_votes(agent_votes)
+
+        # If not enough votes, just take first N bits
+        if len(winning_indices) < self.num_clips:
+            logger.warning(f"[IDCC:{self.game_id}] Not enough voted bits, using available bits")
+            winning_indices = list(range(min(self.num_clips, len(writers_room.pitched_bits))))
+
+        # Curate lineup for variety
+        lineup_bits = writers_room.curate_lineup(winning_indices)
+
+        # Create channel lineup
+        channel_lineup = IDCCChannelLineup(
+            bits=lineup_bits,
+            writers_room_log=writers_room_log,
+            clip_duration_seconds=self.config.clip_duration_seconds
+        )
+
+        self.state.channel_lineup = channel_lineup
+
+        # Display the lineup
+        lineup_display = "# 📺 CHANNEL LINEUP LOCKED\n\n"
+        for i, bit in enumerate(lineup_bits):
+            lineup_display += f"**Bit {i+1}:** {bit.format.upper()} by {bit.pitched_by}\n"
+            lineup_display += f"   *{bit.premise[:80]}{'...' if len(bit.premise) > 80 else ''}*\n\n"
+        lineup_display += f"*Now generating {len(lineup_bits)} independent bits...*"
+
+        await self._send_gamemaster_message(lineup_display)
+        logger.info(f"[IDCC:{self.game_id}] Channel lineup established with {len(lineup_bits)} bits")
+
     async def _get_agent_idcc_response(
         self,
         agent: 'Agent',
@@ -2186,35 +2458,60 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
                     logger.warning(f"[IDCC:{self.game_id}] Could not post last frame: {e}")
 
             # Announce whose turn it is (with @ mention for humans)
-            if clip_num == 1:
+            # Get bit info from channel lineup if available
+            current_bit = None
+            if self.state.channel_lineup:
+                current_bit = self.state.channel_lineup.get_bit(clip_num)
+
+            if current_bit:
+                # Robot Chicken style: announce independent bit
+                bit_desc = f"**{current_bit.format.upper()}** - {current_bit.premise[:80]}{'...' if len(current_bit.premise) > 80 else ''}"
                 if creator_type == "human":
                     await self._send_gamemaster_message(
-                        f"# Scene {clip_num}/{self.num_clips}: {mention_str}'s turn!\n\n"
-                        f"**Create the OPENING scene** for an Interdimensional Cable clip!\n"
-                        f"**STYLE: Adult Swim cartoon** - 2D animation, bold outlines, flat colors, exaggerated characters\n\n"
+                        f"# Bit {clip_num}/{self.num_clips}: {mention_str}'s turn!\n\n"
+                        f"📺 **CHANNEL FLIP** - New independent bit!\n"
+                        f"{bit_desc}\n\n"
+                        f"**STYLE: Adult Swim cartoon** - 2D animation, bold outlines, flat colors\n\n"
                         f"Type `[SCENE]` followed by your scene description.\n"
-                        f"Example: `[SCENE] Adult animated cartoon style, 2D animation, bold outlines. A sweaty cartoon alien in a cheap suit enthusiastically demonstrates doors that don't open to anything.`\n\n"
+                        f"*This is a SELF-CONTAINED bit - land the joke in one clip!*\n\n"
                         f"*You have 2 minutes to submit...*"
                     )
                 else:
                     await self._send_gamemaster_message(
-                        f"**Scene {clip_num}/{self.num_clips}:** {creator_name} is creating the opening..."
+                        f"**Bit {clip_num}/{self.num_clips}:** {creator_name} is generating...\n"
+                        f"📺 {bit_desc}"
                     )
             else:
-                if creator_type == "human":
-                    await self._send_gamemaster_message(
-                        f"# Scene {clip_num}/{self.num_clips}: {mention_str}'s turn!\n\n"
-                        f"**CONTINUE the clip!** YES-AND the previous scene.\n"
-                        f"**KEEP THE STYLE: Adult Swim 2D cartoon** - same animation style, same characters!\n\n"
-                        f"Previous: *\"{previous_prompt[:100] if previous_prompt else 'Unknown'}...\"*\n\n"
-                        f"Type `[SCENE]` followed by what happens NEXT.\n"
-                        f"Remember: Same cartoon style, same absurd premise - make it WEIRDER!\n\n"
-                        f"*You have 2 minutes to submit...*"
-                    )
+                # Legacy: cohesive scene announcements
+                if clip_num == 1:
+                    if creator_type == "human":
+                        await self._send_gamemaster_message(
+                            f"# Scene {clip_num}/{self.num_clips}: {mention_str}'s turn!\n\n"
+                            f"**Create the OPENING scene** for an Interdimensional Cable clip!\n"
+                            f"**STYLE: Adult Swim cartoon** - 2D animation, bold outlines, flat colors, exaggerated characters\n\n"
+                            f"Type `[SCENE]` followed by your scene description.\n"
+                            f"Example: `[SCENE] Adult animated cartoon style, 2D animation, bold outlines. A sweaty cartoon alien in a cheap suit enthusiastically demonstrates doors that don't open to anything.`\n\n"
+                            f"*You have 2 minutes to submit...*"
+                        )
+                    else:
+                        await self._send_gamemaster_message(
+                            f"**Scene {clip_num}/{self.num_clips}:** {creator_name} is creating the opening..."
+                        )
                 else:
-                    await self._send_gamemaster_message(
-                        f"**Scene {clip_num}/{self.num_clips}:** {creator_name} continues the story..."
-                    )
+                    if creator_type == "human":
+                        await self._send_gamemaster_message(
+                            f"# Scene {clip_num}/{self.num_clips}: {mention_str}'s turn!\n\n"
+                            f"**CONTINUE the clip!** YES-AND the previous scene.\n"
+                            f"**KEEP THE STYLE: Adult Swim 2D cartoon** - same animation style, same characters!\n\n"
+                            f"Previous: *\"{previous_prompt[:100] if previous_prompt else 'Unknown'}...\"*\n\n"
+                            f"Type `[SCENE]` followed by what happens NEXT.\n"
+                            f"Remember: Same cartoon style, same absurd premise - make it WEIRDER!\n\n"
+                            f"*You have 2 minutes to submit...*"
+                        )
+                    else:
+                        await self._send_gamemaster_message(
+                            f"**Scene {clip_num}/{self.num_clips}:** {creator_name} continues the story..."
+                        )
 
             # Get the scene prompt (from human or agent)
             prompt = None
@@ -2510,102 +2807,164 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
         previous_frame_path: Optional[Path]
     ) -> Optional[str]:
         """
-        Have an agent generate a scene prompt using the game context system.
+        Have an agent generate a scene prompt using the Robot Chicken bit system.
 
-        The agent is put into game mode with the appropriate phase, and
-        the Show Bible is accessible through the game context.
+        Each clip is now an independent bit from the channel_lineup.
+        The agent generates based on that bit's BitConcept.
 
         Args:
             agent: Agent to generate the prompt
             clip_number: 1-indexed clip number
-            previous_prompt: Previous scene's prompt
+            previous_prompt: Previous scene's prompt (for lastframe reference)
             previous_frame_path: Path to last frame image
 
         Returns:
             Generated prompt string
         """
+        from agent_games.game_prompts import get_bit_scene_timing
+
         try:
-            # Determine which phase/prompt to use
-            if clip_number == 1:
-                phase = "idcc_scene_opening"
-                user_message = "Create the opening scene. Use the Show Bible. Output ONLY the video prompt starting with the animation style."
-            elif clip_number == self.num_clips:
-                phase = "idcc_scene_final"
-                user_message = "Create the FINAL scene. Land the joke. Wrap it up. Output ONLY the video prompt."
-            else:
-                phase = "idcc_scene_middle"
-                user_message = "Continue the scene from the frame shown. Use the Show Bible. Output ONLY the video prompt."
+            # Get this scene's BitConcept from the channel lineup
+            bit = None
+            if self.state.channel_lineup:
+                bit = self.state.channel_lineup.get_bit(clip_number)
 
-            # Format the Show Bible for injection
-            bible = self.state.show_bible
-            if bible:
-                # Extract this scene's specific mandatory dialogue line
-                scene_line = extract_scene_dialogue_beat(
-                    bible.dialogue_beats or "",
-                    clip_number,
-                    self.num_clips
-                )
+            if bit:
+                # Robot Chicken style - each scene is its own bit
+                phase = "idcc_scene_bit"
 
-                # Get current scene's speaker and next scene's speaker (for visual lead-in)
-                current_speaker = extract_scene_speaker(
-                    bible.scene_speakers or "",
-                    clip_number,
-                    self.num_clips
-                )
-                next_speaker = get_next_scene_speaker(
-                    bible.scene_speakers or "",
-                    clip_number,
-                    self.num_clips
-                )
+                # Get clip duration from user settings
+                clip_duration = self.state.channel_lineup.clip_duration_seconds
+                is_final = (clip_number == self.num_clips)
 
-                # Build visual lead-in instruction for non-final scenes
-                if next_speaker:
-                    lead_in_instruction = f"**⚠️ SCENE ENDING:** At the END of this scene, brief TV static/channel change effect, then cut to {next_speaker} standing silent (mouth closed, not speaking yet)."
-                else:
-                    lead_in_instruction = "**⚠️ SCENE ENDING:** This is the final scene - end cleanly with the punchline, no channel change needed."
+                # Get next bit's character for transition (if not final)
+                next_bit_character = None
+                if not is_final and clip_number < len(self.state.channel_lineup.bits):
+                    next_bit = self.state.channel_lineup.get_bit(clip_number + 1)
+                    if next_bit:
+                        next_bit_character = next_bit.character_description
 
-                show_bible_text = (
-                    f"**Format:** {bible.show_format}\n"
-                    f"**Premise:** {bible.premise}\n"
-                    f"**Character Description:** {bible.character_description}\n"
-                    f"**Vocal Specs (how they SOUND - USE EXACTLY):** {bible.vocal_specs or 'clear speaking voice with character-appropriate energy'}\n"
-                    f"**Character Voice (how they ACT):** {bible.character_voice}\n"
-                    f"**Secondary Characters:** {bible.secondary_characters or 'None'}\n"
-                    f"**The Joke:** {bible.comedic_hook}\n"
-                    f"**Arc:** {bible.arc_description}\n"
-                    f"**Scene Speakers (one per scene):** {bible.scene_speakers or 'Host in most scenes'}\n"
-                    f"**⚠️ THIS SCENE'S SPEAKER:** {current_speaker} (ONLY this character speaks in this scene)\n"
-                    f"**⚠️ THIS SCENE'S MANDATORY LINE:** \"{scene_line}\"\n"
-                    f"{lead_in_instruction}"
-                )
-                # Get format-appropriate shot direction for this scene
-                shot_direction = get_shot_direction(
-                    show_format=bible.show_format,
+                # Get timing parameters calibrated to duration
+                timing = get_bit_scene_timing(clip_duration, is_final, next_bit_character)
+
+                # Use bit's shot direction or generate one
+                shot_direction = bit.shot_direction or get_shot_direction(
+                    show_format=bit.format,
                     scene_number=clip_number,
                     total_scenes=self.num_clips
                 )
+
+                user_message = (
+                    f"Create the video prompt for Bit {clip_number}. "
+                    f"This is a SELF-CONTAINED {bit.format}. Land the joke in this one clip. "
+                    f"Output ONLY the video prompt starting with 'Adult Swim cartoon style...'"
+                )
+
+                # Enter game mode
+                game_context_manager.enter_game_mode(
+                    agent=agent,
+                    game_name=phase
+                )
+
+                # Set IDCC context with BitConcept fields for prompt formatting
+                game_context_manager.update_idcc_context(
+                    agent_name=agent.name,
+                    phase=phase,
+                    show_bible="",  # Not used for Robot Chicken style
+                    previous_prompt=previous_prompt,
+                    scene_number=clip_number,
+                    num_clips=self.num_clips,
+                    shot_direction=shot_direction,
+                    # BitConcept fields for idcc_scene_bit prompt
+                    bit_format=bit.format,
+                    bit_premise=bit.premise,
+                    bit_character=bit.character_description,
+                    bit_vocal_specs=bit.vocal_specs or "clear speaking voice with character-appropriate energy",
+                    bit_comedic_hook=bit.comedic_hook,
+                    bit_punchline=bit.punchline,
+                    clip_duration=clip_duration,
+                    dialogue_end_time=timing["dialogue_end_time"],
+                    dialogue_word_limit=timing["dialogue_word_limit"],
+                    duration_scope=timing["duration_scope"],
+                    scene_ending_instruction=timing["scene_ending_instruction"],
+                    timing_details=timing["timing_details"]
+                )
             else:
-                show_bible_text = "No Show Bible established - improvise an absurd interdimensional commercial."
-                shot_direction = "Wide establishing shot - set the scene"
+                # Fallback to legacy Show Bible if no channel lineup
+                logger.warning(f"[IDCC:{self.game_id}] No BitConcept for scene {clip_number}, using legacy Show Bible")
 
-            # Enter game mode with the appropriate phase
-            game_context_manager.enter_game_mode(
-                agent=agent,
-                game_name=phase
-            )
+                if clip_number == 1:
+                    phase = "idcc_scene_opening"
+                    user_message = "Create the opening scene. Use the Show Bible. Output ONLY the video prompt starting with the animation style."
+                elif clip_number == self.num_clips:
+                    phase = "idcc_scene_final"
+                    user_message = "Create the FINAL scene. Land the joke. Wrap it up. Output ONLY the video prompt."
+                else:
+                    phase = "idcc_scene_middle"
+                    user_message = "Continue the scene from the frame shown. Use the Show Bible. Output ONLY the video prompt."
 
-            # Set IDCC context with Show Bible, scene info, and shot direction
-            game_context_manager.update_idcc_context(
-                agent_name=agent.name,
-                phase=phase,
-                show_bible=show_bible_text,
-                previous_prompt=previous_prompt,
-                scene_number=clip_number,
-                num_clips=self.num_clips,
-                shot_direction=shot_direction
-            )
+                bible = self.state.show_bible
+                if bible:
+                    scene_line = extract_scene_dialogue_beat(
+                        bible.dialogue_beats or "",
+                        clip_number,
+                        self.num_clips
+                    )
+                    current_speaker = extract_scene_speaker(
+                        bible.scene_speakers or "",
+                        clip_number,
+                        self.num_clips
+                    )
+                    next_speaker = get_next_scene_speaker(
+                        bible.scene_speakers or "",
+                        clip_number,
+                        self.num_clips
+                    )
 
-            # Prepare image if we have a previous frame
+                    if next_speaker:
+                        lead_in_instruction = f"**⚠️ SCENE ENDING:** At the END of this scene, brief TV static/channel change effect, then cut to {next_speaker} standing silent (mouth closed, not speaking yet)."
+                    else:
+                        lead_in_instruction = "**⚠️ SCENE ENDING:** This is the final scene - end cleanly with the punchline, no channel change needed."
+
+                    show_bible_text = (
+                        f"**Format:** {bible.show_format}\n"
+                        f"**Premise:** {bible.premise}\n"
+                        f"**Character Description:** {bible.character_description}\n"
+                        f"**Vocal Specs (how they SOUND - USE EXACTLY):** {bible.vocal_specs or 'clear speaking voice with character-appropriate energy'}\n"
+                        f"**Character Voice (how they ACT):** {bible.character_voice}\n"
+                        f"**Secondary Characters:** {bible.secondary_characters or 'None'}\n"
+                        f"**The Joke:** {bible.comedic_hook}\n"
+                        f"**Arc:** {bible.arc_description}\n"
+                        f"**Scene Speakers (one per scene):** {bible.scene_speakers or 'Host in most scenes'}\n"
+                        f"**⚠️ THIS SCENE'S SPEAKER:** {current_speaker} (ONLY this character speaks in this scene)\n"
+                        f"**⚠️ THIS SCENE'S MANDATORY LINE:** \"{scene_line}\"\n"
+                        f"{lead_in_instruction}"
+                    )
+                    shot_direction = get_shot_direction(
+                        show_format=bible.show_format,
+                        scene_number=clip_number,
+                        total_scenes=self.num_clips
+                    )
+                else:
+                    show_bible_text = "No Show Bible established - improvise an absurd interdimensional commercial."
+                    shot_direction = "Wide establishing shot - set the scene"
+
+                game_context_manager.enter_game_mode(
+                    agent=agent,
+                    game_name=phase
+                )
+
+                game_context_manager.update_idcc_context(
+                    agent_name=agent.name,
+                    phase=phase,
+                    show_bible=show_bible_text,
+                    previous_prompt=previous_prompt,
+                    scene_number=clip_number,
+                    num_clips=self.num_clips,
+                    shot_direction=shot_direction
+                )
+
+            # Prepare image if we have a previous frame (kept for visual consistency)
             images = None
             if clip_number > 1 and previous_frame_path and previous_frame_path.exists():
                 frame_b64 = image_to_base64(previous_frame_path)
