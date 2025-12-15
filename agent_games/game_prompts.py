@@ -520,10 +520,10 @@ Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else. No commentary
    Write: "[Character] speaks in [VOCAL_SPECS from Show Bible]"
    Copy it EXACTLY - same pitch, same accent, same energy.
 
-5. **DIALOGUE** (3-4 lines, formatted correctly):
-   Format: Dialogue: "[Line 1]" "[Line 2]" "[Line 3]" "[Line 4]"
+5. **DIALOGUE** (2-3 SHORT lines, ~20 words MAXIMUM):
+   Format: Dialogue begins at 0:01, ends by 0:09. Dialogue: "[Line 1]" "[Line 2]" "[Line 3]"
    • MUST include the mandatory line from DIALOGUE_BEATS for Scene 1
-   • Lines should be SHORT (5-10 words each)
+   • STRICT LIMIT: 20 words total (~2.5 words/sec × 8 sec speaking time)
    • Lines should be FUNNY - jokes, absurdist observations, commitment to the bit
    • ONLY the designated speaker talks - no other voices
 
@@ -534,13 +534,20 @@ Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else. No commentary
    At the END of the scene, brief TV static/channel change effect, then cut to the NEXT scene's speaker (mouth CLOSED, silent, not speaking yet).
    This creates a visual handoff like flipping channels on Interdimensional Cable.
 
+**⚠️ CRITICAL TIMING - 12 SECOND CLIP:**
+• Dialogue: 0:01 to 0:09 (8 seconds speaking = ~20 words MAX)
+• Character STOPS speaking by 0:09 and holds pose
+• TV static/channel flip effect: 0:10 to 0:11
+• Cut to NEXT scene's speaker (mouth CLOSED, silent): 0:11 to 0:12
+• If dialogue is too long, it will bleed into the next scene!
+
 **DIALOGUE MUST BE FUNNY:**
 • Include at least ONE absurdist non-sequitur or logic break
 • The humor comes from COMMITMENT to the insane premise
 • Don't just state the premise - make JOKES about it
 
 **EXAMPLE OUTPUT (Real Fake Doors style):**
-Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Wide shot of a fake showroom full of doors. A lanky middle-aged man with messy brown hair, wide manic eyes, wearing a rumpled short-sleeve dress shirt and loose tie, gestures enthusiastically at a door. He speaks in nasally tenor, fast-talking salesman energy, slightly unhinged. Dialogue: "Hey, are you tired of real doors cluttering up your house?" "Where you open 'em and you actually go somewhere?" "Come on down to Real Fake Doors!" "That's us!" He tries to open a door and it doesn't budge. He grins at the camera. Brief TV static, then cut to a confused customer in a living room, mouth closed, silent.
+Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Wide shot of a fake showroom full of doors. A lanky middle-aged man with messy brown hair, wide manic eyes, wearing a rumpled short-sleeve dress shirt and loose tie, gestures enthusiastically at a door. He speaks in nasally tenor, fast-talking salesman energy, slightly unhinged. Dialogue begins at 0:01, ends by 0:09. Dialogue: "Hey, are you tired of real doors?" "Come on down to Real Fake Doors!" He tries to open a door and it doesn't budge. He grins and holds pose at 0:09. TV static channel flip at 0:10, then cut to a confused customer at 0:11, mouth closed, silent, waiting.
 
 🚫 **DO NOT OUTPUT:**
 • Scene numbers or labels ("Scene 1:", "Opening:")
@@ -584,9 +591,10 @@ Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else. No commentary
    If Host: Use VOCAL_SPECS from Show Bible.
    If secondary character: Give them DIFFERENT vocal specs (different pitch, energy, accent).
 
-5. **DIALOGUE** (3-4 lines, escalating):
-   Format: Dialogue: "[Line 1]" "[Line 2]" "[Line 3]" "[Line 4]"
+5. **DIALOGUE** (2-3 SHORT lines, ~20 words MAXIMUM):
+   Format: Dialogue begins at 0:01, ends by 0:09. Dialogue: "[Line 1]" "[Line 2]" "[Line 3]"
    • MUST include the mandatory line from DIALOGUE_BEATS for Scene {scene_number}
+   • STRICT LIMIT: 20 words total (~2.5 words/sec × 8 sec speaking time)
    • Lines should ESCALATE - things getting weirder, character reacting
    • Include JOKES - not just plot, actual comedy
    • ONLY the designated speaker talks
@@ -594,9 +602,11 @@ Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else. No commentary
 6. **ACTION** (escalating visual):
    What is happening that makes things WORSE or WEIRDER?
 
-7. **SCENE ENDING** (check "SCENE ENDING" in Show Bible):
-   At the END of the scene, brief TV static/channel change effect, then cut to the NEXT scene's speaker (mouth CLOSED, silent, not speaking yet).
-   This creates a visual handoff like flipping channels on Interdimensional Cable.
+7. **SCENE ENDING** - CRITICAL TIMING:
+   • Character STOPS speaking by 0:09 and holds pose
+   • TV static/channel flip effect: 0:10 to 0:11
+   • Cut to NEXT scene's speaker (mouth CLOSED, silent): 0:11 to 0:12
+   • If dialogue runs past 0:09, it will bleed into the next scene!
 
 **ESCALATION TECHNIQUES:**
 • The premise's logic breaks down further
@@ -605,7 +615,7 @@ Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else. No commentary
 • Physical comedy - something visual goes wrong
 
 **EXAMPLE OUTPUT (Ants in My Eyes Johnson style testimonial cutaway):**
-Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Testimonial cutaway in a cheap electronics store. A heavyset balding man in a short-sleeve button-up, his eyes visibly full of crawling ants, stands surrounded by TVs. He speaks in strained cheerful tenor, desperately upbeat despite obvious distress. Dialogue: "I'm Ants in My Eyes Johnson!" "Everything's black, I can't see a thing!" "And also I can't feel anything either, did I mention that?" "But that's not as catchy!" He knocks over a display while gesturing blindly. Brief TV static, then cut to a different man at a news desk, mouth closed, waiting.
+Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Testimonial cutaway in a cheap electronics store. A heavyset balding man in a short-sleeve button-up, his eyes visibly full of crawling ants, stands surrounded by TVs. He speaks in strained cheerful tenor, desperately upbeat despite obvious distress. Dialogue begins at 0:01, ends by 0:09. Dialogue: "I'm Ants in My Eyes Johnson!" "Everything's black, I can't see a thing!" "But that's not as catchy!" He knocks over a display while gesturing blindly, then holds pose at 0:09. TV static channel flip at 0:10, cut to a different man at a news desk at 0:11, mouth closed, silent, waiting.
 
 🚫 **DO NOT OUTPUT:**
 • Scene numbers or labels ("Scene 2:", "Middle scene:")
@@ -648,9 +658,10 @@ Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else. No commentary
    Write: "[Character] speaks in [VOCAL_SPECS from Show Bible]"
    MUST be IDENTICAL to earlier Host scenes.
 
-5. **DIALOGUE** (3-4 lines, building to punchline):
-   Format: Dialogue: "[Setup]" "[Build]" "[Build]" "[PUNCHLINE]"
+5. **DIALOGUE** (2-3 SHORT lines, ~20 words MAXIMUM, building to punchline):
+   Format: Dialogue begins at 0:01, ends by 0:10. Dialogue: "[Setup]" "[Build]" "[PUNCHLINE]"
    • MUST end with the PUNCHLINE from DIALOGUE_BEATS
+   • STRICT LIMIT: 20 words total (~2.5 words/sec × 8 sec speaking time)
    • Build the other lines to SET UP that punchline
    • The final line is THE JOKE - make it land
    • ONLY the designated speaker talks
@@ -658,7 +669,7 @@ Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else. No commentary
 6. **ACTION** (conclusion):
    Visual payoff that reinforces the punchline.
 
-7. **CLEAN ENDING:** This is the final scene - NO visual lead-in to next speaker. End on the punchline.
+7. **CLEAN ENDING:** This is the final scene - NO static transition. Character delivers punchline by 0:10, holds final pose.
 
 **GREAT ENDINGS:**
 • The absurd premise reaches its logical extreme ("I live here now")
@@ -676,7 +687,7 @@ Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else. No commentary
 • Non-sequitur that somehow makes perfect sense
 
 **EXAMPLE OUTPUT (Lil' Bits style finale):**
-Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Extreme close-up on a tiny restaurant table with microscopic food. A whispery disembodied voice speaks in breathy, unsettling ASMR whisper, intimately creepy. Dialogue: "Lil' Bits..." "Eat some fucking shit, you fucking stupid bitch." "Haha, just kidding." "Lil' Bits." The camera slowly zooms into impossibly small food as the whisper fades.
+Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Extreme close-up on a tiny restaurant table with microscopic food. A whispery disembodied voice speaks in breathy, unsettling ASMR whisper, intimately creepy. Dialogue begins at 0:01, ends by 0:10. Dialogue: "Lil' Bits..." "Eat some shit, you stupid bitch." "Just kidding. Lil' Bits." The camera slowly zooms into impossibly small food. Character holds final pose as whisper fades.
 
 🚫 **DO NOT OUTPUT:**
 • Scene numbers or labels ("Final scene:", "Scene 5:")
