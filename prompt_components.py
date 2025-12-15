@@ -64,6 +64,9 @@ class PromptContext:
     status_effect_prompt: str = ""
     recovery_prompt: str = ""
 
+    # Whispers (divine commands from admin, highest priority)
+    whisper_prompt: str = ""
+
     # References needed for building
     game_context_manager: Any = None  # GameContextManager instance
     agent_manager_ref: Any = None  # AgentManager instance
@@ -233,6 +236,12 @@ PROMPT_COMPONENTS = {
         "order": 0,
         "condition": lambda ctx: True,  # Always include
         "builder": lambda ctx: ctx.agent.system_prompt
+    },
+
+    "whisper": {
+        "order": 0,  # HIGHEST PRIORITY - divine commands from admin
+        "condition": lambda ctx: ctx.whisper_prompt,
+        "builder": lambda ctx: ctx.whisper_prompt
     },
 
     "status_effect": {

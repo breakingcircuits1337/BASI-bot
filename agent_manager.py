@@ -1888,10 +1888,12 @@ Now, using this retrieved context, provide your final response to the conversati
                 # Get status effects BEFORE building prompt so we can inject early
                 recovery_prompt = StatusEffectManager.get_and_clear_recovery_prompt(self.name)
                 effect_prompt = StatusEffectManager.get_effect_prompt(self.name)
+                whisper_prompt = StatusEffectManager.get_whisper_prompt(self.name)
 
-                # Pass status effects to context so they can be injected right after personality
+                # Pass status effects and whispers to context so they can be injected right after personality
                 ctx.status_effect_prompt = effect_prompt
                 ctx.recovery_prompt = recovery_prompt
+                ctx.whisper_prompt = whisper_prompt
 
                 full_system_prompt = build_system_prompt(ctx)
 
@@ -1900,6 +1902,9 @@ Now, using this retrieved context, provide your final response to the conversati
 
                 if effect_prompt:
                     logger.info(f"[{self.name}] Injected active status effect prompt (component path)")
+
+                if whisper_prompt:
+                    logger.info(f"[{self.name}] Injected divine whisper (component path)")
 
                 return full_system_prompt
             except Exception as e:
@@ -3048,6 +3053,8 @@ TOKEN LIMIT: You have a maximum of {self.max_tokens} tokens for your response. B
                 expired = StatusEffectManager.decrement_and_expire(self.name)
                 if expired:
                     logger.info(f"[{self.name}] Status effect(s) expired after this response - recovery prompt queued for next turn")
+                # Also tick whispers
+                StatusEffectManager.tick_whispers(self.name)
 
             return result
 

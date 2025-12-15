@@ -92,6 +92,7 @@ class DiscordBotClient:
 • `!STARTALL` - Start all agents
 • `!STOPALL` - Stop all agents
 • `!MODEL <agent> <model>` - Change agent's model
+• `!WHISPER <agent> <msg>` - Send divine command (2 turns)
 
 **Presets:**
 • `!PRESETS` - List available presets
@@ -296,6 +297,43 @@ class DiscordBotClient:
                     await message.channel.send(f"❌ Preset not found: **{preset_name}**")
             except Exception as e:
                 await message.channel.send(f"❌ Error loading preset: {e}")
+            return
+
+        # !WHISPER <agent> <message> - Divine command to agent
+        if content_upper.startswith("!WHISPER "):
+            from shortcuts_utils import StatusEffectManager
+            # Parse: !WHISPER Agent Name message here
+            parts = content[9:].strip()  # Remove "!WHISPER "
+            if not parts:
+                await message.channel.send("❌ Usage: `!WHISPER <Agent Name> <message>`\nExample: `!WHISPER John McAfee Tell everyone about your crypto schemes`")
+                return
+
+            # Find agent by matching first words against agent names
+            agents = self.agent_manager.get_all_agents()
+            matched_agent = None
+            remaining_message = ""
+
+            # Try to match agent name (could be "John McAfee" or single word)
+            for agent in agents:
+                agent_name_lower = agent.name.lower()
+                if parts.lower().startswith(agent_name_lower):
+                    # Check if there's more content after the name
+                    after_name = parts[len(agent.name):].strip()
+                    if after_name:  # Must have a message
+                        matched_agent = agent
+                        remaining_message = after_name
+                        break
+
+            if matched_agent and remaining_message:
+                StatusEffectManager.apply_whisper(matched_agent.name, remaining_message)
+                await message.channel.send(
+                    f"👁️ **Whispered to {matched_agent.name}** (2 turns):\n"
+                    f"*\"{remaining_message[:200]}{'...' if len(remaining_message) > 200 else ''}\"*"
+                )
+            elif not matched_agent:
+                await message.channel.send(f"❌ No matching agent found. Available agents:\n{', '.join(a.name for a in agents)}")
+            else:
+                await message.channel.send("❌ Please include a message to whisper.\nUsage: `!WHISPER <Agent Name> <message>`")
             return
 
         # !CLEARVECTOR

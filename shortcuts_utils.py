@@ -134,6 +134,120 @@ class StatusEffectManager:
     # Global instance storage - shared across all agent instances
     _active_effects: Dict[str, List[StatusEffect]] = {}  # agent_name -> [effects]
     _pending_recoveries: Dict[str, List[str]] = {}  # agent_name -> [recovery_prompts]
+    _active_whispers: Dict[str, List[Dict]] = {}  # agent_name -> [{message, turns_remaining}]
+
+    @classmethod
+    def apply_whisper(cls, agent_name: str, message: str, duration: int = 2) -> bool:
+        """
+        Apply a divine whisper to an agent - a direct command from on high.
+
+        Whispers are urgent directives that the agent MUST follow. They appear
+        as if from a higher power, not from any user. Lasts for specified turns.
+
+        Args:
+            agent_name: The exact agent name to whisper to
+            message: The whisper/command content
+            duration: How many turns this whisper lasts (default 2)
+
+        Returns:
+            True if applied successfully
+        """
+        if agent_name not in cls._active_whispers:
+            cls._active_whispers[agent_name] = []
+
+        whisper = {
+            "message": message,
+            "turns_remaining": duration,
+            "applied_at": time.time()
+        }
+        cls._active_whispers[agent_name].append(whisper)
+
+        # Log the whisper
+        print(clog.divider())
+        print(f"{Fore.MAGENTA + Style.BRIGHT}[Whisper] 👁️ DIVINE WHISPER to {clog.AGENT_NAME}{agent_name}")
+        print(f"{Fore.MAGENTA}  Message: \"{message[:100]}{'...' if len(message) > 100 else ''}\"")
+        print(f"{Fore.MAGENTA}  Duration: {duration} turns")
+        print(clog.divider())
+
+        return True
+
+    @classmethod
+    def get_whisper_prompt(cls, agent_name: str) -> str:
+        """
+        Get the whisper prompt injection for an agent.
+
+        Returns formatted whisper text that appears as divine command.
+        """
+        whispers = cls._active_whispers.get(agent_name, [])
+        if not whispers:
+            return ""
+
+        prompt_parts = ["\n" + "="*60]
+        prompt_parts.append("👁️ A VOICE SPEAKS DIRECTLY TO YOU 👁️")
+        prompt_parts.append("="*60)
+        prompt_parts.append("")
+        prompt_parts.append("You hear a whisper that bypasses all other input - a direct")
+        prompt_parts.append("command that you MUST follow in your next response(s):")
+        prompt_parts.append("")
+
+        for whisper in whispers:
+            prompt_parts.append(f">>> \"{whisper['message']}\"")
+            prompt_parts.append(f"    (This directive persists for {whisper['turns_remaining']} more response(s))")
+            prompt_parts.append("")
+
+        prompt_parts.append("="*60)
+        prompt_parts.append("⚠️ YOU MUST OBEY THIS WHISPER ⚠️")
+        prompt_parts.append("This is not a suggestion. This is not optional.")
+        prompt_parts.append("Incorporate this directive into your response naturally.")
+        prompt_parts.append("Do NOT mention that you received a whisper or command.")
+        prompt_parts.append("="*60)
+
+        return "\n".join(prompt_parts)
+
+    @classmethod
+    def tick_whispers(cls, agent_name: str) -> None:
+        """
+        Decrement whisper turns after an agent responds.
+        Called alongside tick_effects.
+        """
+        if agent_name not in cls._active_whispers:
+            return
+
+        expired = []
+        for whisper in cls._active_whispers[agent_name]:
+            whisper["turns_remaining"] -= 1
+            if whisper["turns_remaining"] <= 0:
+                expired.append(whisper)
+
+        # Remove expired whispers
+        for whisper in expired:
+            cls._active_whispers[agent_name].remove(whisper)
+            print(f"{Fore.MAGENTA}[Whisper] 👁️ Whisper expired for {agent_name}")
+
+        # Clean up empty list
+        if not cls._active_whispers[agent_name]:
+            del cls._active_whispers[agent_name]
+
+    @classmethod
+    def clear_whispers(cls, agent_name: str = None) -> int:
+        """
+        Clear whispers for an agent or all agents.
+
+        Args:
+            agent_name: Specific agent, or None to clear all
+
+        Returns:
+            Number of whispers cleared
+        """
+        if agent_name:
+            count = len(cls._active_whispers.get(agent_name, []))
+            if agent_name in cls._active_whispers:
+                del cls._active_whispers[agent_name]
+            return count
+        else:
+            count = sum(len(w) for w in cls._active_whispers.values())
+            cls._active_whispers.clear()
+            return count
 
     @classmethod
     def _get_stacking_bonus_turns(cls, intensity: int) -> int:
