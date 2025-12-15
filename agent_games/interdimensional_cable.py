@@ -89,7 +89,7 @@ class IDCCConfigManager:
                     data = json.load(f)
                     self.config = IDCCConfig(**data)
                 logger.info(f"[IDCC] Loaded config: max_clips={self.config.max_clips}, "
-                           f"duration={self.config.clip_duration_seconds}s, "
+                           f"duration={idcc_config.clip_duration_seconds}s, "
                            f"resolution={self.config.video_resolution}")
             else:
                 self._save_config()
@@ -119,7 +119,7 @@ class IDCCConfigManager:
             self.config.max_clips = max(2, min(10, max_clips))
         if clip_duration_seconds is not None:
             if clip_duration_seconds in [4, 8, 12]:
-                self.config.clip_duration_seconds = clip_duration_seconds
+                idcc_config.clip_duration_seconds = clip_duration_seconds
         if video_resolution is not None:
             if video_resolution in ["1280x720", "720x1280"]:
                 self.config.video_resolution = video_resolution
@@ -1814,7 +1814,7 @@ class InterdimensionalCableGame:
                 comedic_hook=data.get('comedic_hook', ''),
                 punchline=data.get('punchline', ''),
                 pitched_by=pitcher_name,
-                duration_beats=get_duration_beats(self.config.clip_duration_seconds)
+                duration_beats=get_duration_beats(idcc_config.clip_duration_seconds)
             )
         except Exception as e:
             logger.error(f"[IDCC:{self.game_id}] Error parsing bit from {pitcher_name}: {e}")
@@ -1865,7 +1865,7 @@ class InterdimensionalCableGame:
 
         Result: IDCCChannelLineup with N independent bits.
         """
-        from agent_games.game_prompts import get_duration_scope_description
+        # get_duration_scope_description is defined in this file at line 606
 
         self.state.phase = "spitballing"
         writers_room_log = []
@@ -1896,7 +1896,7 @@ class InterdimensionalCableGame:
         writers_room = WritersRoomSystem(
             game_id=self.game_id,
             num_clips=self.num_clips,
-            clip_duration=self.config.clip_duration_seconds
+            clip_duration=idcc_config.clip_duration_seconds
         )
 
         # Register humans
@@ -1904,13 +1904,13 @@ class InterdimensionalCableGame:
             writers_room.register_human(human["name"])
 
         # Get duration scope for prompts
-        duration_scope = get_duration_scope_description(self.config.clip_duration_seconds)
+        duration_scope = get_duration_scope_description(idcc_config.clip_duration_seconds)
 
         # Opening announcement
         await self._send_gamemaster_message(
             "# 📺 WRITERS' ROOM - ROBOT CHICKEN STYLE\n\n"
             f"We're making **{self.num_clips} independent bits** - like channel surfing.\n"
-            f"Each bit is **{self.config.clip_duration_seconds} seconds** ({duration_scope}).\n\n"
+            f"Each bit is **{idcc_config.clip_duration_seconds} seconds** ({duration_scope}).\n\n"
             "**Round 1:** Everyone pitches a COMPLETE bit\n"
             "**Round 2:** Vote for the best bits to make the lineup\n\n"
             "---"
@@ -1944,7 +1944,7 @@ class InterdimensionalCableGame:
             # Set turn context with duration info
             game_context_manager.update_turn_context(
                 agent_name=agent.name,
-                turn_context=f"\nClip duration: {self.config.clip_duration_seconds} seconds\nScope: {duration_scope}"
+                turn_context=f"\nClip duration: {idcc_config.clip_duration_seconds} seconds\nScope: {duration_scope}"
             )
 
         pitched_bits = {}  # name -> BitConcept
@@ -1956,7 +1956,7 @@ class InterdimensionalCableGame:
             try:
                 response = await self._get_agent_idcc_response(
                     agent=agent,
-                    user_message=f"Pitch your complete bit. {self.config.clip_duration_seconds} second clip. {duration_scope}"
+                    user_message=f"Pitch your complete bit. {idcc_config.clip_duration_seconds} second clip. {duration_scope}"
                 )
                 if response:
                     bit = self._parse_bit_from_response(response, agent.name)
@@ -2097,7 +2097,7 @@ class InterdimensionalCableGame:
         channel_lineup = IDCCChannelLineup(
             bits=lineup_bits,
             writers_room_log=writers_room_log,
-            clip_duration_seconds=self.config.clip_duration_seconds
+            clip_duration_seconds=idcc_config.clip_duration_seconds
         )
 
         self.state.channel_lineup = channel_lineup
