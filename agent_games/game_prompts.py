@@ -1106,12 +1106,12 @@ GAME_SETTINGS: Dict[str, Dict] = {
     "idcc_punch_up": {
         "response_frequency": 15,
         "response_likelihood": 100,
-        "max_tokens": 200,  # Verdict + suggestion + reason
+        "max_tokens": 350,  # Verdict + suggestion + full reason
     },
     "idcc_punch_up_vote": {
         "response_frequency": 15,
         "response_likelihood": 100,
-        "max_tokens": 100,  # Just vote numbers + reason
+        "max_tokens": 200,  # Vote numbers + full reason
     },
     "idcc_scene_bit": {
         "response_frequency": 30,
