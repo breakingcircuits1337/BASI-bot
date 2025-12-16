@@ -367,6 +367,7 @@ NOT prestige TV. NOT serious drama. Think 3am cable access fever dream.
 
 **PARODY_TARGET:** What SPECIFIC thing are you parodying? (Name the actual show, mascot, ad type, franchise, toy, PSA)
 ⚠️ PICK SOMETHING UNIQUE - don't duplicate what other writers might pick!
+⚠️ If you've already pitched this round, pick a COMPLETELY DIFFERENT target!
 
 **TWIST:** What's the comedic angle? Go SILLY, GROSS, DARK, HORNY, VIOLENT, ABSURD, or SURREAL.
 
@@ -1096,7 +1097,7 @@ GAME_SETTINGS: Dict[str, Dict] = {
     "idcc_pitch_complete_bit": {
         "response_frequency": 15,
         "response_likelihood": 100,
-        "max_tokens": 650,  # Complete bit: PARODY/TWIST/FORMAT/CHARACTER/VOCAL/DIALOGUE/PUNCHLINE
+        "max_tokens": 800,  # Complete bit: PARODY/TWIST/FORMAT/CHARACTER/VOCAL/DIALOGUE/PUNCHLINE
     },
     "idcc_vote_lineup": {
         "response_frequency": 15,
