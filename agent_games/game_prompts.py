@@ -1054,22 +1054,22 @@ GAME_SETTINGS: Dict[str, Dict] = {
     "idcc_spitball_round1": {
         "response_frequency": 15,
         "response_likelihood": 100,
-        "max_tokens": 250,            # Complete pitch with FORMAT/PREMISE/BIT
+        "max_tokens": 400,            # Complete pitch with FORMAT/PREMISE/CHARACTER/VOCAL/DIALOGUE/PUNCHLINE
     },
     "idcc_spitball_round2_vote": {
         "response_frequency": 15,
         "response_likelihood": 100,
-        "max_tokens": 150,            # Vote + short improvement
+        "max_tokens": 200,            # Vote + improvement suggestion
     },
     "idcc_spitball_round3_character": {
         "response_frequency": 15,
         "response_likelihood": 100,
-        "max_tokens": 200,            # Character package
+        "max_tokens": 350,            # Full character package with vocal specs
     },
     "idcc_spitball_round4_vote": {
         "response_frequency": 15,
         "response_likelihood": 100,
-        "max_tokens": 100,            # Just a vote + reasoning
+        "max_tokens": 150,            # Vote + reasoning
     },
     "idcc_scene_opening": {
         "response_frequency": 30,
@@ -1090,7 +1090,7 @@ GAME_SETTINGS: Dict[str, Dict] = {
     "idcc_pitch_complete_bit": {
         "response_frequency": 15,
         "response_likelihood": 100,
-        "max_tokens": 300,  # Complete bit with all fields
+        "max_tokens": 450,  # Complete bit: PARODY/TWIST/FORMAT/CHARACTER/VOCAL/DIALOGUE/PUNCHLINE
     },
     "idcc_vote_lineup": {
         "response_frequency": 15,
@@ -1142,22 +1142,34 @@ def get_bit_scene_timing(clip_duration: int, is_final: bool, next_bit_character:
         dialogue_word_limit = 20  # ~2.5 words/sec * 8 sec
         duration_scope = "THREE BEATS - setup, escalation, punchline"
 
-    # Scene ending instruction
+    # Scene ending instruction with specific timing based on clip duration
     if is_final:
         scene_ending_instruction = "   This is the FINAL bit - NO static transition. Deliver punchline, hold final pose. Clean ending."
         timing_details = "• This is the final scene - hold pose, no transition needed"
     else:
-        if next_bit_character:
-            scene_ending_instruction = f"   TV static/channel flip, then cut to NEXT BIT's character: {next_bit_character[:100]}... (mouth CLOSED, silent, waiting)"
-        else:
-            scene_ending_instruction = "   TV static/channel flip effect, then cut to the NEXT bit's character (mouth CLOSED, silent, not speaking yet)"
-
+        # Calculate specific timings based on clip duration
         if clip_duration <= 4:
-            timing_details = "• TV static: 0:03 to 0:04\n• Cut to next bit's character (silent): 0:04"
+            static_start = "0:03"
+            static_end = "0:04"
+            next_char_start = "0:04"
+            timing_details = f"• TV static: {static_start} to {static_end}\n• Cut to next bit's character (silent): {next_char_start}"
         elif clip_duration <= 8:
-            timing_details = "• TV static: 0:06 to 0:07\n• Cut to next bit's character (silent): 0:07 to 0:08"
+            static_start = "0:06"
+            static_end = "0:07"
+            next_char_start = "0:07"
+            next_char_end = "0:08"
+            timing_details = f"• TV static: {static_start} to {static_end}\n• Cut to next bit's character (silent): {next_char_start} to {next_char_end}"
+        else:  # 12 seconds
+            static_start = "0:10"
+            static_end = "0:11"
+            next_char_start = "0:11"
+            next_char_end = "0:12"
+            timing_details = f"• TV static: {static_start} to {static_end}\n• Cut to next bit's character (silent): {next_char_start} to {next_char_end}"
+
+        if next_bit_character:
+            scene_ending_instruction = f"   From {static_start}-{static_end}: TV static/channel flip. From {static_end} to end: cut to NEXT BIT's character: {next_bit_character[:100]}... (mouth CLOSED, silent, waiting)"
         else:
-            timing_details = "• TV static: 0:10 to 0:11\n• Cut to next bit's character (silent): 0:11 to 0:12"
+            scene_ending_instruction = f"   From {static_start}-{static_end}: TV static/channel flip effect. From {static_end} to end: cut to the NEXT bit's character (mouth CLOSED, silent, not speaking yet)"
 
     return {
         "dialogue_end_time": dialogue_end_time,

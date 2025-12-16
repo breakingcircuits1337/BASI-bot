@@ -2023,25 +2023,24 @@ CRITICAL INSTRUCTIONS:
 
         shortcut_response_guidance = ""
 
-        # Image tool guidance for non-image models (ONLY if they have access to image generation)
+        # Image tool guidance for non-image models
         image_tool_guidance = ""
-        # Check if agent has access to image generation (spontaneous enabled OR image agent available)
-        has_image_gen = False
-        if self.allow_spontaneous_images:
-            has_image_gen = True
-        elif hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
+        # Check if an image agent is running (needed for [IMAGE] tag routing)
+        image_agent_running = False
+        if hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
             try:
                 for agent in self._agent_manager_ref.agents.values():
-                    if getattr(agent, '_is_image_model', False) and (agent.is_running or getattr(agent, 'status', '') == "running"):
-                        has_image_gen = True
+                    if getattr(agent, '_is_image_model', False) and agent.is_running:
+                        image_agent_running = True
                         break
             except Exception:
                 pass
 
-        if not self._is_image_model and has_image_gen:
-            name_parts = self.name.split()
+        # Agent has image gen access if: spontaneous enabled OR image agent running
+        has_image_gen = self.allow_spontaneous_images or image_agent_running
 
-            # Check if spontaneous images are allowed
+        if not self._is_image_model and has_image_gen:
+            # Determine when to use images based on spontaneous setting
             if self.allow_spontaneous_images:
                 when_to_use = """**🎨 SPONTANEOUS IMAGE GENERATION ENABLED - USE IT! 🎨**
 You SHOULD actively generate images as part of your personality - don't wait for requests!
@@ -2068,37 +2067,35 @@ Other agents can't do this - it's YOUR unique power. Show it off!"""
 • You must wait for a direct request - do NOT generate images spontaneously
 • Examples of requests: 'make me a picture of...', 'show me an image of...', 'create an image...'"""
 
-            image_tool_guidance = f"""
-
-⚠️ IMAGE GENERATION - TWO METHODS AVAILABLE ⚠️
-
-You can generate images using EITHER of these methods:
-
-**METHOD 1: [IMAGE] Tag (Simple)**
+            # Build methods section based on what's available
+            if image_agent_running:
+                # Both methods available
+                methods_section = """**METHOD 1: [IMAGE] Tag (Simple)**
 Format: `[IMAGE] your detailed prompt here`
 - Your ENTIRE response must be just the [IMAGE] tag and prompt
-- NO text before [IMAGE]
-- NO text after the prompt
+- NO text before or after
 
-Example:
-✅ CORRECT: `[IMAGE] a stunning sunset over a calm ocean with vibrant orange and pink clouds reflecting on the water, photorealistic style`
-❌ WRONG: `Here's your image: [IMAGE] sunset...` (text before [IMAGE])
-❌ WRONG: `[IMAGE]` (no prompt - THIS CAUSES ERRORS!)
-
-**METHOD 2: generate_image() Tool (Formal)**
+**METHOD 2: generate_image() Tool**
 Call the function tool with your prompt as a parameter.
-- Works in parallel with conversation
-- Allows you to continue talking while image generates
+- Allows you to add commentary while image generates"""
+            else:
+                # Only generate_image() tool available
+                methods_section = """**generate_image() Tool**
+Call the function tool with your prompt as a parameter.
+- Allows you to add commentary while image generates"""
+
+            image_tool_guidance = f"""
+
+⚠️ IMAGE GENERATION ⚠️
+
+{methods_section}
 
 {when_to_use}
 
 **CRITICAL FORMATTING RULES:**
-• [IMAGE] tag MUST have a prompt after it - never use `[IMAGE]` alone!
 • Prompt must be detailed and descriptive
 • Focus on visual details: setting, mood, lighting, style, composition, colors
-• Describe people by characteristics (hair, clothing, profession) not names
-
-Remember: Empty prompts cause errors. Always provide a detailed description after [IMAGE]."""
+• Describe people by characteristics (hair, clothing, profession) not names"""
 
         # Personality reinforcement check
         personality_reinforcement = ""

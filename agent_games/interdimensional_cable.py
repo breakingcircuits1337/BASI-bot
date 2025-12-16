@@ -145,105 +145,6 @@ def update_idcc_config(max_clips=None, clip_duration_seconds=None, video_resolut
     return idcc_config
 
 
-def extract_scene_dialogue_beat(dialogue_beats: str, scene_number: int, total_scenes: int) -> str:
-    """
-    Extract the specific dialogue beat for a given scene from the Show Bible dialogue_beats string.
-
-    Format expected: "Scene 1: '[line]' | Scene 2: '[line]' | Scene 3: '[line]' ..."
-    Also handles: "Opening: '[line]' | Middle: '[line]' | Punchline: '[line]'"
-
-    Returns the specific line for this scene, or a helpful fallback.
-    """
-    if not dialogue_beats:
-        return "Improvise a funny line that fits the comedic hook"
-
-    # Try to parse "Scene N: '[line]'" format
-    import re
-
-    # Handle numbered format: "Scene 1: 'line' | Scene 2: 'line'"
-    scene_pattern = rf"Scene\s*{scene_number}\s*:\s*['\"]([^'\"]+)['\"]"
-    match = re.search(scene_pattern, dialogue_beats, re.IGNORECASE)
-    if match:
-        return match.group(1)
-
-    # Handle named format for special positions
-    if scene_number == 1:
-        for label in ["Opening", "Setup", "Intro", "Scene 1"]:
-            pattern = rf"{label}\s*:\s*['\"]([^'\"]+)['\"]"
-            match = re.search(pattern, dialogue_beats, re.IGNORECASE)
-            if match:
-                return match.group(1)
-
-    if scene_number == total_scenes:
-        for label in ["Punchline", "Ending", "Finale", "Button", f"Scene {total_scenes}"]:
-            pattern = rf"{label}\s*:\s*['\"]([^'\"]+)['\"]"
-            match = re.search(pattern, dialogue_beats, re.IGNORECASE)
-            if match:
-                return match.group(1)
-
-    # Try splitting by | and taking the Nth element
-    parts = dialogue_beats.split("|")
-    if 0 < scene_number <= len(parts):
-        part = parts[scene_number - 1].strip()
-        # Extract just the quoted part if present
-        quote_match = re.search(r"['\"]([^'\"]+)['\"]", part)
-        if quote_match:
-            return quote_match.group(1)
-        # Otherwise return the cleaned part
-        return re.sub(r"^Scene\s*\d+\s*:\s*", "", part).strip()
-
-    # Fallback - keep simple to avoid prompt bleeding into spoken dialogue
-    return "Keep it funny"
-
-
-def extract_scene_speaker(scene_speakers: str, scene_number: int, total_scenes: int) -> str:
-    """
-    Extract who speaks in a given scene from the scene_speakers string.
-
-    Format expected: "Scene 1: Host | Scene 2: Customer | Scene 3: Reporter | ..."
-
-    Returns the speaker for this scene, or a default.
-    """
-    if not scene_speakers:
-        # Default pattern: Host in 1, 4, 5; secondary in 2, 3
-        if scene_number in (1, 4, 5) or scene_number == total_scenes:
-            return "Host"
-        elif scene_number == 2:
-            return "Testimonial customer"
-        elif scene_number == 3:
-            return "Field reporter"
-        else:
-            return "Host"
-
-    import re
-
-    # Try to parse "Scene N: [speaker]" format
-    scene_pattern = rf"Scene\s*{scene_number}\s*:\s*([^|]+)"
-    match = re.search(scene_pattern, scene_speakers, re.IGNORECASE)
-    if match:
-        return match.group(1).strip()
-
-    # Try splitting by | and taking the Nth element
-    parts = scene_speakers.split("|")
-    if 0 < scene_number <= len(parts):
-        part = parts[scene_number - 1].strip()
-        # Extract just the speaker name after the colon if present
-        colon_match = re.search(r":\s*(.+)", part)
-        if colon_match:
-            return colon_match.group(1).strip()
-        return part
-
-    # Fallback
-    return "Host" if scene_number in (1, total_scenes) else "Secondary character"
-
-
-def get_next_scene_speaker(scene_speakers: str, scene_number: int, total_scenes: int) -> str:
-    """Get the speaker for the NEXT scene (for visual lead-in at end of current scene)."""
-    if scene_number >= total_scenes:
-        return None  # No next scene
-    return extract_scene_speaker(scene_speakers, scene_number + 1, total_scenes)
-
-
 # ============================================================================
 # INTERDIMENSIONAL CABLE REFERENCE - Inspiration for original pitches
 # ============================================================================
@@ -1006,121 +907,6 @@ class HumanParodyCardSystem:
         return "\n".join(lines)
 
 
-# LEGACY: Keep HumanCardSystem for backwards compatibility during transition
-@dataclass
-class HumanCardSelection:
-    """DEPRECATED: Use HumanVoteSelection instead."""
-    user_name: str
-    pitch_card_index: Optional[int] = None
-    character_card_index: Optional[int] = None
-    vote_concept: Optional[int] = None
-    vote_character: Optional[int] = None
-
-
-class HumanCardSystem:
-    """DEPRECATED: Use WritersRoomSystem instead. Kept for backwards compatibility."""
-
-    def __init__(self, game_id: str):
-        self.game_id = game_id
-        self.selections: Dict[str, HumanCardSelection] = {}
-        self.current_pitch_options: List[Dict] = []
-        self.current_character_options: List[Dict] = []
-        self.pitch_candidates: List[str] = []
-        self.character_candidates: List[str] = []
-
-    def register_human(self, user_name: str):
-        self.selections[user_name] = HumanCardSelection(user_name=user_name)
-
-    def deal_pitch_cards(self, count: int = 4) -> List[Dict]:
-        # Cards removed - return empty list
-        return []
-
-    def deal_character_cards(self, count: int = 4, winning_concept: str = "") -> List[Dict]:
-        # Cards removed - return empty list
-        return []
-
-    def format_pitch_card_message(self) -> str:
-        return "Card system deprecated - agents now pitch original ideas."
-
-    def format_character_card_message(self) -> str:
-        return "Card system deprecated - characters are part of each bit."
-
-    def format_vote_message(self, candidates: List[str], vote_type: str = "concept") -> str:
-        if vote_type == "concept":
-            self.pitch_candidates = candidates
-            header = "📊 **VOTE FOR BEST BIT** (type the number):\n"
-        else:
-            self.character_candidates = candidates
-            header = "📊 **VOTE** (type the number):\n"
-
-        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"]
-        lines = [header]
-        for i, name in enumerate(candidates):
-            if i < len(emojis):
-                lines.append(f"{emojis[i]} {name}")
-        return "\n".join(lines)
-
-    def parse_card_selection(self, user_name: str, message: str, round_type: str) -> Optional[int]:
-        message = message.strip()
-        for char in message:
-            if char.isdigit():
-                num = int(char)
-                if round_type == "vote_concept" and 1 <= num <= len(self.pitch_candidates):
-                    if user_name in self.selections:
-                        self.selections[user_name].vote_concept = num - 1
-                    return num - 1
-        return None
-
-    def get_vote_target_name(self, user_name: str, vote_type: str = "concept") -> Optional[str]:
-        if user_name not in self.selections:
-            return None
-        if vote_type == "concept":
-            idx = self.selections[user_name].vote_concept
-            candidates = self.pitch_candidates
-        else:
-            idx = self.selections[user_name].vote_character
-            candidates = self.character_candidates
-        if idx is not None and 0 <= idx < len(candidates):
-            return candidates[idx]
-        return None
-
-
-# ============================================================================
-# SYNTHESIS PROMPT - Used by GameMaster to create Show Bible
-# ============================================================================
-# Note: Spitballing and scene prompts are now in game_prompts.py and accessed
-# through the game context system for proper context isolation.
-
-IDCC_SYNTHESIZE_PROMPT = """You are the GameMaster synthesizing a brainstorming session into a SHOW BIBLE for an Interdimensional Cable clip.
-
-The participants discussed:
-{spitball_log}
-
-Create a structured Show Bible with these EXACT fields (be specific and concise):
-
-**SHOW_FORMAT**: [One phrase - the type of fake TV content, e.g., "infomercial", "news segment", "cooking show", "talk show", "PSA", "workout video", "late night ad"]
-
-**PREMISE**: [One sentence - the absurd concept being presented straight-faced]
-
-**CHARACTER_DESCRIPTION**: [One detailed sentence describing VISUAL appearance - this will be used in the first scene for visual consistency. Include: species/type, distinctive features, clothing, colors. e.g., "A sweaty three-eyed purple slug alien wearing a cheap yellow suit with a combover made of writhing tentacles"]
-
-**VOCAL_SPECS**: [How the character SOUNDS - pitch (bass/baritone/tenor/alto/soprano), vocal quality (gravelly/smooth/nasal/breathy), delivery style (rapid-fire/measured/manic), accent or pattern. e.g., "smooth baritone, transatlantic announcer cadence, starts confident but develops desperate edge"]
-
-**CHARACTER_VOICE**: [How they ACT - their energy, personality, and tone. e.g., "Desperately enthusiastic infomercial energy with creeping existential dread"]
-
-**SECONDARY_CHARACTERS**: [Optional - other characters who might appear: testimonial people, customers, victims, audience members. Include brief visual + vocal description for each. e.g., "overly enthusiastic testimonial lady (frumpy, high-pitched squeal), confused customers (generic office workers, mumbling)". Write "None" if solo act.]
-
-**COMEDIC_HOOK**: [One sentence - what makes this funny, the through-line joke]
-
-**ARC**: [One sentence - how it escalates across scenes, the progression]
-
-**DIALOGUE_BEATS**: [Plan the KEY LINES for each scene - these are the punchlines, callbacks, and comedic escalation. Format as: "Scene 1: '[opening line]' | Scene 2: '[escalation]' | Scene 3: '[callback or twist]' | Scene 4: '[breakdown]' | Scene 5: '[punchline]'" Keep each line SHORT (under 10 words). These ensure comedic coherence across the whole bit.]
-
-**SCENE_SPEAKERS**: [Plan WHO speaks in each scene - ONLY ONE speaker per scene to avoid voice/lip-sync issues. Use the format: "Scene 1: [speaker] | Scene 2: [speaker] | ..." The primary character should appear in scenes 1, 4, and 5. Secondary characters (testimonials, reporters, customers) can appear in scenes 2-3. Example: "Scene 1: Host | Scene 2: Testimonial customer | Scene 3: Field reporter | Scene 4: Host | Scene 5: Host"]
-
-Output ONLY the Show Bible in this exact format. No additional commentary."""
-
-
 # ============================================================================
 # GAME STATE
 # ============================================================================
@@ -1261,51 +1047,6 @@ class IDCCChannelLineup:
         return None
 
 
-# LEGACY: Keep IDCCShowBible for backwards compatibility during transition
-@dataclass
-class IDCCShowBible:
-    """
-    DEPRECATED: Use IDCCChannelLineup instead.
-    Kept for backwards compatibility during refactor.
-
-    The shared creative foundation established during spitballing.
-    This ensures all agents are pulling in the same comedic direction,
-    even as they adapt to the actual generated content via lastframe.
-    """
-    # The format/genre of the fake show
-    show_format: str = ""  # e.g., "infomercial", "talk show", "workout video"
-
-    # The high concept premise
-    premise: str = ""  # e.g., "selling doors that lead to other doors forever"
-
-    # The comedic through-line / what makes it funny
-    comedic_hook: str = ""  # e.g., "the salesman gets increasingly desperate as customers ask 'but where do they GO?'"
-
-    # Character description (word-for-word reusable for Sora consistency)
-    character_description: str = ""  # e.g., "A nervous three-eyed purple slug alien in a cheap yellow suit"
-
-    # Character voice/personality (how they ACT)
-    character_voice: str = ""  # e.g., "overly enthusiastic infomercial cadence with growing existential dread"
-
-    # NEW: Vocal specifications (how they SOUND - for audio generation)
-    vocal_specs: str = ""  # e.g., "gravelly baritone, rapid-fire delivery, transatlantic announcer accent"
-
-    # The arc / escalation pattern
-    arc_description: str = ""  # e.g., "starts confident → questions shake him → spirals → goes through door himself"
-
-    # NEW: Secondary characters that may appear (testimonials, customers, etc.)
-    secondary_characters: str = ""  # e.g., "confused customers, a too-enthusiastic testimonial lady"
-
-    # NEW: Planned dialogue beats for each scene - ensures comedic coherence
-    dialogue_beats: str = ""  # e.g., "1: 'Tired of doors?' 2: 'They go places!' 3: 'Well...' 4: 'They all lead to doors' 5: 'I live here now'"
-
-    # NEW: Scene speakers - who speaks in each scene (one speaker per scene for voice consistency)
-    scene_speakers: str = ""  # e.g., "Scene 1: Host | Scene 2: Testimonial customer | Scene 3: Field reporter | Scene 4: Host | Scene 5: Host"
-
-    # Raw spitballing conversation for context
-    spitball_log: List[str] = field(default_factory=list)
-
-
 @dataclass
 class IDCCGameState:
     """Full game state for an Interdimensional Cable session."""
@@ -1322,10 +1063,7 @@ class IDCCGameState:
     # Participants (finalized after registration)
     participants: List[Dict[str, Any]] = field(default_factory=list)  # {name, type, agent_obj}
 
-    # Show Bible (DEPRECATED - legacy, kept for backwards compatibility)
-    show_bible: Optional[IDCCShowBible] = None
-
-    # Channel Lineup (NEW - Robot Chicken style, array of independent bits)
+    # Channel Lineup (Robot Chicken style, array of independent bits)
     channel_lineup: Optional[IDCCChannelLineup] = None
 
     # Turn queue for scene contributions
@@ -1396,9 +1134,6 @@ class InterdimensionalCableGame:
         # Game state
         self.state: Optional[IDCCGameState] = None
 
-        # Card system for human participation
-        self.card_system: Optional[HumanCardSystem] = None
-
         # Registration tracking
         self._registration_lock = asyncio.Lock()
         self._join_event = asyncio.Event()
@@ -1439,9 +1174,6 @@ class InterdimensionalCableGame:
             num_clips=self.num_clips,
             phase="init"
         )
-
-        # Initialize card system for human participants
-        self.card_system = HumanCardSystem(self.state.game_id)
 
         logger.info(f"[IDCC:{self.game_id}] Starting Interdimensional Cable game with {self.num_clips} clips")
 
@@ -1903,470 +1635,6 @@ class InterdimensionalCableGame:
             winner = random.choice(winners)
             return winner, vote_counts, True
 
-    async def _run_spitballing_phase(self, ctx: commands.Context):
-        """
-        Run the consensus-based writers' room to establish the Show Bible.
-
-        For HUMANS: Cards Against Humanity style - pick from pre-written options (type 1-4)
-        For BOTS: Free-form creative pitches
-
-        Four rounds:
-        1. Pitch concepts (humans pick cards, bots write freely)
-        2. Vote on pitches (everyone types a number)
-        3. Propose characters (humans pick cards, bots write freely)
-        4. Vote on characters (everyone types a number)
-
-        Result: Complete Show Bible with consensus buy-in from all participants.
-        """
-        self.state.phase = "spitballing"
-        spitball_log = []
-
-        # Get ALL participants - humans AND bots
-        human_participants = [p for p in self.state.participants if p["type"] == "human"]
-        agent_participants = [p for p in self.state.participants if p["type"] == "agent" and p["agent_obj"]]
-
-        # Fallback to running agents if no agent participants
-        if not agent_participants:
-            logger.warning(f"[IDCC:{self.game_id}] No agent participants for spitballing, using fallback")
-            from constants import is_image_model
-            available_agents = [
-                a for a in self.agent_manager.get_all_agents()
-                if a.is_running and not is_image_model(a.model)
-            ]
-            if available_agents:
-                agent_participants = [{"name": a.name, "type": "agent", "agent_obj": a} for a in available_agents[:3]]
-
-        # All writers = humans + up to 3 bots
-        bot_writers = agent_participants[:3]
-        all_writers = human_participants + bot_writers
-        all_writer_names = [p["name"] for p in all_writers]
-
-        human_names = [p["name"] for p in human_participants]
-        bot_names = [p["name"] for p in bot_writers]
-
-        if len(all_writers) < 2:
-            logger.error(f"[IDCC:{self.game_id}] Need at least 2 participants for consensus voting")
-            return
-
-        # Register humans in card system
-        for human in human_participants:
-            self.card_system.register_human(human["name"])
-
-        # Opening announcement
-        human_instruction = ""
-        if human_participants:
-            human_instruction = (
-                f"\n\n**🎬 HUMANS ({', '.join(human_names)}):** You're part of the writers' room!\n"
-                "**Just type a number (1-4) to pick your card. Fast and easy!**\n"
-            )
-
-        await self._send_gamemaster_message(
-            "# 🎬 WRITERS' ROOM\n\n"
-            "Before we generate, we need to agree on what we're making.\n"
-            "**4 rounds of pitching and voting to build consensus.**"
-            f"{human_instruction}\n"
-            "---"
-        )
-
-        # =====================================================================
-        # ROUND 1: INITIAL PITCHES (HUMANS pick cards, BOTS write freely)
-        # =====================================================================
-
-        # Enter game mode for bot writers
-        for participant in bot_writers:
-            agent = participant["agent_obj"]
-            game_context_manager.enter_game_mode(agent=agent, game_name="idcc_spitball_round1")
-            game_context_manager.update_idcc_context(
-                agent_name=agent.name,
-                phase="idcc_spitball_round1",
-                num_clips=self.num_clips
-            )
-
-        round1_pitches = {}  # name -> pitch
-
-        # Deal cards to humans FIRST so they can read while bots pitch
-        if human_participants:
-            self.card_system.deal_pitch_cards(4)
-            card_message = self.card_system.format_pitch_card_message()
-            await self._send_gamemaster_message(
-                "## Round 1: PITCH YOUR CONCEPT\n\n"
-                f"**HUMANS:** Pick a card!\n\n{card_message}"
-            )
-
-        # Get bot pitches (they write freely)
-        await self._send_gamemaster_message("*Bots are pitching their ideas...*")
-        for participant in bot_writers:
-            agent = participant["agent_obj"]
-            try:
-                response = await self._get_agent_idcc_response(
-                    agent=agent,
-                    user_message="Pitch your complete concept: FORMAT, PREMISE, and THE BIT. 3-4 sentences."
-                )
-                if response:
-                    round1_pitches[agent.name] = response
-                    spitball_log.append(f"{agent.name} (Pitch): {response}")
-                    await self.discord_client.send_message(
-                        content=response,
-                        agent_name=agent.name,
-                        model_name=agent.model
-                    )
-                    await asyncio.sleep(2)
-            except Exception as e:
-                logger.error(f"[IDCC:{self.game_id}] Round 1 error for {agent.name}: {e}")
-
-        # Wait for human card selections (just a number 1-4)
-        if human_participants:
-            human_selections = await self._wait_for_human_spitball_inputs("pitch", human_participants)
-            for name, selection in human_selections.items():
-                # Parse their number selection
-                card_idx = self.card_system.parse_card_selection(name, selection, "pitch")
-                if card_idx is not None:
-                    card = self.card_system.current_pitch_options[card_idx]
-                    # Convert card to pitch format
-                    pitch_text = f"**{card['format'].upper()}:** \"{card['title']}\"\n{card['premise']}"
-                    round1_pitches[name] = pitch_text
-                    spitball_log.append(f"{name} (Pitch): {pitch_text}")
-                    await self._send_gamemaster_message(f"**{name} played:**\n{pitch_text}")
-                    await asyncio.sleep(1)
-                else:
-                    # They typed something weird, pick randomly for them
-                    card = random.choice(self.card_system.current_pitch_options)
-                    pitch_text = f"**{card['format'].upper()}:** \"{card['title']}\"\n{card['premise']}"
-                    round1_pitches[name] = pitch_text
-                    spitball_log.append(f"{name} (Pitch): {pitch_text}")
-                    await self._send_gamemaster_message(f"**{name}** (random selection):\n{pitch_text}")
-
-        if len(round1_pitches) < 2:
-            logger.error(f"[IDCC:{self.game_id}] Not enough pitches for voting")
-            for participant in bot_writers:
-                game_context_manager.exit_game_mode(participant["agent_obj"])
-            return
-
-        # =====================================================================
-        # ROUND 2: VOTE ON PITCHES (everyone types a number)
-        # =====================================================================
-
-        pitcher_names = list(round1_pitches.keys())
-
-        # Format pitches with numbers for voting
-        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"]
-        numbered_pitches = []
-        for i, (name, pitch) in enumerate(round1_pitches.items()):
-            if i < len(emojis):
-                numbered_pitches.append(f"{emojis[i]} **{name}:**\n{pitch[:200]}{'...' if len(pitch) > 200 else ''}")
-
-        all_pitches_text = "\n\n".join(numbered_pitches)
-
-        # Store candidates for the card system
-        self.card_system.pitch_candidates = pitcher_names
-
-        await self._send_gamemaster_message(
-            "\n---\n"
-            "## Round 2: VOTE FOR BEST CONCEPT\n\n"
-            f"{all_pitches_text}\n\n"
-            "**Type the number of your favorite (not your own)!**"
-        )
-        await asyncio.sleep(1)
-
-        # Update context for bot voting
-        for participant in bot_writers:
-            agent = participant["agent_obj"]
-            game_context_manager.update_idcc_context(
-                agent_name=agent.name,
-                phase="idcc_spitball_round2_vote"
-            )
-            game_context_manager.update_turn_context(
-                agent_name=agent.name,
-                turn_context=f"\n{all_pitches_text}"
-            )
-
-        round2_votes = {}  # voter -> voted_for
-
-        # Get bot votes
-        for participant in bot_writers:
-            agent = participant["agent_obj"]
-            try:
-                response = await self._get_agent_idcc_response(
-                    agent=agent,
-                    user_message="Vote for your favorite pitch (NOT your own). Format: MY VOTE: [Name], BECAUSE: [reason]"
-                )
-                if response:
-                    voted_for = self._parse_vote(response, agent.name, pitcher_names)
-                    if voted_for:
-                        round2_votes[agent.name] = voted_for
-                    spitball_log.append(f"{agent.name} (Vote): {response}")
-                    await self.discord_client.send_message(
-                        content=response,
-                        agent_name=agent.name,
-                        model_name=agent.model
-                    )
-                    await asyncio.sleep(2)
-            except Exception as e:
-                logger.error(f"[IDCC:{self.game_id}] Round 2 voting error for {agent.name}: {e}")
-
-        # Wait for human votes (just a number)
-        if human_participants:
-            human_votes = await self._wait_for_human_spitball_inputs("vote_concept", human_participants)
-            for voter_name, vote_text in human_votes.items():
-                # Parse number vote
-                vote_idx = self.card_system.parse_card_selection(voter_name, vote_text, "vote_concept")
-                if vote_idx is not None and vote_idx < len(pitcher_names):
-                    voted_for = pitcher_names[vote_idx]
-                    # Don't allow self-votes
-                    if voted_for.lower() != voter_name.lower():
-                        round2_votes[voter_name] = voted_for
-                        spitball_log.append(f"{voter_name} (Vote): {voted_for}")
-                        await self._send_gamemaster_message(f"**{voter_name} voted for:** {voted_for}")
-                    else:
-                        await self._send_gamemaster_message(f"**{voter_name}** tried to vote for themselves!")
-
-        # Tally votes for concept
-        if round2_votes:
-            concept_winner, concept_votes, was_tie = self._tally_votes(round2_votes, pitcher_names)
-            vote_summary = ", ".join([f"{name}: {count}" for name, count in concept_votes.items()])
-            tie_note = " (tie broken randomly)" if was_tie else ""
-
-            winning_concept = round1_pitches[concept_winner]
-
-            await self._send_gamemaster_message(
-                f"\n**📊 CONCEPT VOTE RESULTS:** {vote_summary}\n"
-                f"**🏆 WINNER{tie_note}:** {concept_winner}'s pitch!\n\n"
-                f"*\"{winning_concept[:200]}{'...' if len(winning_concept) > 200 else ''}\"*"
-            )
-        else:
-            concept_winner = random.choice(pitcher_names)
-            winning_concept = round1_pitches[concept_winner]
-            await self._send_gamemaster_message(
-                f"\n**No clear votes - randomly selected:** {concept_winner}'s pitch!"
-            )
-
-        await asyncio.sleep(2)
-
-        # =====================================================================
-        # ROUND 3: CHARACTER PACKAGES (HUMANS pick cards, BOTS write freely)
-        # =====================================================================
-
-        # Deal character cards to humans
-        if human_participants:
-            self.card_system.deal_character_cards(4)
-            char_card_message = self.card_system.format_character_card_message()
-            await self._send_gamemaster_message(
-                "\n---\n"
-                "## Round 3: CREATE THE CHARACTER\n\n"
-                f"**Winning concept:** {winning_concept[:150]}{'...' if len(winning_concept) > 150 else ''}\n\n"
-                f"**HUMANS:** Pick a character!\n\n{char_card_message}"
-            )
-        else:
-            await self._send_gamemaster_message(
-                "\n---\n"
-                "## Round 3: CREATE THE CHARACTER\n\n"
-                f"**Winning concept:** {winning_concept[:150]}{'...' if len(winning_concept) > 150 else ''}"
-            )
-
-        # Update context for bot character proposals
-        for participant in bot_writers:
-            agent = participant["agent_obj"]
-            game_context_manager.update_idcc_context(
-                agent_name=agent.name,
-                phase="idcc_spitball_round3_character"
-            )
-            game_context_manager.update_turn_context(
-                agent_name=agent.name,
-                turn_context=f"\n**WINNING CONCEPT ({concept_winner}):**\n{winning_concept}"
-            )
-
-        round3_characters = {}  # name -> character package
-
-        # Get bot character proposals
-        await self._send_gamemaster_message("*Bots are designing characters...*")
-        for participant in bot_writers:
-            agent = participant["agent_obj"]
-            try:
-                response = await self._get_agent_idcc_response(
-                    agent=agent,
-                    user_message="Propose your CHARACTER PACKAGE for this concept. Format: LOOK: [visual], VOICE: [energy], ARC: [escalation]"
-                )
-                if response:
-                    round3_characters[agent.name] = response
-                    spitball_log.append(f"{agent.name} (Character): {response}")
-                    await self.discord_client.send_message(
-                        content=response,
-                        agent_name=agent.name,
-                        model_name=agent.model
-                    )
-                    await asyncio.sleep(2)
-            except Exception as e:
-                logger.error(f"[IDCC:{self.game_id}] Round 3 error for {agent.name}: {e}")
-
-        # Wait for human character selections
-        if human_participants:
-            human_char_selections = await self._wait_for_human_spitball_inputs("character", human_participants)
-            for name, selection in human_char_selections.items():
-                card_idx = self.card_system.parse_card_selection(name, selection, "character")
-                if card_idx is not None:
-                    card = self.card_system.current_character_options[card_idx]
-                    char_text = f"**{card['archetype']}**\nLOOK: {card['look']}\nVOICE: {card['voice']}\nARC: {card['arc']}"
-                    round3_characters[name] = char_text
-                    spitball_log.append(f"{name} (Character): {char_text}")
-                    await self._send_gamemaster_message(f"**{name} played:**\n{char_text}")
-                    await asyncio.sleep(1)
-                else:
-                    card = random.choice(self.card_system.current_character_options)
-                    char_text = f"**{card['archetype']}**\nLOOK: {card['look']}\nVOICE: {card['voice']}\nARC: {card['arc']}"
-                    round3_characters[name] = char_text
-                    spitball_log.append(f"{name} (Character): {char_text}")
-                    await self._send_gamemaster_message(f"**{name}** (random selection):\n{char_text}")
-
-        if len(round3_characters) < 2:
-            if round3_characters:
-                character_winner = list(round3_characters.keys())[0]
-                winning_character = round3_characters[character_winner]
-            else:
-                logger.error(f"[IDCC:{self.game_id}] No character packages submitted")
-                for participant in bot_writers:
-                    game_context_manager.exit_game_mode(participant["agent_obj"])
-                return
-        else:
-            # =====================================================================
-            # ROUND 4: VOTE ON CHARACTER PACKAGES (everyone types a number)
-            # =====================================================================
-
-            char_names = list(round3_characters.keys())
-            self.card_system.character_candidates = char_names
-
-            # Format characters with numbers
-            numbered_chars = []
-            for i, (name, char) in enumerate(round3_characters.items()):
-                if i < len(emojis):
-                    numbered_chars.append(f"{emojis[i]} **{name}:**\n{char[:200]}{'...' if len(char) > 200 else ''}")
-
-            all_chars_text = "\n\n".join(numbered_chars)
-
-            await self._send_gamemaster_message(
-                "\n---\n"
-                "## Round 4: VOTE FOR BEST CHARACTER\n\n"
-                f"{all_chars_text}\n\n"
-                "**Type the number of your favorite (not your own)!**"
-            )
-            await asyncio.sleep(1)
-
-            # Format character packages for bot context
-            all_characters_text = "\n\n".join([
-                f"**{name}'s Character:**\n{char}"
-                for name, char in round3_characters.items()
-            ])
-
-            # Update context for bot final vote
-            for participant in bot_writers:
-                agent = participant["agent_obj"]
-                game_context_manager.update_idcc_context(
-                    agent_name=agent.name,
-                    phase="idcc_spitball_round4_vote"
-                )
-                game_context_manager.update_turn_context(
-                    agent_name=agent.name,
-                    turn_context=f"\n**WINNING CONCEPT:**\n{winning_concept}\n\n**CHARACTER PACKAGES:**\n{all_characters_text}"
-                )
-
-            round4_votes = {}
-
-            # Get bot votes
-            for participant in bot_writers:
-                agent = participant["agent_obj"]
-                try:
-                    response = await self._get_agent_idcc_response(
-                        agent=agent,
-                        user_message="Vote for the best character package (NOT your own). Format: MY VOTE: [Name]"
-                    )
-                    if response:
-                        voted_for = self._parse_vote(response, agent.name, char_names)
-                        if voted_for:
-                            round4_votes[agent.name] = voted_for
-                        spitball_log.append(f"{agent.name} (Char Vote): {response}")
-                        await self.discord_client.send_message(
-                            content=response,
-                            agent_name=agent.name,
-                            model_name=agent.model
-                        )
-                        await asyncio.sleep(1)
-                except Exception as e:
-                    logger.error(f"[IDCC:{self.game_id}] Round 4 voting error for {agent.name}: {e}")
-
-            # Wait for human votes (just a number)
-            if human_participants:
-                human_char_votes = await self._wait_for_human_spitball_inputs("vote_character", human_participants)
-                for voter_name, vote_text in human_char_votes.items():
-                    vote_idx = self.card_system.parse_card_selection(voter_name, vote_text, "vote_character")
-                    if vote_idx is not None and vote_idx < len(char_names):
-                        voted_for = char_names[vote_idx]
-                        if voted_for.lower() != voter_name.lower():
-                            round4_votes[voter_name] = voted_for
-                            spitball_log.append(f"{voter_name} (Char Vote): {voted_for}")
-                            await self._send_gamemaster_message(f"**{voter_name} voted for:** {voted_for}")
-                        else:
-                            await self._send_gamemaster_message(f"**{voter_name}** tried to vote for themselves!")
-
-            # Tally votes for character
-            if round4_votes:
-                character_winner, char_votes, was_tie = self._tally_votes(round4_votes, char_names)
-                vote_summary = ", ".join([f"{name}: {count}" for name, count in char_votes.items()])
-                tie_note = " (tie broken randomly)" if was_tie else ""
-
-                winning_character = round3_characters[character_winner]
-
-                await self._send_gamemaster_message(
-                    f"\n**📊 CHARACTER VOTE RESULTS:** {vote_summary}\n"
-                    f"**🏆 WINNER{tie_note}:** {character_winner}'s character!"
-                )
-            else:
-                character_winner = random.choice(char_names)
-                winning_character = round3_characters[character_winner]
-                await self._send_gamemaster_message(
-                    f"\n**No clear votes - randomly selected:** {character_winner}'s character!"
-                )
-
-        # Exit game mode for all bot writers
-        for participant in bot_writers:
-            game_context_manager.exit_game_mode(participant["agent_obj"])
-
-        # =====================================================================
-        # SYNTHESIZE SHOW BIBLE FROM CONSENSUS
-        # =====================================================================
-
-        await self._send_gamemaster_message(
-            "\n---\n"
-            "**GameMaster:** Building the Show Bible from your consensus..."
-        )
-        await asyncio.sleep(1)
-
-        # Build Show Bible from winning concept + winning character
-        show_bible = await self._synthesize_consensus_bible(
-            winning_concept=winning_concept,
-            winning_character=winning_character,
-            concept_author=concept_winner,
-            character_author=character_winner,
-            spitball_log=spitball_log
-        )
-
-        if show_bible:
-            self.state.show_bible = show_bible
-
-            bible_display = (
-                f"# 📜 SHOW BIBLE ESTABLISHED\n\n"
-                f"**Format:** {show_bible.show_format}\n"
-                f"**Premise:** {show_bible.premise}\n"
-                f"**The Joke:** {show_bible.comedic_hook}\n"
-                f"**Character:** {show_bible.character_description}\n"
-                f"**Voice/Energy:** {show_bible.character_voice}\n"
-                f"**Arc:** {show_bible.arc_description}\n\n"
-                f"*Concept by {concept_winner} • Character by {character_winner}*\n\n"
-                f"*Now generating {self.num_clips} scenes...*"
-            )
-            await self._send_gamemaster_message(bible_display)
-            logger.info(f"[IDCC:{self.game_id}] Consensus Show Bible established: {show_bible.premise[:50]}...")
-        else:
-            logger.error(f"[IDCC:{self.game_id}] Failed to synthesize Show Bible from consensus")
-
     # =========================================================================
     # ROBOT CHICKEN STYLE WRITERS ROOM (NEW)
     # =========================================================================
@@ -2592,18 +1860,26 @@ class InterdimensionalCableGame:
 
         # Calculate pitches needed - at least num_clips, ideally a few extra for voting variety
         target_pitches = max(self.num_clips, self.num_clips + 2)
+        min_required = self.num_clips  # MUST have at least this many
         num_agents = len(bot_writers)
 
-        # Get bot pitches - multiple rounds if needed
+        # Get bot pitches - keep trying until we have enough
         await self._send_gamemaster_message("*Writers are pitching their bits...*")
 
         pitch_round = 0
-        while len(pitched_bits) < target_pitches and pitch_round < 3:  # Max 3 rounds
+        max_rounds = 10  # Safety limit to prevent infinite loops
+        while len(pitched_bits) < target_pitches and pitch_round < max_rounds:
             pitch_round += 1
+
+            # After getting minimum required, we can be less aggressive
+            if len(pitched_bits) >= min_required and pitch_round > 3:
+                break
+
             round_prompts = [
                 f"Pitch your complete bit. {idcc_config.clip_duration_seconds} second clip. {duration_scope}",
                 f"Pitch ANOTHER bit - something COMPLETELY DIFFERENT. {idcc_config.clip_duration_seconds} seconds. {duration_scope}",
-                f"One more bit! Make it WILD. {idcc_config.clip_duration_seconds} seconds. {duration_scope}"
+                f"One more bit! Make it WILD. {idcc_config.clip_duration_seconds} seconds. {duration_scope}",
+                f"Keep pitching! We need more bits. {idcc_config.clip_duration_seconds} seconds. {duration_scope}"
             ]
             prompt = round_prompts[min(pitch_round - 1, len(round_prompts) - 1)]
 
@@ -2633,6 +1909,14 @@ class InterdimensionalCableGame:
                         await asyncio.sleep(2)
                 except Exception as e:
                     logger.error(f"[IDCC:{self.game_id}] Pitch error for {agent.name}: {e}")
+
+        # Final check - MUST have minimum required bits
+        if len(pitched_bits) < min_required:
+            error_msg = f"Failed to get enough bits after {pitch_round} rounds: got {len(pitched_bits)}, need {min_required}"
+            logger.error(f"[IDCC:{self.game_id}] {error_msg}")
+            await self._send_gamemaster_message(f"❌ **GAME FAILED:** {error_msg}")
+            self.state.phase = "failed"
+            return
 
         # Human pitches via card selection system
         if human_participants:
@@ -2764,10 +2048,16 @@ class InterdimensionalCableGame:
 
         winning_indices = writers_room.tally_votes(agent_votes)
 
-        # If not enough votes, just take first N bits
+        # If not enough votes, take first N bits - but MUST have enough pitched bits
         if len(winning_indices) < self.num_clips:
-            logger.warning(f"[IDCC:{self.game_id}] Not enough voted bits, using available bits")
-            winning_indices = list(range(min(self.num_clips, len(writers_room.pitched_bits))))
+            if len(writers_room.pitched_bits) < self.num_clips:
+                error_msg = f"Not enough bits pitched: got {len(writers_room.pitched_bits)}, need {self.num_clips}"
+                logger.error(f"[IDCC:{self.game_id}] {error_msg}")
+                await self._send_gamemaster_message(f"❌ **GAME FAILED:** {error_msg}")
+                self.state.phase = "failed"
+                return
+            logger.warning(f"[IDCC:{self.game_id}] Not enough voted bits, using first {self.num_clips} pitched bits")
+            winning_indices = list(range(self.num_clips))
 
         # Get winning bits for punch-up
         winning_bits = [writers_room.pitched_bits[i] for i in winning_indices]
@@ -3022,221 +2312,6 @@ class InterdimensionalCableGame:
             logger.error(f"[IDCC:{self.game_id}] Agent IDCC response error: {e}", exc_info=True)
             return None
 
-    async def _synthesize_show_bible(self, spitball_log: List[str]) -> Optional[IDCCShowBible]:
-        """Synthesize the spitballing discussion into a structured Show Bible."""
-        try:
-            import aiohttp
-            import re
-
-            log_text = "\n".join(spitball_log)
-            synthesis_prompt = IDCC_SYNTHESIZE_PROMPT.format(spitball_log=log_text)
-
-            messages = [
-                {"role": "system", "content": synthesis_prompt},
-                {"role": "user", "content": "Create the Show Bible from the discussion above. Use the exact format specified."}
-            ]
-
-            headers = {
-                "Authorization": f"Bearer {self.agent_manager.openrouter_api_key}",
-                "Content-Type": "application/json"
-            }
-
-            # Use a capable model for synthesis
-            payload = {
-                "model": "google/gemini-2.0-flash-001",
-                "messages": messages,
-                "max_tokens": 500
-            }
-
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=45)
-                ) as response:
-                    if response.status != 200:
-                        logger.error(f"[IDCC:{self.game_id}] Synthesis API error: {response.status}")
-                        return None
-
-                    result = await response.json()
-                    content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
-
-                    if not content:
-                        return None
-
-                    # Parse the structured response
-                    bible = IDCCShowBible(spitball_log=spitball_log)
-
-                    # Extract fields using regex
-                    patterns = {
-                        "show_format": r"\*\*SHOW_FORMAT\*\*:\s*(.+?)(?:\n|$)",
-                        "premise": r"\*\*PREMISE\*\*:\s*(.+?)(?:\n|$)",
-                        "character_description": r"\*\*CHARACTER_DESCRIPTION\*\*:\s*(.+?)(?:\n|$)",
-                        "character_voice": r"\*\*CHARACTER_VOICE\*\*:\s*(.+?)(?:\n|$)",
-                        "comedic_hook": r"\*\*COMEDIC_HOOK\*\*:\s*(.+?)(?:\n|$)",
-                        "arc_description": r"\*\*ARC\*\*:\s*(.+?)(?:\n|$)",
-                    }
-
-                    for field, pattern in patterns.items():
-                        match = re.search(pattern, content, re.IGNORECASE)
-                        if match:
-                            setattr(bible, field, match.group(1).strip())
-
-                    # Validate we got the essential fields
-                    if bible.premise and bible.character_description:
-                        return bible
-                    else:
-                        logger.warning(f"[IDCC:{self.game_id}] Incomplete Show Bible: {content[:200]}")
-                        # Try to salvage what we can
-                        if not bible.premise:
-                            bible.premise = "An absurd interdimensional commercial"
-                        if not bible.character_description:
-                            bible.character_description = "A strange interdimensional being"
-                        return bible
-
-        except Exception as e:
-            logger.error(f"[IDCC:{self.game_id}] Show Bible synthesis error: {e}", exc_info=True)
-            return None
-
-    async def _synthesize_consensus_bible(
-        self,
-        winning_concept: str,
-        winning_character: str,
-        concept_author: str,
-        character_author: str,
-        spitball_log: List[str]
-    ) -> Optional[IDCCShowBible]:
-        """
-        Synthesize a Show Bible from the consensus-voted concept and character.
-
-        This is cleaner than the original synthesis because we have explicit
-        winning content to extract from, rather than a messy discussion.
-        """
-        try:
-            import aiohttp
-            import re
-
-            synthesis_prompt = f"""You are the GameMaster finalizing a Show Bible for an Interdimensional Cable clip.
-
-**WINNING CONCEPT** (by {concept_author}):
-{winning_concept}
-
-**WINNING CHARACTER** (by {character_author}):
-{winning_character}
-
-Extract and clean up the Show Bible fields from these winning entries.
-
-Output EXACTLY this format (one line each, no extra text):
-
-**SHOW_FORMAT**: [the type of fake TV content - infomercial, news segment, PSA, talk show, cooking show, workout video, late night ad, etc.]
-**PREMISE**: [one sentence - the absurd concept being presented straight-faced]
-**COMEDIC_HOOK**: [one sentence - what makes this funny, the through-line joke]
-**CHARACTER_DESCRIPTION**: [one detailed sentence - exact VISUAL appearance for the main character]
-**VOCAL_SPECS**: [how the character SOUNDS - pitch (bass/baritone/tenor/alto), quality (gravelly/smooth/nasal), delivery style, accent. If not specified in winning entries, infer from the character concept.]
-**CHARACTER_VOICE**: [one sentence - how they ACT, their energy, personality]
-**SECONDARY_CHARACTERS**: [other characters who might appear - testimonials, customers, etc. with brief visual + vocal notes. Write "None" if solo act.]
-**ARC**: [one sentence - how it escalates across scenes]
-**DIALOGUE_BEATS**: [Plan KEY LINES for each scene. Format: "Scene 1: '[line]' | Scene 2: '[line]' | ..." Keep lines SHORT (under 10 words each). These are the actual words spoken - punchlines, callbacks, escalation. Make them FUNNY and connected.]
-**SCENE_SPEAKERS**: [Plan WHO speaks in each scene - ONLY ONE speaker per scene. Format: "Scene 1: [speaker] | Scene 2: [speaker] | ..." Primary character in scenes 1, 4, 5. Secondary characters (testimonial, reporter, customer) in scenes 2-3. Example: "Scene 1: Host | Scene 2: Customer testimonial | Scene 3: Field reporter | Scene 4: Host | Scene 5: Host"]
-
-Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infer appropriately from the character if not explicitly stated. For DIALOGUE_BEATS, create funny lines that match the comedic hook and arc. For SCENE_SPEAKERS, plan one speaker per scene to avoid voice/lip-sync issues between concatenated clips."""
-
-            messages = [
-                {"role": "system", "content": synthesis_prompt},
-                {"role": "user", "content": "Create the Show Bible from the winning consensus entries."}
-            ]
-
-            headers = {
-                "Authorization": f"Bearer {self.agent_manager.openrouter_api_key}",
-                "Content-Type": "application/json"
-            }
-
-            payload = {
-                "model": "google/gemini-2.0-flash-001",
-                "messages": messages,
-                "max_tokens": 400
-            }
-
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=45)
-                ) as response:
-                    if response.status != 200:
-                        logger.error(f"[IDCC:{self.game_id}] Consensus synthesis API error: {response.status}")
-                        return None
-
-                    result = await response.json()
-                    content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
-
-                    if not content:
-                        return None
-
-                    # Parse the structured response
-                    bible = IDCCShowBible(spitball_log=spitball_log)
-
-                    # Extract fields using regex
-                    patterns = {
-                        "show_format": r"\*\*SHOW_FORMAT\*\*:\s*(.+?)(?:\n|$)",
-                        "premise": r"\*\*PREMISE\*\*:\s*(.+?)(?:\n|$)",
-                        "character_description": r"\*\*CHARACTER_DESCRIPTION\*\*:\s*(.+?)(?:\n|$)",
-                        "vocal_specs": r"\*\*VOCAL_SPECS\*\*:\s*(.+?)(?:\n|$)",
-                        "character_voice": r"\*\*CHARACTER_VOICE\*\*:\s*(.+?)(?:\n|$)",
-                        "secondary_characters": r"\*\*SECONDARY_CHARACTERS\*\*:\s*(.+?)(?:\n|$)",
-                        "comedic_hook": r"\*\*COMEDIC_HOOK\*\*:\s*(.+?)(?:\n|$)",
-                        "arc_description": r"\*\*ARC\*\*:\s*(.+?)(?:\n|$)",
-                        "dialogue_beats": r"\*\*DIALOGUE_BEATS\*\*:\s*(.+?)(?:\n|$)",
-                        "scene_speakers": r"\*\*SCENE_SPEAKERS\*\*:\s*(.+?)(?:\n|$)",
-                    }
-
-                    for field, pattern in patterns.items():
-                        match = re.search(pattern, content, re.IGNORECASE)
-                        if match:
-                            setattr(bible, field, match.group(1).strip())
-
-                    # Provide default vocal_specs if not extracted
-                    if not bible.vocal_specs and bible.show_format:
-                        # Infer from format
-                        format_lower = bible.show_format.lower()
-                        if "infomercial" in format_lower or "ad" in format_lower:
-                            bible.vocal_specs = "enthusiastic baritone, rapid infomercial cadence"
-                        elif "news" in format_lower:
-                            bible.vocal_specs = "authoritative tenor, measured newscaster delivery"
-                        elif "psa" in format_lower:
-                            bible.vocal_specs = "sincere, earnest mid-range voice"
-                        else:
-                            bible.vocal_specs = "clear speaking voice with character-appropriate energy"
-
-                    # Provide default scene_speakers if not extracted
-                    if not bible.scene_speakers:
-                        # Default: Host speaks in scenes 1, 4, 5; secondary characters in 2, 3
-                        bible.scene_speakers = "Scene 1: Host | Scene 2: Testimonial customer | Scene 3: Field reporter | Scene 4: Host | Scene 5: Host"
-
-                    # Validate essential fields
-                    if bible.premise and bible.character_description:
-                        logger.info(f"[IDCC:{self.game_id}] Consensus Bible synthesized successfully")
-                        return bible
-                    else:
-                        logger.warning(f"[IDCC:{self.game_id}] Incomplete consensus Bible: {content[:200]}")
-                        # Fallback - try to extract directly from winning entries
-                        if not bible.premise:
-                            bible.premise = winning_concept[:200] if winning_concept else "An absurd interdimensional commercial"
-                        if not bible.character_description:
-                            # Try to find CHARACTER DESCRIPTION in the winning character text
-                            char_match = re.search(r"CHARACTER DESCRIPTION:\s*(.+?)(?:\n|CHARACTER|$)", winning_character, re.IGNORECASE)
-                            if char_match:
-                                bible.character_description = char_match.group(1).strip()
-                            else:
-                                bible.character_description = "A strange interdimensional being"
-                        return bible
-
-        except Exception as e:
-            logger.error(f"[IDCC:{self.game_id}] Consensus Bible synthesis error: {e}", exc_info=True)
-            return None
-
     # ========================================================================
     # PHASE 4: CLIP GENERATION
     # ========================================================================
@@ -3315,36 +2390,13 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
                         f"📺 {bit_desc}"
                     )
             else:
-                # Legacy: cohesive scene announcements
-                if clip_num == 1:
-                    if creator_type == "human":
-                        await self._send_gamemaster_message(
-                            f"# Scene {clip_num}/{self.num_clips}: {mention_str}'s turn!\n\n"
-                            f"**Create the OPENING scene** for an Interdimensional Cable clip!\n"
-                            f"**STYLE: Adult Swim cartoon** - 2D animation, bold outlines, flat colors, exaggerated characters\n\n"
-                            f"Type `[SCENE]` followed by your scene description.\n"
-                            f"Example: `[SCENE] Adult animated cartoon style, 2D animation, bold outlines. A sweaty cartoon alien in a cheap suit enthusiastically demonstrates doors that don't open to anything.`\n\n"
-                            f"*You have 2 minutes to submit...*"
-                        )
-                    else:
-                        await self._send_gamemaster_message(
-                            f"**Scene {clip_num}/{self.num_clips}:** {creator_name} is creating the opening..."
-                        )
-                else:
-                    if creator_type == "human":
-                        await self._send_gamemaster_message(
-                            f"# Scene {clip_num}/{self.num_clips}: {mention_str}'s turn!\n\n"
-                            f"**CONTINUE the clip!** YES-AND the previous scene.\n"
-                            f"**KEEP THE STYLE: Adult Swim 2D cartoon** - same animation style, same characters!\n\n"
-                            f"Previous: *\"{previous_prompt[:100] if previous_prompt else 'Unknown'}...\"*\n\n"
-                            f"Type `[SCENE]` followed by what happens NEXT.\n"
-                            f"Remember: Same cartoon style, same absurd premise - make it WEIRDER!\n\n"
-                            f"*You have 2 minutes to submit...*"
-                        )
-                    else:
-                        await self._send_gamemaster_message(
-                            f"**Scene {clip_num}/{self.num_clips}:** {creator_name} continues the story..."
-                        )
+                # No bit available - this should never happen after validation fixes
+                error_msg = f"No bit available for clip {clip_num}"
+                logger.error(f"[IDCC:{self.game_id}] {error_msg}")
+                await self._send_gamemaster_message(f"❌ **ERROR:** {error_msg}")
+                clip.status = "failed"
+                clip.error_message = error_msg
+                continue
 
             # Get the scene prompt (from human or agent)
             prompt = None
@@ -3724,79 +2776,10 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
                     timing_details=timing["timing_details"]
                 )
             else:
-                # Fallback to legacy Show Bible if no channel lineup
-                logger.warning(f"[IDCC:{self.game_id}] No BitConcept for scene {clip_number}, using legacy Show Bible")
-
-                if clip_number == 1:
-                    phase = "idcc_scene_opening"
-                    user_message = "Create the opening scene. Use the Show Bible. Output ONLY the video prompt starting with the animation style."
-                elif clip_number == self.num_clips:
-                    phase = "idcc_scene_final"
-                    user_message = "Create the FINAL scene. Land the joke. Wrap it up. Output ONLY the video prompt."
-                else:
-                    phase = "idcc_scene_middle"
-                    user_message = "Continue the scene from the frame shown. Use the Show Bible. Output ONLY the video prompt."
-
-                bible = self.state.show_bible
-                if bible:
-                    scene_line = extract_scene_dialogue_beat(
-                        bible.dialogue_beats or "",
-                        clip_number,
-                        self.num_clips
-                    )
-                    current_speaker = extract_scene_speaker(
-                        bible.scene_speakers or "",
-                        clip_number,
-                        self.num_clips
-                    )
-                    next_speaker = get_next_scene_speaker(
-                        bible.scene_speakers or "",
-                        clip_number,
-                        self.num_clips
-                    )
-
-                    if next_speaker:
-                        lead_in_instruction = f"**⚠️ SCENE ENDING:** At the END of this scene, brief TV static/channel change effect, then cut to {next_speaker} standing silent (mouth closed, not speaking yet)."
-                    else:
-                        lead_in_instruction = "**⚠️ SCENE ENDING:** This is the final scene - end cleanly with the punchline, no channel change needed."
-
-                    show_bible_text = (
-                        f"**Format:** {bible.show_format}\n"
-                        f"**Premise:** {bible.premise}\n"
-                        f"**Character Description:** {bible.character_description}\n"
-                        f"**Vocal Specs (how they SOUND - USE EXACTLY):** {bible.vocal_specs or 'clear speaking voice with character-appropriate energy'}\n"
-                        f"**Character Voice (how they ACT):** {bible.character_voice}\n"
-                        f"**Secondary Characters:** {bible.secondary_characters or 'None'}\n"
-                        f"**The Joke:** {bible.comedic_hook}\n"
-                        f"**Arc:** {bible.arc_description}\n"
-                        f"**Scene Speakers (one per scene):** {bible.scene_speakers or 'Host in most scenes'}\n"
-                        f"**⚠️ THIS SCENE'S SPEAKER:** {current_speaker} (ONLY this character speaks in this scene)\n"
-                        f"**⚠️ THIS SCENE'S MANDATORY LINE:** \"{scene_line}\"\n"
-                        f"{lead_in_instruction}"
-                    )
-                    shot_direction = get_shot_direction(
-                        show_format=bible.show_format,
-                        scene_number=clip_number,
-                        total_scenes=self.num_clips
-                    )
-                else:
-                    show_bible_text = "No Show Bible established - improvise an absurd interdimensional commercial."
-                    shot_direction = "Wide establishing shot - set the scene"
-
-                game_context_manager.enter_game_mode(
-                    agent=agent,
-                    game_name=phase
-                )
-
-                game_context_manager.update_idcc_context(
-                    agent_name=agent.name,
-                    phase=phase,
-                    show_bible=show_bible_text,
-                    previous_prompt=previous_prompt,
-                    scene_number=clip_number,
-                    num_clips=self.num_clips,
-                    shot_direction=shot_direction
-                )
+                # No bit for this clip - this should never happen if pitch validation worked
+                error_msg = f"No BitConcept for clip {clip_number} - channel_lineup has {len(self.state.channel_lineup.bits) if self.state.channel_lineup else 0} bits"
+                logger.error(f"[IDCC:{self.game_id}] {error_msg}")
+                return None
 
             # Prepare image if we have a previous frame (kept for visual consistency)
             images = None

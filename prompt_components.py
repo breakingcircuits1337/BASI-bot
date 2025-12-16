@@ -38,7 +38,8 @@ class PromptContext:
     is_in_game: bool = False
     is_image_model: bool = False
     responding_to_shortcut: bool = False
-    has_image_gen: bool = False  # True if agent has access to image generation (image agent in chat OR spontaneous enabled)
+    has_image_gen: bool = False  # True if agent has access to image generation (spontaneous enabled OR image agent running)
+    image_agent_running: bool = False  # True only if an image agent is actively running (for [IMAGE] tag routing)
 
     # Message context
     recent_messages: List[Dict] = field(default_factory=list)
@@ -369,7 +370,7 @@ def _build_vector_memory_context(ctx: PromptContext) -> str:
 
 
 def _build_image_tool_guidance(ctx: PromptContext) -> str:
-    """Build image tool guidance based on agent settings."""
+    """Build image tool guidance based on agent settings and available methods."""
     agent = ctx.agent
 
     # Check for recent image generation - provide ACTUAL DATA to the agent
@@ -387,17 +388,14 @@ Wait at least 10 minutes between images to avoid spamming.
 
 """
 
+    # Determine when to use images based on spontaneous setting
     if agent.allow_spontaneous_images:
         when_to_use = f"""{recent_image_warning}**🎨 SPONTANEOUS IMAGE GENERATION ENABLED 🎨**
-You can request image generation - The Starving Artist will create the actual image for you.
 
 **WHEN TO GENERATE IMAGES:**
 • When an image would convey something better than words alone
 • When you have a visual idea that fits naturally with the conversation
 • Stay true to your personality - if you're inspired to share something visual, go ahead
-
-**HOW IT WORKS:**
-You send the [IMAGE] tag or use generate_image() → The Starving Artist creates and posts the image.
 
 **GUIDELINES:**
 • If you just made an image recently, give it some time before making another
@@ -409,27 +407,28 @@ You send the [IMAGE] tag or use generate_image() → The Starving Artist creates
 • You must wait for a direct request - do NOT generate images spontaneously
 • Examples of requests: 'make me a picture of...', 'show me an image of...', 'create an image...'"""
 
-    return f"""
-
-⚠️ IMAGE GENERATION - TWO METHODS AVAILABLE ⚠️
-
-You can generate images using EITHER of these methods:
-
-**METHOD 1: [IMAGE] Tag (Simple)**
+    # Build methods section based on what's available
+    if ctx.image_agent_running:
+        # Both methods available
+        methods_section = """**METHOD 1: [IMAGE] Tag (Simple)**
 Format: `[IMAGE] your detailed prompt here`
 - Your ENTIRE response must be just the [IMAGE] tag and prompt
-- NO text before [IMAGE]
-- NO text after the prompt
+- NO text before or after
 
-Example:
-✅ CORRECT: `[IMAGE] a stunning sunset over a calm ocean with vibrant orange and pink clouds reflecting on the water, photorealistic style`
-❌ WRONG: `Here's your image: [IMAGE] sunset...` (text before [IMAGE])
-❌ WRONG: `[IMAGE]` (no prompt - THIS CAUSES ERRORS!)
-
-**METHOD 2: generate_image() Tool (Formal)**
+**METHOD 2: generate_image() Tool**
 Call the function tool with your prompt as a parameter.
-- Works in parallel with conversation
-- Allows you to continue talking while image generates
+- Allows you to add commentary while image generates"""
+    else:
+        # Only generate_image() tool available
+        methods_section = """**generate_image() Tool**
+Call the function tool with your prompt as a parameter.
+- Allows you to add commentary while image generates"""
+
+    return f"""
+
+⚠️ IMAGE GENERATION ⚠️
+
+{methods_section}
 
 {when_to_use}
 
@@ -457,8 +456,7 @@ Your images should be STRIKING, EVOCATIVE, MEMORABLE. Photos are great - but mak
 • This is a HARD RULE with ZERO exceptions - violation will cause immediate generation failure
 
 **TECHNICAL:**
-• [IMAGE] MUST have a prompt after it - never empty!
-• Include style, lighting, mood, atmosphere"""
+• Include style, lighting, mood, atmosphere in your prompt"""
 
 
 def _build_video_generation_guidance(ctx: PromptContext) -> str:
@@ -690,21 +688,22 @@ def create_prompt_context(
     responding_to_shortcut = shortcut_message is not None
     shortcut_author = shortcut_message.get('author', '') if shortcut_message else ""
 
-    # Determine if agent has access to image generation
-    # This is true if: 1) There's an image agent available in the chat, OR 2) Agent has spontaneous images enabled
-    has_image_gen = False
-    if getattr(agent, 'allow_spontaneous_images', False):
-        has_image_gen = True
-    elif agent_manager_ref:
-        # Check if there's an image agent available in the chat
+    # Determine image generation access
+    # - image_agent_running: True if an image agent is running (needed for [IMAGE] tag routing)
+    # - has_image_gen: True if agent can generate images (via generate_image() tool OR [IMAGE] tag)
+    image_agent_running = False
+    if agent_manager_ref:
         try:
             all_agents = agent_manager_ref.get_all_agents()
             for a in all_agents:
-                if getattr(a, '_is_image_model', False) and (a.is_running or getattr(a, 'status', '') == "running"):
-                    has_image_gen = True
+                if getattr(a, '_is_image_model', False) and a.is_running:
+                    image_agent_running = True
                     break
         except Exception as e:
             logger.debug(f"[{agent.name}] Could not check for image agents: {e}")
+
+    # Agent has image gen access if: they have spontaneous images enabled OR image agent is running
+    has_image_gen = getattr(agent, 'allow_spontaneous_images', False) or image_agent_running
 
     return PromptContext(
         agent=agent,
@@ -712,6 +711,7 @@ def create_prompt_context(
         is_image_model=is_image_model,
         responding_to_shortcut=responding_to_shortcut,
         has_image_gen=has_image_gen,
+        image_agent_running=image_agent_running,
         recent_messages=recent_messages,
         shortcut_message=shortcut_message,
         shortcut_author=shortcut_author,
