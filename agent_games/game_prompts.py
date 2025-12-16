@@ -386,12 +386,16 @@ NOT prestige TV. NOT serious drama. Think 3am cable access fever dream.
 
 **DURATION:** {clip_duration} seconds ({duration_scope})
 
-🚫 **BANNED - TOO BORING / OVERDONE:**
+🚫 **BANNED:**
 • Generic "weird product" infomercials (must parody a SPECIFIC thing)
 • Generic "stern man in suit" characters (give them VISUAL WEIRDNESS)
-• MasterClass without a weird presenter (not just "serious chef", make them STRANGE)
 • Any character that would fit in a Netflix drama (this is CHAOTIC CABLE ACCESS)
 • Baby products / paranoid conspiracy guys / memory devices (overdone)
+
+⛔ **ABSOLUTE BAN - WILL FAIL VIDEO GENERATION:**
+• NO children in sexual or harmful situations - EVER
+• HORNY/GROSS bits must NOT involve minors in any way
+• Parodying kids' shows is fine, but the TWIST cannot sexualize or harm children
 
 ⚠️ **DO NOT INSERT YOURSELF:** Create an ORIGINAL character, not a version of your own persona.
 
@@ -469,6 +473,7 @@ REASON: [why this makes it funnier]
 • Be specific - "make it funnier" is not a valid punch-up
 • You're improving, not rewriting - keep the core concept
 • If you pitched this bit, you MUST vote GOOD AS IS (you can't punch-up your own)
+• Stay in character - DO NOT refer to yourself in third person or describe your own "preferences"
 """,
 
     "idcc_punch_up_vote": """
