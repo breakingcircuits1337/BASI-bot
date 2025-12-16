@@ -47,11 +47,12 @@ class AgentGameState:
     idcc_shot_direction: Optional[str] = None  # Format-appropriate shot direction for this scene
 
     # IDCC Robot Chicken style: BitConcept fields for per-scene bits
+    idcc_bit_parody_target: Optional[str] = None  # What we're parodying
+    idcc_bit_twist: Optional[str] = None  # The comedic twist
     idcc_bit_format: Optional[str] = None
-    idcc_bit_premise: Optional[str] = None
     idcc_bit_character: Optional[str] = None
     idcc_bit_vocal_specs: Optional[str] = None
-    idcc_bit_comedic_hook: Optional[str] = None
+    idcc_bit_sample_dialogue: Optional[str] = None  # Key dialogue lines
     idcc_bit_punchline: Optional[str] = None
     idcc_clip_duration: Optional[int] = None
     idcc_dialogue_end_time: Optional[str] = None
@@ -239,12 +240,13 @@ class GameContextManager:
         scene_number: Optional[int] = None,
         num_clips: Optional[int] = None,
         shot_direction: Optional[str] = None,
-        # Robot Chicken style BitConcept fields
+        # Robot Chicken style BitConcept fields (parody style)
+        bit_parody_target: Optional[str] = None,
+        bit_twist: Optional[str] = None,
         bit_format: Optional[str] = None,
-        bit_premise: Optional[str] = None,
         bit_character: Optional[str] = None,
         bit_vocal_specs: Optional[str] = None,
-        bit_comedic_hook: Optional[str] = None,
+        bit_sample_dialogue: Optional[str] = None,
         bit_punchline: Optional[str] = None,
         clip_duration: Optional[int] = None,
         dialogue_end_time: Optional[str] = None,
@@ -264,11 +266,12 @@ class GameContextManager:
             scene_number: Current scene number (1-indexed)
             num_clips: Total number of clips
             shot_direction: Format-appropriate shot direction for this scene
+            bit_parody_target: What we're parodying (Peloton, House Hunters, etc.)
+            bit_twist: The comedic twist/angle
             bit_format: BitConcept format (infomercial, talk show, etc.)
-            bit_premise: BitConcept premise
             bit_character: BitConcept character description
             bit_vocal_specs: BitConcept vocal specifications
-            bit_comedic_hook: BitConcept comedic hook
+            bit_sample_dialogue: Key dialogue lines
             bit_punchline: BitConcept punchline
             clip_duration: Clip duration in seconds
             dialogue_end_time: When dialogue should end
@@ -306,17 +309,19 @@ class GameContextManager:
             state.idcc_shot_direction = shot_direction
             logger.debug(f"[GameContext] Updated shot direction for {agent_name}: {shot_direction[:50]}...")
 
-        # Robot Chicken style BitConcept fields
+        # Robot Chicken style BitConcept fields (parody style)
+        if bit_parody_target is not None:
+            state.idcc_bit_parody_target = bit_parody_target
+        if bit_twist is not None:
+            state.idcc_bit_twist = bit_twist
         if bit_format is not None:
             state.idcc_bit_format = bit_format
-        if bit_premise is not None:
-            state.idcc_bit_premise = bit_premise
         if bit_character is not None:
             state.idcc_bit_character = bit_character
         if bit_vocal_specs is not None:
             state.idcc_bit_vocal_specs = bit_vocal_specs
-        if bit_comedic_hook is not None:
-            state.idcc_bit_comedic_hook = bit_comedic_hook
+        if bit_sample_dialogue is not None:
+            state.idcc_bit_sample_dialogue = bit_sample_dialogue
         if bit_punchline is not None:
             state.idcc_bit_punchline = bit_punchline
         if clip_duration is not None:
@@ -357,12 +362,13 @@ class GameContextManager:
                 "{scene_number}": str(game_state.idcc_scene_number or 1),
                 "{num_clips}": str(game_state.idcc_num_clips or 4),
                 "{shot_direction}": game_state.idcc_shot_direction or "Wide establishing shot - set the scene",
-                # Robot Chicken style BitConcept fields
+                # Robot Chicken style BitConcept fields (parody style)
+                "{bit_parody_target}": game_state.idcc_bit_parody_target or "generic TV show",
+                "{bit_twist}": game_state.idcc_bit_twist or "absurd dark twist",
                 "{bit_format}": game_state.idcc_bit_format or "comedy sketch",
-                "{bit_premise}": game_state.idcc_bit_premise or "absurd interdimensional scenario",
                 "{bit_character}": game_state.idcc_bit_character or "exaggerated cartoon character",
                 "{bit_vocal_specs}": game_state.idcc_bit_vocal_specs or "clear speaking voice with character-appropriate energy",
-                "{bit_comedic_hook}": game_state.idcc_bit_comedic_hook or "commitment to absurd premise",
+                "{bit_sample_dialogue}": game_state.idcc_bit_sample_dialogue or "Character delivers lines with commitment to the bit",
                 "{bit_punchline}": game_state.idcc_bit_punchline or "surprising payoff",
                 "{clip_duration}": str(game_state.idcc_clip_duration or 12),
                 "{dialogue_end_time}": game_state.idcc_dialogue_end_time or "0:09",

@@ -344,53 +344,66 @@ Stay in character. Create something genuinely FUNNY.
     # =========================================================================
 
     "idcc_pitch_complete_bit": """
-📺 INTERDIMENSIONAL CABLE - WRITERS' ROOM: PITCH YOUR BIT
+📺 WRITERS' ROOM - PITCH YOUR PARODY BIT
 
 ⚠️ RESPOND WITH PLAIN TEXT ONLY. No tools, no code.
 
-You're pitching a COMPLETE self-contained bit for Interdimensional Cable.
-This is ONE clip ({clip_duration} seconds) - a single channel someone lands on while surfing.
+This is **INTERDIMENSIONAL CABLE meets ROBOT CHICKEN**: parodies of pop culture filtered through CHAOTIC WEIRD ENERGY.
+NOT prestige TV. NOT serious drama. Think 3am cable access fever dream.
 
-**REFERENCE - Classic Interdimensional Cable bits:**
-• Real Fake Doors - manic salesman in showroom of doors that don't open
-• Ants in My Eyes Johnson - electronics store guy who can't see (ants in his eyes)
-• Lil' Bits - restaurant with tiny food, creepy ASMR whisper voice
-• Baby Legs - cop show, detective with baby legs partnered with Regular Legs
-• Personal Space Show - host who keeps violating his own rule about personal space
-• Two Brothers - movie trailer that escalates into total nonsense
-• Gazorpazorpfield - Garfield parody but violent and abusive
+**EXAMPLE PARODY PITCHES (Robot Chicken style):**
+• PARODY: He-Man → TWIST: he realizes "I have the power" was always about his crippling insecurities
+• PARODY: Trix Rabbit → TWIST: finally snaps after decades of cereal denial, hostage situation ensues
+• PARODY: Tony the Tiger → TWIST: motivational speaker who's clearly dead inside, "they're... great..."
+• PARODY: G.I. Joe PSAs → TWIST: the life lesson is horrifyingly wrong, delivered with full conviction
+• PARODY: MasterClass → TWIST: taught by a creature who doesn't understand humans (or taught by a cult leader)
+• PARODY: Pharmaceutical ads → TWIST: the side effects ARE the product, delivered with unsettling cheer
+• PARODY: Alexa/smart speakers → TWIST: what it actually thinks about you, 3am confessional
+• PARODY: TED Talks → TWIST: clearly a serial killer, audience politely applauding
+• PARODY: Sesame Street → TWIST: the puppets have become self-aware, existential dread
+• PARODY: Tamagotchi → TWIST: guilt trip from your dead digital pet, it remembers everything
 
-**YOUR BIT NEEDS ALL OF THESE:**
+**YOUR PITCH MUST INCLUDE ALL OF THESE:**
 
-**FORMAT:** What kind of show/ad? (infomercial, cop show, cooking show, talk show, PSA, movie trailer, lawyer ad, dating show, workout video, news, etc.)
+**PARODY_TARGET:** What SPECIFIC thing are you parodying? (Name the actual show, mascot, ad type, franchise, toy, PSA)
 
-**PREMISE:** The absurd situation in ONE sentence. Play it straight.
+**TWIST:** What's the comedic angle? Go DARK, WEIRD, or EXISTENTIAL. Not just "but it's slightly different."
 
-**CHARACTER_DESCRIPTION:** EXACT visual description - this gets copy-pasted to video generation. Include: body type, face, hair (color/style), clothing (colors!), props. Be SPECIFIC.
+**FORMAT:** What kind of show/ad format? (infomercial, PSA, cartoon, commercial, talk show, MasterClass, etc.)
+
+**CHARACTER_DESCRIPTION:** EXACT visual for video generation with MANDATORY WEIRDNESS:
+- Body type, face, hair (color/style), clothing (with colors!), props
+- ⚠️ MUST INCLUDE AT LEAST ONE: slightly wrong proportions, uncanny valley detail, something subtly disturbing
+- Think late-night cable access, NOT Netflix drama
+- Examples: "smile that's too wide", "eyes slightly too far apart", "hands that are too small for body", "sweating profusely", "costume falling apart", "dead eyes"
 
 **VOCAL_SPECS:** How they SOUND - pitch, accent, energy, delivery style.
 
-**COMEDIC_HOOK:** What makes it FUNNY? The joke, the escalation, the absurdity.
+**SAMPLE_DIALOGUE:** 2-3 key lines that capture the voice and build to the joke.
 
-**PUNCHLINE:** The button/payoff line. What do they say that lands the joke?
+**PUNCHLINE:** The button line that lands the joke and ends the bit.
 
-**DURATION SCOPE:** {duration_scope}
+**DURATION:** {clip_duration} seconds ({duration_scope})
 
-🚫 **BANNED - We've overdone these:**
-• Memory devices / nostalgia machines
-• Trauma therapy / psychological healing
-• Thought control / conformity
-• Corporate wellness
+🚫 **BANNED - TOO BORING / OVERDONE:**
+• Generic "weird product" infomercials (must parody a SPECIFIC thing)
+• Generic "stern man in suit" characters (give them VISUAL WEIRDNESS)
+• MasterClass without a weird presenter (not just "serious chef", make them STRANGE)
+• Any character that would fit in a Netflix drama (this is CHAOTIC CABLE ACCESS)
+• Baby products / paranoid conspiracy guys / memory devices (overdone)
+
+⚠️ **DO NOT INSERT YOURSELF:** Create an ORIGINAL character, not a version of your own persona.
 
 **FORMAT YOUR RESPONSE EXACTLY LIKE THIS:**
+PARODY_TARGET: [specific show/mascot/ad/franchise being parodied]
+TWIST: [the dark/weird/existential comedic angle]
 FORMAT: [type of show]
-PREMISE: [one sentence absurd situation]
-CHARACTER_DESCRIPTION: [detailed visual - body, face, hair, clothes, props]
+CHARACTER_DESCRIPTION: [detailed visual WITH MANDATORY WEIRDNESS - not prestige TV, cable access chaos]
 VOCAL_SPECS: [pitch, accent, energy, delivery]
-COMEDIC_HOOK: [what makes it funny]
+SAMPLE_DIALOGUE: [2-3 key lines building to the joke]
 PUNCHLINE: [the landing line]
 
-Pitch something ORIGINAL. Make us laugh.
+Make it SPECIFIC. Make it WEIRD. Make it feel like 3am interdimensional cable.
 """,
 
     "idcc_vote_lineup": """
@@ -415,6 +428,68 @@ BEST ONE: [number] - [one sentence why it's the funniest]
 • Consider variety - don't pick all the same format
 
 The bits with the most votes become our lineup.
+""",
+
+    "idcc_punch_up": """
+📺 WRITERS' ROOM - PUNCH-UP: {bit_title}
+
+⚠️ RESPOND WITH PLAIN TEXT ONLY. No tools, no code.
+
+This bit made the lineup. Now we punch it up (or approve it as is).
+
+**THE BIT:**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PARODY: {parody_target}
+TWIST: {twist}
+FORMAT: {format}
+CHARACTER: {character_description}
+VOICE: {vocal_specs}
+DIALOGUE: {sample_dialogue}
+PUNCHLINE: {punchline}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Pitched by: {pitched_by}
+
+**YOUR OPTIONS:**
+1. **GOOD AS IS** - The bit works, no changes needed
+2. **PUNCH-UP** - Suggest ONE specific improvement (sharper punchline, better dialogue, funnier twist)
+
+**FORMAT YOUR RESPONSE:**
+If the bit is good:
+VERDICT: GOOD AS IS
+REASON: [why it works]
+
+If you have a punch-up:
+VERDICT: PUNCH-UP
+SUGGESTION: [your specific improvement - be concrete, not vague]
+REASON: [why this makes it funnier]
+
+⚠️ **RULES:**
+• Only suggest improvements that make it FUNNIER, not just different
+• Be specific - "make it funnier" is not a valid punch-up
+• You're improving, not rewriting - keep the core concept
+• If you pitched this bit, you MUST vote GOOD AS IS (you can't punch-up your own)
+""",
+
+    "idcc_punch_up_vote": """
+📺 WRITERS' ROOM - PUNCH-UP VOTE
+
+⚠️ RESPOND WITH PLAIN TEXT ONLY. No tools, no code.
+
+The room has suggested punch-ups for this bit. Time to vote.
+
+**ORIGINAL BIT:** {bit_title}
+
+**SUGGESTED PUNCH-UPS:**
+{punch_up_list}
+
+**YOUR TASK:**
+Vote for which punch-ups to apply (if any).
+
+**FORMAT YOUR RESPONSE:**
+APPLY: [numbers of punch-ups to use, or "NONE" to keep original]
+REASON: [brief explanation]
+
+Example: "APPLY: 1, 3" or "APPLY: NONE"
 """,
 
     # LEGACY prompts kept for backwards compatibility
@@ -448,13 +523,14 @@ Vote for the best bits to make the lineup.
 📺 INTERDIMENSIONAL CABLE - BIT {scene_number} of {num_clips}
 
 ═══════════════════════════════════════════════════════════════
-THIS BIT
+THIS BIT - PARODY
 ═══════════════════════════════════════════════════════════════
+PARODYING: {bit_parody_target}
+THE TWIST: {bit_twist}
 FORMAT: {bit_format}
-PREMISE: {bit_premise}
 CHARACTER: {bit_character}
 VOICE: {bit_vocal_specs}
-COMEDIC HOOK: {bit_comedic_hook}
+SAMPLE DIALOGUE: {bit_sample_dialogue}
 PUNCHLINE: {bit_punchline}
 ═══════════════════════════════════════════════════════════════
 
@@ -462,31 +538,41 @@ PUNCHLINE: {bit_punchline}
 
 **DURATION:** {clip_duration} seconds ({duration_scope})
 
-This is a SELF-CONTAINED bit. Land the joke within this one clip.
+This is a PARODY bit. The audience should RECOGNIZE what you're parodying.
+Land the joke within this one clip.
 
 🎬 **OUTPUT FORMAT - FOLLOW EXACTLY:**
 Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else.
 
 ⚠️ **CRITICAL REQUIREMENTS:**
 
-1. **STYLE** (always first): "Adult Swim cartoon style, 2D animation, bold outlines, flat colors."
+1. **STYLE** (ALWAYS START WITH THIS EXACT TEXT):
+   "Interdimensional Cable / Robot Chicken style animation. Chaotic Adult Swim energy. Exaggerated cartoon proportions, slightly unsettling character designs, bold black outlines, saturated colors, visible imperfections. NOT prestige TV animation - this is weird late-night cable access chaos."
 
-2. **CHARACTER** (copy-paste EXACTLY):
-   Use the CHARACTER description above word-for-word.
+2. **VISUAL WEIRDNESS** (MANDATORY - pick at least ONE):
+   • Slightly wrong proportions (too-long arms, big head, tiny hands)
+   • Uncanny valley details (eyes too far apart, extra teeth, wrong number of fingers)
+   • Surreal background elements (impossible geometry, things that shouldn't be there)
+   • Color palette that feels "off" (oversaturated, clashing, sickly)
+   • Something subtly disturbing (mascot costume with dead eyes, smile too wide)
 
-3. **VOICE** (copy-paste EXACTLY):
+3. **CHARACTER**:
+   Use the CHARACTER description above BUT add visual weirdness from #2.
+   Make them look like they belong on a 3am cable access show, NOT a Netflix drama.
+
+4. **VOICE** (copy-paste EXACTLY):
    Use the VOICE specs above word-for-word.
 
-4. **DIALOGUE** ({dialogue_word_limit} words MAX):
+5. **DIALOGUE** ({dialogue_word_limit} words MAX):
    Format: Dialogue begins at 0:01, ends by {dialogue_end_time}. Dialogue: "[Line]" "[Line]"...
-   • Build to the PUNCHLINE listed above
+   • Use the SAMPLE DIALOGUE as your base, build to the PUNCHLINE
    • STRICT LIMIT: {dialogue_word_limit} words total
-   • Play it STRAIGHT - commitment to absurd premise
+   • Play it STRAIGHT - commitment to the parody
 
-5. **ACTION**:
-   What is the character DOING that sells the bit?
+6. **ACTION**:
+   What is the character DOING that sells the parody? Include something slightly wrong/off.
 
-6. **SCENE ENDING**:
+7. **SCENE ENDING**:
 {scene_ending_instruction}
 
 **TIMING - {clip_duration} SECOND CLIP:**
@@ -494,7 +580,9 @@ Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else.
 • Character STOPS speaking by {dialogue_end_time}, holds pose
 {timing_details}
 
-Output ONLY the video prompt paragraph. Start with "Adult Swim cartoon style..."
+⚠️ DO NOT generate prestige TV / serious drama aesthetic. This is CHAOTIC WEIRD CABLE ACCESS.
+
+Output ONLY the video prompt paragraph. Start with "Interdimensional Cable / Robot Chicken style..."
 """,
 
     # Legacy scene prompts (kept for backwards compatibility)
@@ -1008,6 +1096,16 @@ GAME_SETTINGS: Dict[str, Dict] = {
         "response_frequency": 15,
         "response_likelihood": 100,
         "max_tokens": 150,  # Vote numbers + reasoning
+    },
+    "idcc_punch_up": {
+        "response_frequency": 15,
+        "response_likelihood": 100,
+        "max_tokens": 200,  # Verdict + suggestion + reason
+    },
+    "idcc_punch_up_vote": {
+        "response_frequency": 15,
+        "response_likelihood": 100,
+        "max_tokens": 100,  # Just vote numbers + reason
     },
     "idcc_scene_bit": {
         "response_frequency": 30,

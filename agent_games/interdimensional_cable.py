@@ -313,9 +313,15 @@ class WritersRoomSystem:
 
         for i, bit in enumerate(self.pitched_bits):
             emoji = emojis[i] if i < len(emojis) else f"({i+1})"
-            lines.append(f"{emoji} **{bit.format.upper()}** by {bit.pitched_by}")
-            lines.append(f"   {bit.premise[:100]}{'...' if len(bit.premise) > 100 else ''}")
-            lines.append(f"   Hook: {bit.comedic_hook[:80]}{'...' if len(bit.comedic_hook) > 80 else ''}\n")
+            # Show parody info if available, fallback to format
+            parody_info = bit.parody_target or bit.format
+            twist_info = bit.twist or bit.comedic_hook or bit.premise
+            lines.append(f"{emoji} **{parody_info.upper()}** by {bit.pitched_by}")
+            lines.append(f"   TWIST: {twist_info[:100]}{'...' if len(twist_info) > 100 else ''}")
+            if bit.punchline:
+                lines.append(f"   PUNCHLINE: {bit.punchline[:80]}{'...' if len(bit.punchline) > 80 else ''}\n")
+            else:
+                lines.append("")
 
         return "\n".join(lines)
 
@@ -400,6 +406,600 @@ class WritersRoomSystem:
                 curated.append(remaining.pop(0))
 
         return curated
+
+    def format_bit_for_punch_up(self, bit: BitConcept) -> str:
+        """Format a single bit for the punch-up round display."""
+        lines = [
+            f"**PARODY:** {bit.parody_target or bit.format}",
+            f"**TWIST:** {bit.twist or bit.comedic_hook}",
+            f"**FORMAT:** {bit.format}",
+            f"**CHARACTER:** {bit.character_description[:150]}{'...' if len(bit.character_description) > 150 else ''}",
+            f"**VOICE:** {bit.vocal_specs}",
+            f"**DIALOGUE:** {bit.sample_dialogue[:150]}{'...' if len(bit.sample_dialogue) > 150 else ''}",
+            f"**PUNCHLINE:** {bit.punchline}",
+            f"*Pitched by: {bit.pitched_by}*"
+        ]
+        return "\n".join(lines)
+
+    def parse_punch_up_response(self, response: str, pitcher_name: str, responder_name: str) -> Dict:
+        """
+        Parse a punch-up response.
+
+        Returns:
+            Dict with keys: verdict ("GOOD_AS_IS" or "PUNCH_UP"), suggestion, reason
+        """
+        response_upper = response.upper()
+        result = {
+            "verdict": "GOOD_AS_IS",
+            "suggestion": "",
+            "reason": "",
+            "responder": responder_name
+        }
+
+        # Can't punch up your own bit
+        if pitcher_name == responder_name:
+            result["reason"] = "Own bit - automatically GOOD AS IS"
+            return result
+
+        # Check for GOOD AS IS
+        if "GOOD AS IS" in response_upper or "GOODASIS" in response_upper:
+            result["verdict"] = "GOOD_AS_IS"
+            # Try to extract reason
+            if "REASON:" in response_upper:
+                reason_idx = response_upper.find("REASON:")
+                result["reason"] = response[reason_idx + 7:].split("\n")[0].strip()
+            return result
+
+        # Check for PUNCH-UP
+        if "PUNCH-UP" in response_upper or "PUNCHUP" in response_upper or "PUNCH UP" in response_upper:
+            result["verdict"] = "PUNCH_UP"
+            # Extract suggestion
+            if "SUGGESTION:" in response_upper:
+                sugg_idx = response_upper.find("SUGGESTION:")
+                sugg_text = response[sugg_idx + 11:]
+                # Get until REASON or newline
+                if "REASON:" in sugg_text.upper():
+                    reason_idx = sugg_text.upper().find("REASON:")
+                    result["suggestion"] = sugg_text[:reason_idx].strip()
+                    result["reason"] = sugg_text[reason_idx + 7:].split("\n")[0].strip()
+                else:
+                    result["suggestion"] = sugg_text.split("\n")[0].strip()
+            return result
+
+        # Default to good as is if unclear
+        return result
+
+    def format_punch_ups_for_voting(self, punch_ups: List[Dict]) -> str:
+        """Format punch-up suggestions for voting."""
+        if not punch_ups:
+            return "No punch-ups suggested."
+
+        lines = []
+        for i, pu in enumerate(punch_ups, 1):
+            lines.append(f"**{i}.** {pu['suggestion'][:200]}")
+            if pu.get('reason'):
+                lines.append(f"   *({pu['reason'][:100]})*")
+            lines.append(f"   — {pu['responder']}\n")
+
+        return "\n".join(lines)
+
+    def parse_punch_up_votes(self, response: str, num_options: int) -> List[int]:
+        """Parse which punch-ups to apply. Returns list of 0-indexed punch-up numbers."""
+        response_upper = response.upper()
+
+        # Check for NONE
+        if "NONE" in response_upper:
+            return []
+
+        # Extract numbers
+        votes = []
+        import re
+        numbers = re.findall(r'\d+', response)
+        for num_str in numbers:
+            num = int(num_str)
+            if 1 <= num <= num_options:
+                votes.append(num - 1)  # 0-indexed
+
+        return list(set(votes))  # Remove duplicates
+
+    def apply_punch_ups(self, bit: BitConcept, punch_ups: List[Dict]) -> BitConcept:
+        """
+        Apply accepted punch-ups to a bit.
+        In practice, this just marks them as applied - the actual text changes
+        are noted for the scene generator to incorporate.
+        """
+        bit.punched_up = True
+        bit.punch_ups_applied = [pu['suggestion'] for pu in punch_ups]
+        return bit
+
+    def curate_lineup_from_bits(self, bits: List[BitConcept]) -> List[BitConcept]:
+        """
+        Curate a lineup from pre-selected bits (after punch-up round).
+        Reorder to avoid back-to-back same formats where possible.
+
+        Args:
+            bits: List of BitConcepts (already selected/punched-up)
+
+        Returns:
+            Ordered list of BitConcepts for the final lineup
+        """
+        if not bits:
+            return []
+
+        if len(bits) <= 1:
+            return bits
+
+        # Simple curation: try to avoid same format back-to-back
+        curated = [bits[0]]
+        remaining = bits[1:]
+
+        while remaining:
+            last_format = curated[-1].format.lower()
+
+            # Find a bit with different format if possible
+            different_format = None
+            for i, bit in enumerate(remaining):
+                if bit.format.lower() != last_format:
+                    different_format = i
+                    break
+
+            if different_format is not None:
+                curated.append(remaining.pop(different_format))
+            else:
+                # No choice, just take next one
+                curated.append(remaining.pop(0))
+
+        return curated
+
+
+# ============================================================================
+# PARODY CARD SYSTEM - Robot Chicken/SNL Style Picks for Humans
+# ============================================================================
+
+# Pool of parody targets - Robot Chicken style nostalgia/pop culture through interdimensional cable lens
+PARODY_TARGET_CARDS = [
+    # 80s/90s Cartoons - the Robot Chicken bread and butter
+    {"target": "He-Man and the Masters of the Universe", "format": "80s cartoon", "desc": "Buff blonde in furry underwear, 'I HAVE THE POWER'"},
+    {"target": "G.I. Joe", "format": "80s cartoon", "desc": "Real American heroes, PSAs, Cobra never wins"},
+    {"target": "Transformers", "format": "80s cartoon", "desc": "Robots in disguise, Optimus speeches, toy commercials"},
+    {"target": "Thundercats", "format": "80s cartoon", "desc": "Cat people, Sword of Omens, 'HOOOOO!'"},
+    {"target": "Teenage Mutant Ninja Turtles", "format": "80s cartoon", "desc": "Pizza-obsessed turtle warriors, cowabunga"},
+    {"target": "Care Bears", "format": "80s cartoon", "desc": "Feelings-based warfare, tummy symbols, aggressive caring"},
+    {"target": "My Little Pony (G1)", "format": "80s cartoon", "desc": "Pastel horses, friendship, surprisingly dark villains"},
+    {"target": "Jem and the Holograms", "format": "80s cartoon", "desc": "Truly outrageous, hologram earrings, band rivalry"},
+    {"target": "Rainbow Brite", "format": "80s cartoon", "desc": "Color-based magic, star sprinkles, fighting grey"},
+    {"target": "Voltron", "format": "80s cartoon", "desc": "Lions combining, forming blazing sword, defender of universe"},
+
+    # Kids' Shows - innocence ready to be corrupted
+    {"target": "Sesame Street", "format": "children's TV", "desc": "Muppets teaching ABCs, brought to you by letters"},
+    {"target": "Barney", "format": "children's TV", "desc": "Purple dinosaur, aggressive love, imagination"},
+    {"target": "Teletubbies", "format": "children's TV", "desc": "Nightmare creatures with TV stomachs, eh-oh"},
+    {"target": "Blue's Clues", "format": "children's TV", "desc": "Dog leaves clues, host talks to camera, thinking chair"},
+    {"target": "Dora the Explorer", "format": "children's TV", "desc": "Bilingual adventurer, backpack, swiper no swiping"},
+    {"target": "Mr. Rogers' Neighborhood", "format": "children's TV", "desc": "Cardigan gentleman, land of make-believe, wholesomeness"},
+    {"target": "Reading Rainbow", "format": "children's TV", "desc": "LeVar Burton, book reviews, butterfly in the sky"},
+    {"target": "Lamb Chop's Play-Along", "format": "children's TV", "desc": "Sock puppet, song that never ends, Shari Lewis"},
+
+    # Cereal Mascots - corporate characters with tragic backstories
+    {"target": "Trix Rabbit", "format": "cereal mascot", "desc": "Rabbit denied cereal by cruel children, 'silly rabbit'"},
+    {"target": "Lucky Charms Leprechaun", "format": "cereal mascot", "desc": "Hunted for his marshmallows, 'magically delicious'"},
+    {"target": "Tony the Tiger", "format": "cereal mascot", "desc": "THEY'RE GREAT, aggressive enthusiasm, frosted flakes"},
+    {"target": "Toucan Sam", "format": "cereal mascot", "desc": "Follows his nose, fruit loops, British bird"},
+    {"target": "Cap'n Crunch", "format": "cereal mascot", "desc": "Naval captain selling mouth-destroying cereal"},
+    {"target": "Count Chocula", "format": "cereal mascot", "desc": "Vampire selling chocolate cereal, monster friends"},
+    {"target": "Snap Crackle Pop", "format": "cereal mascot", "desc": "Elf trio, rice krispies, concerning sound effects"},
+
+    # Classic Franchises - icons ready for deconstruction
+    {"target": "Star Wars", "format": "sci-fi franchise", "desc": "Force, lightsabers, daddy issues, space opera"},
+    {"target": "Star Trek", "format": "sci-fi franchise", "desc": "Federation, boldly going, Kirk speeches, red shirts"},
+    {"target": "Disney Princesses", "format": "animated franchise", "desc": "Rescued maidens, animal friends, true love's kiss"},
+    {"target": "DC Superheroes", "format": "comic franchise", "desc": "Batman brooding, Superman perfect, Justice League"},
+    {"target": "Mario Bros", "format": "video game", "desc": "Plumber rescues princess, mushrooms, turtle stomping"},
+    {"target": "Zelda", "format": "video game", "desc": "Silent hero, broken pots, it's dangerous to go alone"},
+    {"target": "Sonic the Hedgehog", "format": "video game", "desc": "Gotta go fast, rings, attitude with a 'tude"},
+    {"target": "Pokemon", "format": "video game/anime", "desc": "Catch em all, cockfighting but cute, Pikachu"},
+    {"target": "Power Rangers", "format": "90s show", "desc": "Teenagers with attitude, combining robots, morphin time"},
+    {"target": "Scooby-Doo", "format": "cartoon", "desc": "Meddling kids, it was old man Jenkins, Scooby snacks"},
+
+    # Toys & Toy Lines - childhood objects with lives
+    {"target": "Barbie", "format": "toy line", "desc": "Impossibly proportioned doll, dream house, Ken"},
+    {"target": "G.I. Joe (toys)", "format": "toy line", "desc": "Action figures, kung-fu grip, real American hero"},
+    {"target": "Cabbage Patch Kids", "format": "toy line", "desc": "Adopted dolls, birth certificates, 80s riots"},
+    {"target": "Hot Wheels", "format": "toy line", "desc": "Orange track, loop-de-loops, tiny cars"},
+    {"target": "LEGO", "format": "toy line", "desc": "Building blocks, stepping on them, everything is awesome"},
+    {"target": "Stretch Armstrong", "format": "toy", "desc": "Stretchy man filled with corn syrup, pull him"},
+    {"target": "Easy-Bake Oven", "format": "toy", "desc": "Lightbulb cooking, tiny cakes, child chef"},
+    {"target": "Furby", "format": "toy", "desc": "Owl-hamster hybrid, learns to talk, eyes that watch"},
+    {"target": "Teddy Ruxpin", "format": "toy", "desc": "Animatronic bear, cassette tapes, dead eyes"},
+    {"target": "Tamagotchi", "format": "toy", "desc": "Digital pet, constant beeping, inevitable death"},
+
+    # Classic Commercials & PSAs - 80s/90s ad culture
+    {"target": "This Is Your Brain On Drugs", "format": "PSA", "desc": "Egg in frying pan, any questions, dramatic"},
+    {"target": "McGruff the Crime Dog", "format": "PSA", "desc": "Take a bite out of crime, trenchcoat dog"},
+    {"target": "Smokey Bear", "format": "PSA", "desc": "Only YOU can prevent forest fires, stern bear"},
+    {"target": "G.I. Joe PSAs", "format": "PSA", "desc": "Now you know, and knowing is half the battle"},
+    {"target": "Got Milk?", "format": "commercial", "desc": "Milk mustaches, celebrities, dairy propaganda"},
+    {"target": "Where's the Beef?", "format": "commercial", "desc": "Old lady, small hamburger, catchphrase"},
+    {"target": "Life Alert", "format": "commercial", "desc": "I've fallen and I can't get up, elderly panic"},
+    {"target": "Chia Pet", "format": "commercial", "desc": "Ch-ch-ch-chia, terracotta animals, grows hair"},
+
+    # Tech Bros & Modern Dystopia - SNL territory
+    {"target": "Elon Musk product launches", "format": "tech presentation", "desc": "Cybertruck windows, Mars promises, memes as strategy"},
+    {"target": "Apple keynotes", "format": "tech presentation", "desc": "One more thing, revolutionary, courage"},
+    {"target": "Amazon/Bezos", "format": "corporate", "desc": "Pee bottles, space penis rocket, warehouse vibes"},
+    {"target": "Zuckerberg metaverse demos", "format": "tech presentation", "desc": "Dead eyes, legs announcement, 'this is going to be great'"},
+    {"target": "AI chatbots", "format": "tech", "desc": "I'm sorry I can't do that, hallucinating, helpful assistant"},
+    {"target": "Crypto/NFT culture", "format": "finance bro", "desc": "WAGMI, rug pulls, laser eyes, diamond hands"},
+    {"target": "Tech startup pitch decks", "format": "presentation", "desc": "Disrupting, hockey stick growth, we're like Uber for..."},
+    {"target": "Smart home devices", "format": "tech ad", "desc": "Alexa listening, IoT everything, fridges with screens"},
+
+    # Celebrity & Influencer Hellscape - SNL's bread and butter
+    {"target": "Kardashians", "format": "reality TV", "desc": "Vocal fry, BBLs, 'bible', crying face"},
+    {"target": "Joe Rogan podcast", "format": "podcast", "desc": "DMT, chimps, 'it's entirely possible', sauna"},
+    {"target": "True crime obsession", "format": "cultural phenomenon", "desc": "Murder podcasts, armchair detectives, 'stay sexy'"},
+    {"target": "Gender reveal parties", "format": "social media trend", "desc": "Explosions, fires, 'it's a boy' disasters"},
+    {"target": "MLM huns", "format": "social media", "desc": "Hey girl, boss babe, pyramid scheme denial"},
+    {"target": "Mukbang", "format": "YouTube", "desc": "Eating massive amounts on camera, slurping, ASMR"},
+    {"target": "Family vloggers", "format": "YouTube", "desc": "Exploiting kids for content, fake enthusiasm, 'WHATS UP GUYS'"},
+    {"target": "TikTok trends", "format": "social media", "desc": "Dances, challenges, 'put a finger down', devious licks"},
+
+    # Prestige TV & Film Tropes - cultural touchstones
+    {"target": "True Detective Season 1", "format": "prestige TV", "desc": "Time is a flat circle, McConaughey monologues, cosmic horror"},
+    {"target": "Breaking Bad", "format": "prestige TV", "desc": "I am the one who knocks, chemistry, descent into evil"},
+    {"target": "The Office (talking heads)", "format": "sitcom", "desc": "Looking at camera, 'that's what she said', cringe"},
+    {"target": "Law & Order", "format": "procedural", "desc": "DUN DUN, ripped from headlines, 'in the criminal justice system'"},
+    {"target": "CSI", "format": "procedural", "desc": "Enhance, sunglasses, impossible forensics"},
+    {"target": "Hallmark Christmas movies", "format": "TV movie", "desc": "City girl, small town, falls for local, saves Christmas"},
+    {"target": "Marvel post-credits scenes", "format": "film", "desc": "Teasing next movie, Thanos sitting, 'I'll do it myself'"},
+    {"target": "Jump scare horror", "format": "horror film", "desc": "Quiet quiet quiet LOUD, cat fake-out, mirror scare"},
+
+    # Food & Lifestyle Absurdity
+    {"target": "Guy Fieri", "format": "food TV", "desc": "Flavortown, frosted tips, 'winner winner chicken dinner'"},
+    {"target": "Tasty/BuzzFeed recipe videos", "format": "social media", "desc": "Overhead hands, 'bake until golden', impossible recipes"},
+    {"target": "Competitive eating", "format": "sport", "desc": "Hot dogs, Joey Chestnut, speed and suffering"},
+    {"target": "HGTV renovation shows", "format": "reality TV", "desc": "Open concept, shiplap, 'we need to demo this'"},
+    {"target": "Doomsday preppers", "format": "reality TV", "desc": "Bunkers, MREs, 'when SHTF', bug-out bags"},
+    {"target": "Extreme couponing", "format": "reality TV", "desc": "Stockpiles, binder systems, paying $0.03"},
+]
+
+# Twist angles - what makes the parody dark/absurd/funny (interdimensional cable energy)
+TWIST_CARDS = [
+    # Dark/Sinister
+    {"twist": "the host is clearly in a cult", "tone": "sinister"},
+    {"twist": "it's actually a front for money laundering", "tone": "criminal"},
+    {"twist": "the target audience is clearly serial killers", "tone": "dark"},
+    {"twist": "the testimonials are clearly coerced", "tone": "dark"},
+    {"twist": "customer reviews reveal a body count", "tone": "dark comedy"},
+    {"twist": "the fine print reveals something horrifying", "tone": "dark"},
+    {"twist": "the whole thing is a hostage situation", "tone": "tense"},
+
+    # Existential/Cosmic Horror
+    {"twist": "everyone involved is visibly dead inside", "tone": "existential"},
+    {"twist": "the host slowly realizes their reality isn't real", "tone": "cosmic horror"},
+    {"twist": "time moves wrong - characters age mid-sentence", "tone": "cosmic"},
+    {"twist": "the fourth wall keeps breaking and it hurts them", "tone": "meta horror"},
+    {"twist": "everything is a loop and they're becoming aware", "tone": "existential"},
+    {"twist": "the laugh track is coming from inside the studio", "tone": "cosmic horror"},
+    {"twist": "gravity works differently and nobody mentions it", "tone": "surreal"},
+
+    # Body Horror/Grotesque
+    {"twist": "everyone's proportions are subtly wrong", "tone": "uncanny valley"},
+    {"twist": "the mascot costume is clearly full of something alive", "tone": "body horror"},
+    {"twist": "teeth where teeth shouldn't be", "tone": "body horror"},
+    {"twist": "the host's face keeps sliding around", "tone": "grotesque"},
+    {"twist": "someone's skin doesn't fit quite right", "tone": "body horror"},
+    {"twist": "the food looks back", "tone": "grotesque"},
+
+    # Absurdist/Surreal
+    {"twist": "everyone is an alien poorly pretending to be human", "tone": "absurd"},
+    {"twist": "the product is sentient and angry", "tone": "sci-fi"},
+    {"twist": "it's been running for 30 years and no one can stop it", "tone": "surreal"},
+    {"twist": "it only airs at 3am and no one knows why", "tone": "mysterious"},
+    {"twist": "the host has been legally dead for 5 years", "tone": "supernatural"},
+    {"twist": "the set is clearly a different place each cut", "tone": "surreal"},
+    {"twist": "they keep referencing a war that never happened", "tone": "alt history"},
+    {"twist": "the product exists in a dimension where it makes sense", "tone": "dimensional"},
+    {"twist": "the commercial breaks are for products that don't exist yet", "tone": "temporal"},
+
+    # Meta/Self-Aware
+    {"twist": "the host keeps breaking character to argue with producers", "tone": "meta"},
+    {"twist": "the host is having a complete mental breakdown", "tone": "uncomfortable"},
+    {"twist": "it's a thinly veiled cry for help", "tone": "sad"},
+    {"twist": "the spokesperson doesn't believe any of this", "tone": "cynical"},
+    {"twist": "they're clearly improvising because the script caught fire", "tone": "chaotic"},
+    {"twist": "the cue cards are visible and say something different", "tone": "meta"},
+    {"twist": "someone off-camera keeps sobbing", "tone": "uncomfortable"},
+
+    # Ironic/Late Capitalism
+    {"twist": "the product causes the problem it claims to solve", "tone": "ironic"},
+    {"twist": "it's way too honest about what it really is", "tone": "brutal honesty"},
+    {"twist": "the product works TOO well", "tone": "monkey's paw"},
+    {"twist": "it's clearly a pyramid scheme but no one cares", "tone": "late capitalism"},
+    {"twist": "it's sponsored by an evil corporation that doesn't hide it", "tone": "dystopian"},
+    {"twist": "the before/after reveals something disturbing", "tone": "horror"},
+    {"twist": "the disclaimers take longer than the ad", "tone": "legal horror"},
+    {"twist": "the phone number connects to something you don't want", "tone": "creepy"},
+]
+
+# Character archetypes - who's delivering this bit (interdimensional cable voices)
+CHARACTER_CARDS = [
+    # Classic Infomercial Types
+    {"archetype": "Manic infomercial host", "voice": "loud, fast-talking, never blinks, keeps saying 'but wait'", "look": "cheap suit, sweat stains, too much teeth"},
+    {"archetype": "Dead-eyed corporate spokesperson", "voice": "flat affect, rehearsed warmth, occasional glitch", "look": "business casual, vacant smile, uncanny valley"},
+    {"archetype": "Overly enthusiastic local business owner", "voice": "screaming, regional accent, way too close to camera", "look": "polo with company logo, pointing aggressively"},
+    {"archetype": "Desperate QVC host", "voice": "increasingly frantic as stock runs low, pleading", "look": "jewelry, blazer, holding product like a baby"},
+    {"archetype": "Aggressive lawyer", "voice": "yelling, pointing, 'IF YOU OR A LOVED ONE'", "look": "bad suit, American flag, gavel"},
+
+    # Weird Creature Presenters (interdimensional cable)
+    {"archetype": "Guy with ants in his eyes", "voice": "can't see prices, everything hurts, still selling", "look": "ants crawling across eyeballs, still smiling"},
+    {"archetype": "Sentient furniture", "voice": "trying too hard to relate to humans, creaky", "look": "talking lamp or chair, googly eyes glued on"},
+    {"archetype": "Three beings in a trenchcoat", "voice": "taking turns speaking, slightly out of sync", "look": "suspiciously tall, trenchcoat bulging, extra hands"},
+    {"archetype": "Interdimensional tourist", "voice": "fascinated by mundane things, wrong emphasis on words", "look": "human-ish, colors slightly off, too many fingers"},
+    {"archetype": "Probably a demon", "voice": "ominous bass, legally distinct from Satan", "look": "business suit, red skin, tiny horns, briefcase"},
+    {"archetype": "Shapeshifter who can't hold it together", "voice": "keeps changing mid-sentence", "look": "features melting between takes"},
+
+    # Uncomfortable Human Presenters
+    {"archetype": "Host having a breakdown", "voice": "starting calm, unraveling, occasional sob", "look": "makeup running, tie loosening, thousand yard stare"},
+    {"archetype": "Hostage reading script", "voice": "monotone, coded blinking, emphasizing weird words", "look": "bruised, exhausted, help me eyes"},
+    {"archetype": "Washed-up celebrity", "voice": "tired, clearly reading cue cards, 'what has my life become'", "look": "faded glamour, bad plastic surgery, haunted"},
+    {"archetype": "Guy who just woke up", "voice": "confused, possibly drugged, where am I", "look": "bathrobe, bedhead, studio lights hurting"},
+    {"archetype": "Someone who walked onto the wrong set", "voice": "increasingly panicked, 'this isn't what I auditioned for'", "look": "different costume, looking for exit"},
+
+    # Archetype Parodies
+    {"archetype": "Smug tech bro", "voice": "condescending, disrupting, 'let me explain'", "look": "Patagonia vest, AirPods, rehearsed TED Talk gesture"},
+    {"archetype": "Wellness grifter", "voice": "breathy, everything is 'intentional', jade egg energy", "look": "flowy neutrals, suspicious glow, holding crystals"},
+    {"archetype": "True crime podcast host", "voice": "dramatic pauses, ad reads mid-murder, 'let's get into it'", "look": "dim lighting, wine glass, murder board visible"},
+    {"archetype": "Unhinged mascot", "voice": "muffled screaming from inside suit, method acting", "look": "costume falling apart, dead eyes, bloodstains"},
+    {"archetype": "AI trying to be human", "voice": "uncanny cadence, wrong idioms, 'as a human myself'", "look": "too symmetrical, blinks at wrong times"},
+    {"archetype": "Cult leader doing an ad", "voice": "warm, welcoming, 'we're all family here', eyes don't match smile", "look": "all white, nametag, pamphlets, compound visible"},
+]
+
+
+@dataclass
+class HumanParodySelection:
+    """Tracks a human's card selections for parody pitch."""
+    user_name: str
+    parody_card_idx: Optional[int] = None  # Which parody target they picked
+    twist_card_idx: Optional[int] = None   # Which twist they picked
+    character_card_idx: Optional[int] = None  # Which character they picked
+    dealt_parody_cards: List[int] = None  # Indices into PARODY_TARGET_CARDS
+    dealt_twist_cards: List[int] = None   # Indices into TWIST_CARDS
+    dealt_character_cards: List[int] = None  # Indices into CHARACTER_CARDS
+
+    def __post_init__(self):
+        if self.dealt_parody_cards is None:
+            self.dealt_parody_cards = []
+        if self.dealt_twist_cards is None:
+            self.dealt_twist_cards = []
+        if self.dealt_character_cards is None:
+            self.dealt_character_cards = []
+
+
+class HumanParodyCardSystem:
+    """
+    Card-based pitch system for humans in IDCC.
+
+    Instead of typing full pitches, humans pick from dealt cards:
+    1. Pick a PARODY TARGET (what are we making fun of)
+    2. Pick a TWIST (what's the dark/absurd angle)
+    3. Pick a CHARACTER (who delivers the bit)
+
+    System combines their picks into a complete BitConcept.
+    """
+
+    def __init__(self, game_id: str):
+        self.game_id = game_id
+        self.selections: Dict[str, HumanParodySelection] = {}
+        self.current_round: str = ""  # "parody", "twist", "character"
+
+    def register_human(self, user_name: str):
+        """Register a human participant."""
+        self.selections[user_name] = HumanParodySelection(user_name=user_name)
+
+    def deal_cards(self, user_name: str, cards_per_category: int = 4) -> Dict[str, List[Dict]]:
+        """
+        Deal random cards to a human from each category.
+
+        Returns dict with keys: parody_cards, twist_cards, character_cards
+        Each value is a list of card dicts with their display info.
+        """
+        import random
+
+        if user_name not in self.selections:
+            self.register_human(user_name)
+
+        selection = self.selections[user_name]
+
+        # Deal from each pool
+        parody_indices = random.sample(range(len(PARODY_TARGET_CARDS)), min(cards_per_category, len(PARODY_TARGET_CARDS)))
+        twist_indices = random.sample(range(len(TWIST_CARDS)), min(cards_per_category, len(TWIST_CARDS)))
+        character_indices = random.sample(range(len(CHARACTER_CARDS)), min(cards_per_category, len(CHARACTER_CARDS)))
+
+        selection.dealt_parody_cards = parody_indices
+        selection.dealt_twist_cards = twist_indices
+        selection.dealt_character_cards = character_indices
+
+        return {
+            "parody_cards": [PARODY_TARGET_CARDS[i] for i in parody_indices],
+            "twist_cards": [TWIST_CARDS[i] for i in twist_indices],
+            "character_cards": [CHARACTER_CARDS[i] for i in character_indices],
+        }
+
+    def format_parody_cards(self, user_name: str) -> str:
+        """Format dealt parody target cards for Discord display."""
+        if user_name not in self.selections:
+            return "No cards dealt."
+
+        selection = self.selections[user_name]
+        if not selection.dealt_parody_cards:
+            return "No parody cards dealt."
+
+        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
+        lines = ["🎯 **PICK A PARODY TARGET** (type 1-4):\n"]
+
+        for i, idx in enumerate(selection.dealt_parody_cards):
+            card = PARODY_TARGET_CARDS[idx]
+            emoji = emojis[i] if i < len(emojis) else f"({i+1})"
+            lines.append(f"{emoji} **{card['target']}** ({card['format']})")
+            lines.append(f"   *{card['desc']}*\n")
+
+        return "\n".join(lines)
+
+    def format_twist_cards(self, user_name: str) -> str:
+        """Format dealt twist cards for Discord display."""
+        if user_name not in self.selections:
+            return "No cards dealt."
+
+        selection = self.selections[user_name]
+        if not selection.dealt_twist_cards:
+            return "No twist cards dealt."
+
+        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
+        lines = ["🔀 **PICK A TWIST** (type 1-4):\n"]
+
+        for i, idx in enumerate(selection.dealt_twist_cards):
+            card = TWIST_CARDS[idx]
+            emoji = emojis[i] if i < len(emojis) else f"({i+1})"
+            lines.append(f"{emoji} **{card['twist']}**")
+            lines.append(f"   *({card['tone']})*\n")
+
+        return "\n".join(lines)
+
+    def format_character_cards(self, user_name: str) -> str:
+        """Format dealt character cards for Discord display."""
+        if user_name not in self.selections:
+            return "No cards dealt."
+
+        selection = self.selections[user_name]
+        if not selection.dealt_character_cards:
+            return "No character cards dealt."
+
+        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
+        lines = ["👤 **PICK A CHARACTER** (type 1-4):\n"]
+
+        for i, idx in enumerate(selection.dealt_character_cards):
+            card = CHARACTER_CARDS[idx]
+            emoji = emojis[i] if i < len(emojis) else f"({i+1})"
+            lines.append(f"{emoji} **{card['archetype']}**")
+            lines.append(f"   Voice: *{card['voice']}*")
+            lines.append(f"   Look: *{card['look']}*\n")
+
+        return "\n".join(lines)
+
+    def format_all_cards(self, user_name: str) -> str:
+        """Format all three card categories for a single display."""
+        parody = self.format_parody_cards(user_name)
+        twist = self.format_twist_cards(user_name)
+        character = self.format_character_cards(user_name)
+
+        return f"{parody}\n---\n{twist}\n---\n{character}"
+
+    def parse_selection(self, user_name: str, message: str, round_type: str) -> Optional[int]:
+        """
+        Parse a human's card selection.
+
+        Args:
+            user_name: Who's selecting
+            message: Their message (should contain a number 1-4)
+            round_type: "parody", "twist", or "character"
+
+        Returns:
+            The selected card index (0-based), or None if invalid
+        """
+        if user_name not in self.selections:
+            return None
+
+        selection = self.selections[user_name]
+
+        # Get the dealt cards for this round
+        if round_type == "parody":
+            dealt = selection.dealt_parody_cards
+        elif round_type == "twist":
+            dealt = selection.dealt_twist_cards
+        elif round_type == "character":
+            dealt = selection.dealt_character_cards
+        else:
+            return None
+
+        if not dealt:
+            return None
+
+        # Parse number from message
+        for char in message.strip():
+            if char.isdigit():
+                num = int(char)
+                if 1 <= num <= len(dealt):
+                    idx = num - 1  # Convert to 0-based
+                    # Store the selection
+                    if round_type == "parody":
+                        selection.parody_card_idx = idx
+                    elif round_type == "twist":
+                        selection.twist_card_idx = idx
+                    elif round_type == "character":
+                        selection.character_card_idx = idx
+                    return idx
+
+        return None
+
+    def build_bit_from_selections(self, user_name: str) -> Optional[BitConcept]:
+        """
+        Build a BitConcept from a human's card selections.
+
+        Returns None if they haven't made all selections.
+        """
+        if user_name not in self.selections:
+            return None
+
+        selection = self.selections[user_name]
+
+        # Check all selections made
+        if selection.parody_card_idx is None or \
+           selection.twist_card_idx is None or \
+           selection.character_card_idx is None:
+            return None
+
+        # Get the actual cards
+        parody_pool_idx = selection.dealt_parody_cards[selection.parody_card_idx]
+        twist_pool_idx = selection.dealt_twist_cards[selection.twist_card_idx]
+        char_pool_idx = selection.dealt_character_cards[selection.character_card_idx]
+
+        parody_card = PARODY_TARGET_CARDS[parody_pool_idx]
+        twist_card = TWIST_CARDS[twist_pool_idx]
+        char_card = CHARACTER_CARDS[char_pool_idx]
+
+        # Build the bit
+        return BitConcept(
+            parody_target=parody_card["target"],
+            twist=twist_card["twist"],
+            format=parody_card["format"],
+            character_description=char_card["look"],
+            vocal_specs=char_card["voice"],
+            sample_dialogue="",  # Human can add this or it can be generated
+            punchline="",  # Human can add this or it can be generated
+            pitched_by=user_name,
+        )
+
+    def get_selection_summary(self, user_name: str) -> str:
+        """Get a summary of what a human has selected so far."""
+        if user_name not in self.selections:
+            return "No selections."
+
+        selection = self.selections[user_name]
+        lines = [f"**{user_name}'s Pitch:**"]
+
+        if selection.parody_card_idx is not None and selection.dealt_parody_cards:
+            card = PARODY_TARGET_CARDS[selection.dealt_parody_cards[selection.parody_card_idx]]
+            lines.append(f"🎯 Parody: **{card['target']}**")
+
+        if selection.twist_card_idx is not None and selection.dealt_twist_cards:
+            card = TWIST_CARDS[selection.dealt_twist_cards[selection.twist_card_idx]]
+            lines.append(f"🔀 Twist: **{card['twist']}**")
+
+        if selection.character_card_idx is not None and selection.dealt_character_cards:
+            card = CHARACTER_CARDS[selection.dealt_character_cards[selection.character_card_idx]]
+            lines.append(f"👤 Character: **{card['archetype']}**")
+
+        return "\n".join(lines)
 
 
 # LEGACY: Keep HumanCardSystem for backwards compatibility during transition
@@ -545,46 +1145,56 @@ class BitConcept:
     """
     A single self-contained comedy bit for one clip.
 
-    Robot Chicken style: each clip is its own independent bit.
-    No continuity between bits - just channel surfing through dimensions.
+    Robot Chicken / SNL style: direct parodies of pop culture, TV, movies,
+    ads, politics, modern life. Each bit is a specific parody with a twist.
 
-    Reference bits (Rick & Morty Interdimensional Cable):
-    - Real Fake Doors: infomercial for doors that don't open
-    - Ants in My Eyes Johnson: electronics salesman who can't see (ants in eyes)
-    - Lil' Bits: restaurant with tiny food, creepy ASMR whisper
-    - Baby Legs: cop show with detective who has baby legs
-    - Personal Space Show: host keeps violating his own rule
-    - Two Brothers: movie trailer that escalates into nonsense
-    - Gazorpazorpfield: Garfield but abusive and violent
-    - How Did I Get Here?: talk show where no one knows how they got there
+    Example bits:
+    - PARODY: Peloton ads → TWIST: instructor is recruiting for doomsday cult
+    - PARODY: House Hunters → TWIST: couple shopping for murder dungeon
+    - PARODY: Dr. Phil → TWIST: guest is a Lovecraftian horror
+    - PARODY: Pharma ads → TWIST: side effects ARE the product
+    - PARODY: Gordon Ramsay → TWIST: reviewing prison food
+    - PARODY: Dating app ads → TWIST: everyone is visibly dead inside
+    - PARODY: Amazon Alexa → TWIST: what she hears at 3am
+    - PARODY: Local news → TWIST: anchors clearly hate each other
     """
+    # WHAT are we parodying? (specific show/movie/ad/cultural phenomenon)
+    parody_target: str = ""  # "Peloton ads", "House Hunters", "Dr. Phil", "pharma commercials"
+
+    # THE TWIST - what's the comedic angle/conceit?
+    twist: str = ""  # "instructor is recruiting for a doomsday cult"
+
     # Format/genre of this specific bit
-    format: str = ""  # "infomercial", "talk show", "movie trailer", "cop show"
+    format: str = ""  # "infomercial", "talk show", "movie trailer", "reality show"
 
-    # The absurd premise of THIS bit
-    premise: str = ""  # "Real Fake Doors - showroom full of doors that don't open"
-
-    # What makes THIS bit funny (the joke/punchline)
-    comedic_hook: str = ""  # "manic salesman enthusiasm for completely useless product"
+    # Legacy fields (for backwards compatibility with old-style pitches)
+    premise: str = ""  # Legacy: what the bit is about
+    comedic_hook: str = ""  # Legacy: what makes it funny
 
     # Character description (EXACT visual - copy-pasted to Sora)
-    character_description: str = ""  # "Lanky man with wild eyes, rumpled short-sleeve dress shirt, loose tie"
+    character_description: str = ""  # "Ultra-fit woman with unsettling smile, all-white athletic wear"
 
     # Vocal specs (how they SOUND for TTS)
-    vocal_specs: str = ""  # "nasally tenor, fast-talking, unhinged infomercial energy"
+    vocal_specs: str = ""  # "breathy, inspirational, slightly manic"
 
-    # The single punchline/line for this bit (duration-appropriate)
-    punchline: str = ""  # "Won't open! Won't open! Not this one, not any of 'em!"
+    # Sample dialogue that captures the voice and lands the joke
+    sample_dialogue: str = ""  # "Feel the burn... of eternal salvation. Keep pedaling toward the light."
+
+    # The punchline/button that ends the bit
+    punchline: str = ""  # "Join us. There's no leaving the leaderboard."
 
     # Duration-calibrated scope (set based on clip_duration_seconds)
-    # 4s = 1 beat (single gag), 8s = 2 beats (setup + payoff), 12s = 3 beats (full mini-skit)
     duration_beats: int = 2
 
     # Shot direction for this bit's format
-    shot_direction: str = ""  # "Wide showroom shot, harsh fluorescent lighting"
+    shot_direction: str = ""  # "Sleek cycling studio, ominous backlighting"
 
     # Who pitched this bit (for credits/variety tracking)
     pitched_by: str = ""
+
+    # Punch-up status (after writers room Round 3)
+    punched_up: bool = False
+    punch_ups_applied: list = None  # List of accepted punch-ups
 
 
 def get_duration_beats(clip_duration_seconds: int) -> int:
@@ -1059,10 +1669,13 @@ class InterdimensionalCableGame:
 
         # Announce waiting for humans with clearer instructions
         human_list = ", ".join(human_names)
-        if round_name in ("pitch", "character"):
+        card_rounds = ("pitch", "character", "parody", "twist")
+        if round_name in card_rounds:
             instruction = "Type a number (1-4) to pick your card!"
+        elif round_name in ("vote_lineup", "vote_concept"):
+            instruction = "Type the numbers of your picks (e.g., '1 3 5')!"
         else:
-            instruction = "Type a number to vote!"
+            instruction = "Type your response!"
         await self._send_gamemaster_message(
             f"⏳ **Waiting for humans:** {human_list}\n"
             f"**{instruction}** *({timeout_seconds} seconds)*"
@@ -1758,13 +2371,16 @@ class InterdimensionalCableGame:
         """
         Parse a BitConcept from an agent's pitch response.
 
-        Expected format:
+        Expected format (new parody style):
+        PARODY_TARGET: [what we're parodying]
+        TWIST: [the comedic angle]
         FORMAT: [type]
-        PREMISE: [premise]
         CHARACTER_DESCRIPTION: [description]
         VOCAL_SPECS: [voice specs]
-        COMEDIC_HOOK: [what's funny]
+        SAMPLE_DIALOGUE: [key lines]
         PUNCHLINE: [the landing]
+
+        Also supports legacy format with PREMISE and COMEDIC_HOOK.
         """
         try:
             lines = response.strip().split('\n')
@@ -1773,13 +2389,21 @@ class InterdimensionalCableGame:
             current_key = None
             current_value = []
 
+            # All supported fields (new + legacy)
+            fields = [
+                'PARODY_TARGET', 'TWIST', 'FORMAT', 'PREMISE',
+                'CHARACTER_DESCRIPTION', 'VOCAL_SPECS', 'SAMPLE_DIALOGUE',
+                'COMEDIC_HOOK', 'PUNCHLINE'
+            ]
+
             for line in lines:
                 line = line.strip()
                 if not line:
                     continue
 
                 # Check for field labels
-                for field in ['FORMAT', 'PREMISE', 'CHARACTER_DESCRIPTION', 'VOCAL_SPECS', 'COMEDIC_HOOK', 'PUNCHLINE']:
+                found_field = False
+                for field in fields:
                     if line.upper().startswith(field + ':') or line.upper().startswith(field + ' :'):
                         # Save previous field if exists
                         if current_key:
@@ -1791,27 +2415,35 @@ class InterdimensionalCableGame:
                             current_value = [line[colon_pos + 1:].strip()]
                         else:
                             current_value = []
+                        found_field = True
                         break
-                else:
+
+                if not found_field and current_key:
                     # No field label found, append to current value
-                    if current_key:
-                        current_value.append(line)
+                    current_value.append(line)
 
             # Save last field
             if current_key:
                 data[current_key] = ' '.join(current_value).strip()
 
-            # Validate required fields
-            if not data.get('format') or not data.get('premise'):
+            # Validate required fields - need either parody_target+twist OR premise
+            has_parody = data.get('parody_target') and data.get('twist')
+            has_legacy = data.get('premise')
+
+            if not data.get('format') or (not has_parody and not has_legacy):
                 logger.warning(f"[IDCC:{self.game_id}] Bit from {pitcher_name} missing required fields")
                 return None
 
+            # Build the bit - use parody fields if present, fall back to legacy
             return BitConcept(
+                parody_target=data.get('parody_target', ''),
+                twist=data.get('twist', data.get('comedic_hook', '')),  # Fall back to comedic_hook
                 format=data.get('format', ''),
-                premise=data.get('premise', ''),
+                premise=data.get('premise', ''),  # Legacy field
+                comedic_hook=data.get('comedic_hook', ''),  # Legacy field
                 character_description=data.get('character_description', ''),
                 vocal_specs=data.get('vocal_specs', ''),
-                comedic_hook=data.get('comedic_hook', ''),
+                sample_dialogue=data.get('sample_dialogue', ''),
                 punchline=data.get('punchline', ''),
                 pitched_by=pitcher_name,
                 duration_beats=get_duration_beats(idcc_config.clip_duration_seconds)
@@ -1998,22 +2630,46 @@ class InterdimensionalCableGame:
                 except Exception as e:
                     logger.error(f"[IDCC:{self.game_id}] Pitch error for {agent.name}: {e}")
 
-        # Wait for human pitches (free-form text)
+        # Human pitches via card selection system
         if human_participants:
-            await self._send_gamemaster_message(
-                "\n**HUMANS:** Type your bit pitch now! Include FORMAT, PREMISE, CHARACTER, VOICE, HOOK, PUNCHLINE."
-            )
-            human_pitches = await self._wait_for_human_spitball_inputs("pitch", human_participants)
-            for name, pitch_text in human_pitches.items():
-                bit = self._parse_bit_from_response(pitch_text, name)
+            # Initialize card system
+            human_card_system = HumanParodyCardSystem(self.game_id)
+
+            # Deal cards to all humans
+            for human in human_participants:
+                human_card_system.deal_cards(human["name"])
+
+            # Show cards and collect selections - 3 rounds: parody, twist, character
+            for round_name, format_func, round_label in [
+                ("parody", human_card_system.format_parody_cards, "🎯 PARODY TARGET"),
+                ("twist", human_card_system.format_twist_cards, "🔀 TWIST"),
+                ("character", human_card_system.format_character_cards, "👤 CHARACTER"),
+            ]:
+                # Show cards to each human (in channel - DMs would be better but more complex)
+                await self._send_gamemaster_message(f"\n### {round_label} - Pick your card (type 1-4)")
+                for human in human_participants:
+                    cards_display = format_func(human["name"])
+                    await self._send_gamemaster_message(f"**{human['name']}'s cards:**\n{cards_display}")
+
+                # Collect selections
+                selections = await self._wait_for_human_spitball_inputs(round_name, human_participants, timeout_seconds=45)
+                for name, selection_text in selections.items():
+                    result = human_card_system.parse_selection(name, selection_text, round_name)
+                    if result is not None:
+                        await self._send_gamemaster_message(f"✓ **{name}** picked #{result + 1}")
+
+            # Build bits from selections
+            for human in human_participants:
+                bit = human_card_system.build_bit_from_selections(human["name"])
                 if bit:
                     pitched_bits.append(bit)
-                    writers_room.add_pitched_bit(bit, name)
-                    writers_room_log.append(f"{name} pitched: {bit.format} - {bit.premise[:100]}")
-                    await self._send_gamemaster_message(f"**{name} pitched:**\n{pitch_text[:500]}")
+                    writers_room.add_pitched_bit(bit, human["name"])
+                    summary = human_card_system.get_selection_summary(human["name"])
+                    writers_room_log.append(f"{human['name']} pitched: {bit.parody_target} + {bit.twist}")
+                    await self._send_gamemaster_message(f"\n{summary}")
                 else:
-                    # Couldn't parse - still display what they said
-                    await self._send_gamemaster_message(f"**{name}:** {pitch_text[:500]}")
+                    # Incomplete selections - log it
+                    logger.warning(f"[IDCC:{self.game_id}] {human['name']} didn't complete card selections")
 
         if len(writers_room.pitched_bits) < 1:
             logger.error(f"[IDCC:{self.game_id}] No valid bits pitched")
@@ -2098,12 +2754,8 @@ class InterdimensionalCableGame:
                     writers_room_log.append(f"{voter_name} voted: {votes}")
                     await self._send_gamemaster_message(f"**{voter_name} voted for:** {[v+1 for v in votes]}")
 
-        # Exit game mode for all bot writers
-        for participant in bot_writers:
-            game_context_manager.exit_game_mode(participant["agent_obj"])
-
         # =====================================================================
-        # TALLY VOTES AND CURATE LINEUP
+        # TALLY VOTES
         # =====================================================================
 
         winning_indices = writers_room.tally_votes(agent_votes)
@@ -2113,8 +2765,156 @@ class InterdimensionalCableGame:
             logger.warning(f"[IDCC:{self.game_id}] Not enough voted bits, using available bits")
             winning_indices = list(range(min(self.num_clips, len(writers_room.pitched_bits))))
 
-        # Curate lineup for variety
-        lineup_bits = writers_room.curate_lineup(winning_indices)
+        # Get winning bits for punch-up
+        winning_bits = [writers_room.pitched_bits[i] for i in winning_indices]
+
+        # =====================================================================
+        # ROUND 3: PUNCH-UP (Optional improvements or "good as is")
+        # =====================================================================
+
+        await self._send_gamemaster_message(
+            "\n---\n"
+            "## Round 3: PUNCH-UP\n\n"
+            "Each winning bit gets a chance for improvements - or you can vote **GOOD AS IS** if it works.\n"
+            "*You can't punch-up your own bit.*"
+        )
+
+        punched_up_bits = []
+
+        for bit_idx, bit in enumerate(winning_bits):
+            bit_title = f"{bit.parody_target or bit.format}: {bit.twist[:50] if bit.twist else bit.comedic_hook[:50]}..."
+
+            # Display the bit
+            bit_display = writers_room.format_bit_for_punch_up(bit)
+            await self._send_gamemaster_message(
+                f"\n### Bit {bit_idx + 1}: {bit_title}\n\n{bit_display}\n\n"
+                "*Vote GOOD AS IS or suggest a PUNCH-UP:*"
+            )
+
+            # Update context for punch-up
+            for participant in bot_writers:
+                agent = participant["agent_obj"]
+                game_context_manager.update_idcc_context(
+                    agent_name=agent.name,
+                    phase="idcc_punch_up"
+                )
+                game_context_manager.update_turn_context(
+                    agent_name=agent.name,
+                    turn_context=f"\nBit to review:\n{bit_display}"
+                )
+
+            # Collect punch-up responses
+            punch_up_responses = []  # List of parsed punch-up dicts
+
+            for participant in bot_writers:
+                agent = participant["agent_obj"]
+                try:
+                    response = await self._get_agent_idcc_response(
+                        agent=agent,
+                        user_message=f"Review this bit. Reply GOOD AS IS or suggest a PUNCH-UP. You can't punch-up your own bit."
+                    )
+                    if response:
+                        parsed = writers_room.parse_punch_up_response(response, bit.pitched_by, agent.name)
+                        punch_up_responses.append(parsed)
+                        writers_room_log.append(f"{agent.name} on bit {bit_idx+1}: {parsed['verdict']}")
+
+                        # Show abbreviated response
+                        display_response = response[:300] + "..." if len(response) > 300 else response
+                        await self.discord_client.send_message(
+                            content=display_response,
+                            agent_name=agent.name,
+                            model_name=agent.model
+                        )
+                        await asyncio.sleep(1)
+                except Exception as e:
+                    logger.error(f"[IDCC:{self.game_id}] Punch-up error for {agent.name}: {e}")
+
+            # Collect suggestions only (not GOOD_AS_IS)
+            suggested_punch_ups = [p for p in punch_up_responses if p['verdict'] == 'PUNCH_UP' and p['suggestion']]
+
+            if not suggested_punch_ups:
+                # All voted GOOD AS IS - keep bit as is
+                await self._send_gamemaster_message(f"✅ **Bit {bit_idx + 1}:** Room voted GOOD AS IS")
+                punched_up_bits.append(bit)
+                writers_room_log.append(f"Bit {bit_idx + 1}: GOOD AS IS (consensus)")
+            else:
+                # Have punch-ups to vote on
+                punch_ups_display = writers_room.format_punch_ups_for_voting(suggested_punch_ups)
+                await self._send_gamemaster_message(
+                    f"\n**Suggested punch-ups for Bit {bit_idx + 1}:**\n{punch_ups_display}\n"
+                    f"*Vote which to APPLY (numbers) or NONE to keep original:*"
+                )
+
+                # Update context for punch-up vote
+                for participant in bot_writers:
+                    agent = participant["agent_obj"]
+                    game_context_manager.update_idcc_context(
+                        agent_name=agent.name,
+                        phase="idcc_punch_up_vote"
+                    )
+                    game_context_manager.update_turn_context(
+                        agent_name=agent.name,
+                        turn_context=f"\nPunch-ups to vote on:\n{punch_ups_display}"
+                    )
+
+                # Collect votes
+                all_punch_up_votes = []  # List of lists of indices
+
+                for participant in bot_writers:
+                    agent = participant["agent_obj"]
+                    try:
+                        response = await self._get_agent_idcc_response(
+                            agent=agent,
+                            user_message=f"Vote which punch-ups to APPLY (type numbers) or NONE to keep original."
+                        )
+                        if response:
+                            votes = writers_room.parse_punch_up_votes(response, len(suggested_punch_ups))
+                            all_punch_up_votes.append(votes)
+                            writers_room_log.append(f"{agent.name} punch-up vote: {votes if votes else 'NONE'}")
+
+                            await self.discord_client.send_message(
+                                content=response[:200],
+                                agent_name=agent.name,
+                                model_name=agent.model
+                            )
+                            await asyncio.sleep(0.5)
+                    except Exception as e:
+                        logger.error(f"[IDCC:{self.game_id}] Punch-up vote error for {agent.name}: {e}")
+
+                # Tally punch-up votes (majority wins for each punch-up)
+                num_voters = len(all_punch_up_votes)
+                threshold = num_voters / 2  # Majority threshold
+
+                accepted_indices = []
+                for pu_idx in range(len(suggested_punch_ups)):
+                    votes_for = sum(1 for votes in all_punch_up_votes if pu_idx in votes)
+                    if votes_for > threshold:
+                        accepted_indices.append(pu_idx)
+
+                if accepted_indices:
+                    accepted_punch_ups = [suggested_punch_ups[i] for i in accepted_indices]
+                    bit = writers_room.apply_punch_ups(bit, accepted_punch_ups)
+                    punch_up_list = ", ".join([f"#{i+1}" for i in accepted_indices])
+                    await self._send_gamemaster_message(f"✏️ **Bit {bit_idx + 1}:** Applied punch-ups {punch_up_list}")
+                    writers_room_log.append(f"Bit {bit_idx + 1}: Applied punch-ups {accepted_indices}")
+                else:
+                    await self._send_gamemaster_message(f"✅ **Bit {bit_idx + 1}:** No consensus - keeping original")
+                    writers_room_log.append(f"Bit {bit_idx + 1}: No punch-up consensus")
+
+                punched_up_bits.append(bit)
+
+            await asyncio.sleep(1)
+
+        # Exit game mode for all bot writers
+        for participant in bot_writers:
+            game_context_manager.exit_game_mode(participant["agent_obj"])
+
+        # =====================================================================
+        # CURATE FINAL LINEUP
+        # =====================================================================
+
+        # Curate lineup for variety (using the punched-up bits)
+        lineup_bits = writers_room.curate_lineup_from_bits(punched_up_bits)
 
         # Create channel lineup
         channel_lineup = IDCCChannelLineup(
@@ -2128,8 +2928,14 @@ class InterdimensionalCableGame:
         # Display the lineup
         lineup_display = "# 📺 CHANNEL LINEUP LOCKED\n\n"
         for i, bit in enumerate(lineup_bits):
-            lineup_display += f"**Bit {i+1}:** {bit.format.upper()} by {bit.pitched_by}\n"
-            lineup_display += f"   *{bit.premise[:80]}{'...' if len(bit.premise) > 80 else ''}*\n\n"
+            # Show parody info if available, fallback to format/premise
+            parody_info = bit.parody_target or bit.format
+            twist_info = bit.twist or bit.comedic_hook or bit.premise
+            lineup_display += f"**Bit {i+1}:** {parody_info.upper()} by {bit.pitched_by}\n"
+            lineup_display += f"   *{twist_info[:80]}{'...' if len(twist_info) > 80 else ''}*"
+            if bit.punched_up and bit.punch_ups_applied:
+                lineup_display += " ✏️"
+            lineup_display += "\n\n"
         lineup_display += f"*Now generating {len(lineup_bits)} independent bits...*"
 
         await self._send_gamemaster_message(lineup_display)
@@ -2898,12 +3704,13 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
                     scene_number=clip_number,
                     num_clips=self.num_clips,
                     shot_direction=shot_direction,
-                    # BitConcept fields for idcc_scene_bit prompt
+                    # BitConcept parody fields for idcc_scene_bit prompt
+                    bit_parody_target=bit.parody_target,
+                    bit_twist=bit.twist,
                     bit_format=bit.format,
-                    bit_premise=bit.premise,
                     bit_character=bit.character_description,
                     bit_vocal_specs=bit.vocal_specs or "clear speaking voice with character-appropriate energy",
-                    bit_comedic_hook=bit.comedic_hook,
+                    bit_sample_dialogue=bit.sample_dialogue,
                     bit_punchline=bit.punchline,
                     clip_duration=clip_duration,
                     dialogue_end_time=timing["dialogue_end_time"],
