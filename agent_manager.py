@@ -1498,6 +1498,18 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                                 'group': lambda s, n: 'generate_image' if n == 1 else tool_call_match.group(1)
                             })()
 
+                    # Pattern 4: Direct generate_image({...}) call (no function prefix)
+                    if not tool_call_match:
+                        direct_call_match = re.search(
+                            r'generate_image\s*\(\s*(\{[\s\S]*?\})\s*\)',
+                            full_response,
+                            re.DOTALL
+                        )
+                        if direct_call_match:
+                            tool_call_match = type('Match', (), {
+                                'group': lambda s, n: 'generate_image' if n == 1 else direct_call_match.group(1)
+                            })()
+
                     if tool_call_match:
                         function_name = tool_call_match.group(1)
                         function_args_str = tool_call_match.group(2)
