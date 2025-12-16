@@ -2563,8 +2563,11 @@ def create_gradio_ui():
             from pathlib import Path
             import asyncio
 
-            video_dir = Path("data/video_temp")
-            if not video_dir.exists():
+            # Check new Media/Videos/ location first, fallback to old location
+            video_dir = Path("data/Media/Videos")
+            legacy_dir = Path("data/video_temp")
+
+            if not video_dir.exists() and not legacy_dir.exists():
                 return "No video directory found"
 
             if not discord_client:
@@ -2573,10 +2576,15 @@ def create_gradio_ui():
             if not discord_client.media_channel_id:
                 return "No media channel configured"
 
-            # Find all IDCC videos
-            idcc_videos = list(video_dir.glob("idcc_final_*.mp4"))
+            # Find all IDCC videos from both locations
+            idcc_videos = []
+            if video_dir.exists():
+                idcc_videos.extend(list(video_dir.glob("idcc_final_*.mp4")))
+            if legacy_dir.exists():
+                idcc_videos.extend(list(legacy_dir.glob("idcc_final_*.mp4")))
+
             if not idcc_videos:
-                return "No IDCC videos found in data/video_temp/"
+                return "No IDCC videos found in data/Media/Videos/ or data/video_temp/"
 
             # Get already-posted videos
             posted = config_manager.load_idcc_posted_videos()
@@ -2590,6 +2598,18 @@ def create_gradio_ui():
             posted_count = 0
             errors = []
 
+            # Try to load prompt from Media/Videos/Prompts/
+            def get_video_prompt(video_path):
+                prompts_dir = Path("data/Media/Videos/Prompts")
+                prompt_file = prompts_dir / f"{video_path.stem}.txt"
+                if prompt_file.exists():
+                    try:
+                        with open(prompt_file, "r", encoding="utf-8") as f:
+                            return f.read()[:500]  # Truncate for display
+                    except:
+                        pass
+                return f"IDCC video: {video_path.name}"
+
             import time
             for i, video_path in enumerate(unpublished):
                 try:
@@ -2597,13 +2617,16 @@ def create_gradio_ui():
                     if i > 0:
                         time.sleep(10)
 
+                    # Get the prompt for this video
+                    video_prompt = get_video_prompt(video_path)
+
                     # Create a coroutine and run it
-                    async def post_video(path):
+                    async def post_video(path, prompt):
                         result = await discord_client.post_to_media_channel(
                             media_type="video",
                             agent_name="Interdimensional Cable",
                             model_name="IDCC Game",
-                            prompt=f"IDCC video: {path.name}",
+                            prompt=prompt,
                             file_data=str(path),
                             filename="interdimensional_cable.mp4"
                         )
@@ -2612,7 +2635,7 @@ def create_gradio_ui():
                     # Run the async function
                     if discord_client.discord_loop and discord_client.discord_loop.is_running():
                         future = asyncio.run_coroutine_threadsafe(
-                            post_video(video_path),
+                            post_video(video_path, video_prompt),
                             discord_client.discord_loop
                         )
                         result = future.result(timeout=60)

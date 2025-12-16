@@ -37,11 +37,15 @@ from .ffmpeg_utils import (
     concatenate_videos,
     download_video,
     ensure_temp_dir,
+    ensure_media_dirs,
     cleanup_temp_files,
     image_to_base64,
     resize_image_for_sora,
     is_ffmpeg_available,
-    VIDEO_TEMP_DIR
+    copy_video_to_media,
+    save_media_prompt,
+    VIDEO_TEMP_DIR,
+    MEDIA_VIDEOS_DIR
 )
 from .game_context import GameContext, game_context_manager
 from .game_prompts import get_game_prompt, get_shot_direction
@@ -2881,14 +2885,14 @@ class InterdimensionalCableGame:
                     except Exception as e:
                         logger.error(f"[IDCC:{self.game_id}] Punch-up vote error for {agent.name}: {e}")
 
-                # Tally punch-up votes (majority wins for each punch-up)
+                # Tally punch-up votes (plurality wins - at least half of voters)
                 num_voters = len(all_punch_up_votes)
-                threshold = num_voters / 2  # Majority threshold
+                threshold = num_voters / 2  # At least half
 
                 accepted_indices = []
                 for pu_idx in range(len(suggested_punch_ups)):
                     votes_for = sum(1 for votes in all_punch_up_votes if pu_idx in votes)
-                    if votes_for > threshold:
+                    if votes_for >= threshold:  # >= so ties pass
                         accepted_indices.append(pu_idx)
 
                 if accepted_indices:
@@ -3969,9 +3973,9 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
 
         video_paths = [c.video_path for c in successful_clips]
 
-        # Output path
-        ensure_temp_dir()
-        output_path = VIDEO_TEMP_DIR / f"idcc_final_{self.game_id}.mp4"
+        # Output path - save to Media/Videos/ for organized storage
+        ensure_media_dirs()
+        output_path = MEDIA_VIDEOS_DIR / f"idcc_final_{self.game_id}.mp4"
 
         # Concatenate
         crossfade = idcc_config.crossfade_duration if idcc_config.use_crossfade else 0
@@ -3985,6 +3989,13 @@ Be faithful to the winning entries - extract and clean up. For VOCAL_SPECS, infe
         if result and result.exists():
             self.state.final_video_path = result
             logger.info(f"[IDCC:{self.game_id}] Final video created: {result}")
+
+            # Save all clip prompts as the combined prompt for this video
+            all_prompts = []
+            for i, clip in enumerate(successful_clips, 1):
+                all_prompts.append(f"=== CLIP {i} ===\n{clip.prompt}\n")
+            combined_prompt = "\n".join(all_prompts)
+            save_media_prompt(result, combined_prompt, media_type="video")
         else:
             logger.error(f"[IDCC:{self.game_id}] Concatenation failed")
 

@@ -1340,7 +1340,7 @@ Configure auto-play settings in the UI's Auto-Play tab.
             # Find a recent video file to test with
             import os
             from pathlib import Path
-            video_dir = Path("data/video_temp")
+            video_dir = Path("data/Media/Videos")
             if video_dir.exists():
                 videos = list(video_dir.glob("*.mp4"))
                 if videos:
@@ -1359,9 +1359,9 @@ Configure auto-play settings in the UI's Auto-Play tab.
                     )
                     await ctx.send(f"Result: `{result}`")
                 else:
-                    await ctx.send("❌ No video files found in data/video_temp/")
+                    await ctx.send("❌ No video files found in data/Media/Videos/")
             else:
-                await ctx.send("❌ data/video_temp directory doesn't exist")
+                await ctx.send("❌ data/Media/Videos directory doesn't exist")
 
         @self.client.command(name='tribal-council')
         async def start_tribal_council(ctx: commands.Context):

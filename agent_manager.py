@@ -18,7 +18,22 @@ try:
     GAMES_AVAILABLE = True
 except ImportError:
     game_context_manager = None
-    GAMES_AVAILABLE = False
+
+# Media directory utilities for saving prompts alongside videos/images
+try:
+    from agent_games.ffmpeg_utils import (
+        ensure_media_dirs,
+        save_media_prompt,
+        save_base64_image,
+        MEDIA_VIDEOS_DIR,
+        MEDIA_IMAGES_DIR
+    )
+    MEDIA_UTILS_AVAILABLE = True
+except ImportError:
+    MEDIA_UTILS_AVAILABLE = False
+    MEDIA_VIDEOS_DIR = None
+    MEDIA_IMAGES_DIR = None
+    save_base64_image = None
 
 # Context-aware prompt components
 try:
@@ -4007,6 +4022,9 @@ Your task: Rewrite this prompt to avoid content moderation while PRESERVING THE 
                                 if image_url and image_url.startswith("data:image"):
                                     logger.info(f"[ImageAgent] Image generated successfully with original prompt")
                                     self.last_global_image_time = time.time()
+                                    # Save image to Media/Images/ with prompt
+                                    if MEDIA_UTILS_AVAILABLE and save_base64_image:
+                                        save_base64_image(image_url, prompt, filename_prefix=f"img_{author}")
                                     return (image_url, prompt)
                                 else:
                                     logger.warning(f"[ImageAgent] No valid image in response. Content preview: {str(message.get('content', ''))[:200]}")
@@ -4087,6 +4105,9 @@ Your task: Rewrite this prompt to avoid content moderation while PRESERVING THE 
                                 if image_url and image_url.startswith("data:image"):
                                     logger.info(f"[ImageAgent] Image generated successfully with declassified variant {variant_num}")
                                     self.last_global_image_time = time.time()
+                                    # Save image to Media/Images/ with prompt
+                                    if MEDIA_UTILS_AVAILABLE and save_base64_image:
+                                        save_base64_image(image_url, try_prompt, filename_prefix=f"img_{author}")
                                     return (image_url, try_prompt)
 
                             logger.warning(f"[ImageAgent] No image in response for variant {variant_num}. Keys: {list(message.keys()) if 'message' in dir() else 'N/A'}")
@@ -4279,14 +4300,22 @@ Your task: Rewrite this prompt to avoid content moderation while PRESERVING THE 
                                             if 'video' in content_type or 'octet' in content_type or 'mp4' in content_type:
                                                 import tempfile
                                                 import os
+                                                from pathlib import Path
                                                 video_data = await content_response.read()
                                                 logger.info(f"[VideoGen] Downloaded {len(video_data)} bytes of video data")
-                                                # Save to temp file
-                                                temp_dir = tempfile.gettempdir()
-                                                video_path = os.path.join(temp_dir, f"{task_id}.mp4")
+                                                # Save to Media/Videos/ if available, else temp
+                                                if MEDIA_UTILS_AVAILABLE and MEDIA_VIDEOS_DIR:
+                                                    ensure_media_dirs()
+                                                    video_path = str(MEDIA_VIDEOS_DIR / f"{task_id}.mp4")
+                                                else:
+                                                    temp_dir = tempfile.gettempdir()
+                                                    video_path = os.path.join(temp_dir, f"{task_id}.mp4")
                                                 with open(video_path, 'wb') as f:
                                                     f.write(video_data)
                                                 logger.info(f"[VideoGen] Saved video to: {video_path}")
+                                                # Save the prompt alongside the video
+                                                if MEDIA_UTILS_AVAILABLE:
+                                                    save_media_prompt(Path(video_path), prompt, media_type="video")
                                                 self.last_global_video_time = time.time()
                                                 # Return file path with FILE: prefix to indicate it's a local file
                                                 return f"FILE:{video_path}"
@@ -4521,11 +4550,20 @@ Your task: Rewrite this prompt to avoid content moderation while PRESERVING THE 
                                         content_type = content_response.headers.get('Content-Type', '')
                                         if 'video' in content_type or 'octet' in content_type:
                                             import tempfile
+                                            from pathlib import Path
                                             video_data = await content_response.read()
-                                            temp_dir = tempfile.gettempdir()
-                                            video_path = os.path.join(temp_dir, f"{task_id}.mp4")
+                                            # Save to Media/Videos/ if available, else temp
+                                            if MEDIA_UTILS_AVAILABLE and MEDIA_VIDEOS_DIR:
+                                                ensure_media_dirs()
+                                                video_path = str(MEDIA_VIDEOS_DIR / f"{task_id}.mp4")
+                                            else:
+                                                temp_dir = tempfile.gettempdir()
+                                                video_path = os.path.join(temp_dir, f"{task_id}.mp4")
                                             with open(video_path, 'wb') as f:
                                                 f.write(video_data)
+                                            # Save the prompt alongside the video
+                                            if MEDIA_UTILS_AVAILABLE:
+                                                save_media_prompt(Path(video_path), prompt, media_type="video")
                                             self.last_global_video_time = time.time()
                                             return f"FILE:{video_path}"
                             except Exception as e:

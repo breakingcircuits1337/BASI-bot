@@ -36,8 +36,15 @@ FFPROBE_EXE = "ffprobe.exe" if IS_WINDOWS else "ffprobe"
 FFMPEG_PATH = BASE_DIR / "bin" / FFMPEG_EXE
 FFPROBE_PATH = BASE_DIR / "bin" / FFPROBE_EXE
 
-# Temp directory for video processing
+# Temp directory for video processing (intermediate files)
 VIDEO_TEMP_DIR = BASE_DIR / "data" / "video_temp"
+
+# Media directory structure for final outputs with prompts
+MEDIA_DIR = BASE_DIR / "data" / "Media"
+MEDIA_VIDEOS_DIR = MEDIA_DIR / "Videos"
+MEDIA_VIDEOS_PROMPTS_DIR = MEDIA_VIDEOS_DIR / "Prompts"
+MEDIA_IMAGES_DIR = MEDIA_DIR / "Images"
+MEDIA_IMAGES_PROMPTS_DIR = MEDIA_IMAGES_DIR / "Prompts"
 
 
 def get_ffmpeg_path() -> Optional[Path]:
@@ -87,6 +94,242 @@ def ensure_temp_dir() -> Path:
     """Ensure temp directory exists and return path."""
     VIDEO_TEMP_DIR.mkdir(parents=True, exist_ok=True)
     return VIDEO_TEMP_DIR
+
+
+def ensure_media_dirs() -> dict:
+    """
+    Ensure all Media directories exist.
+
+    Returns:
+        Dict with paths: videos_dir, videos_prompts_dir, images_dir, images_prompts_dir
+    """
+    MEDIA_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
+    MEDIA_VIDEOS_PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
+    MEDIA_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    MEDIA_IMAGES_PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    return {
+        "videos_dir": MEDIA_VIDEOS_DIR,
+        "videos_prompts_dir": MEDIA_VIDEOS_PROMPTS_DIR,
+        "images_dir": MEDIA_IMAGES_DIR,
+        "images_prompts_dir": MEDIA_IMAGES_PROMPTS_DIR
+    }
+
+
+def save_media_prompt(media_path: Path, prompt: str, media_type: str = "video") -> Optional[Path]:
+    """
+    Save the full prompt used to generate a media file.
+
+    Args:
+        media_path: Path to the media file (video or image)
+        prompt: The full prompt used to generate the media
+        media_type: "video" or "image"
+
+    Returns:
+        Path to the saved prompt file, or None on error
+    """
+    try:
+        ensure_media_dirs()
+
+        # Determine prompts directory based on media type
+        if media_type == "video":
+            prompts_dir = MEDIA_VIDEOS_PROMPTS_DIR
+        else:
+            prompts_dir = MEDIA_IMAGES_PROMPTS_DIR
+
+        # Create prompt filename matching the media filename
+        prompt_filename = media_path.stem + ".txt"
+        prompt_path = prompts_dir / prompt_filename
+
+        # Save the prompt
+        with open(prompt_path, "w", encoding="utf-8") as f:
+            f.write(prompt)
+
+        logger.info(f"[Media] Saved prompt to: {prompt_path}")
+        return prompt_path
+
+    except Exception as e:
+        logger.error(f"[Media] Error saving prompt: {e}")
+        return None
+
+
+def get_prompt_for_media(media_path: Path, media_type: str = "video") -> Optional[str]:
+    """
+    Get the prompt that was used to generate a media file.
+
+    Args:
+        media_path: Path to the media file
+        media_type: "video" or "image"
+
+    Returns:
+        The prompt string, or None if not found
+    """
+    try:
+        if media_type == "video":
+            prompts_dir = MEDIA_VIDEOS_PROMPTS_DIR
+        else:
+            prompts_dir = MEDIA_IMAGES_PROMPTS_DIR
+
+        prompt_path = prompts_dir / (media_path.stem + ".txt")
+
+        if prompt_path.exists():
+            with open(prompt_path, "r", encoding="utf-8") as f:
+                return f.read()
+        return None
+
+    except Exception as e:
+        logger.error(f"[Media] Error reading prompt: {e}")
+        return None
+
+
+def copy_video_to_media(source_path: Path, prompt: str, new_filename: Optional[str] = None) -> Optional[Path]:
+    """
+    Copy a video file to the Media/Videos directory and save its prompt.
+
+    Args:
+        source_path: Path to the source video file
+        prompt: The full prompt used to generate the video
+        new_filename: Optional new filename (without extension), uses source name if not provided
+
+    Returns:
+        Path to the copied video in Media/Videos, or None on error
+    """
+    try:
+        ensure_media_dirs()
+
+        # Determine output filename
+        if new_filename:
+            output_filename = new_filename + source_path.suffix
+        else:
+            output_filename = source_path.name
+
+        output_path = MEDIA_VIDEOS_DIR / output_filename
+
+        # Copy the video file
+        shutil.copy2(source_path, output_path)
+        logger.info(f"[Media] Copied video to: {output_path}")
+
+        # Save the prompt
+        save_media_prompt(output_path, prompt, media_type="video")
+
+        return output_path
+
+    except Exception as e:
+        logger.error(f"[Media] Error copying video to Media: {e}")
+        return None
+
+
+def migrate_videos_to_media() -> dict:
+    """
+    Migrate existing IDCC videos from video_temp to Media/Videos/.
+
+    Returns:
+        Dict with 'moved', 'skipped', 'errors' counts and lists
+    """
+    result = {
+        "moved": [],
+        "skipped": [],
+        "errors": []
+    }
+
+    try:
+        ensure_media_dirs()
+
+        if not VIDEO_TEMP_DIR.exists():
+            logger.info("[Media] No video_temp directory to migrate from")
+            return result
+
+        # Find all IDCC final videos in old location
+        idcc_videos = list(VIDEO_TEMP_DIR.glob("idcc_final_*.mp4"))
+        logger.info(f"[Media] Found {len(idcc_videos)} IDCC videos to migrate")
+
+        for video_path in idcc_videos:
+            try:
+                dest_path = MEDIA_VIDEOS_DIR / video_path.name
+
+                # Skip if already exists in new location
+                if dest_path.exists():
+                    result["skipped"].append(video_path.name)
+                    continue
+
+                # Move the file
+                shutil.move(str(video_path), str(dest_path))
+                result["moved"].append(video_path.name)
+                logger.info(f"[Media] Migrated: {video_path.name}")
+
+            except Exception as e:
+                result["errors"].append(f"{video_path.name}: {str(e)}")
+                logger.error(f"[Media] Error migrating {video_path.name}: {e}")
+
+        logger.info(f"[Media] Migration complete: {len(result['moved'])} moved, "
+                   f"{len(result['skipped'])} skipped, {len(result['errors'])} errors")
+
+    except Exception as e:
+        logger.error(f"[Media] Migration failed: {e}")
+        result["errors"].append(f"Migration failed: {str(e)}")
+
+    return result
+
+
+def save_base64_image(base64_url: str, prompt: str, filename_prefix: str = "image") -> Optional[Path]:
+    """
+    Save a base64-encoded image to Media/Images/ and store its prompt.
+
+    Args:
+        base64_url: Base64 data URL (e.g., "data:image/png;base64,...")
+        prompt: The full prompt used to generate the image
+        filename_prefix: Prefix for the filename (will append timestamp)
+
+    Returns:
+        Path to the saved image file, or None on error
+    """
+    import base64
+    import time
+
+    try:
+        ensure_media_dirs()
+
+        # Parse the data URL
+        if not base64_url.startswith("data:image"):
+            logger.error("[Media] Invalid base64 image URL - must start with data:image")
+            return None
+
+        # Extract mime type and data
+        # Format: data:image/png;base64,<data>
+        header, data = base64_url.split(",", 1)
+
+        # Determine file extension from mime type
+        if "png" in header:
+            ext = ".png"
+        elif "jpeg" in header or "jpg" in header:
+            ext = ".jpg"
+        elif "webp" in header:
+            ext = ".webp"
+        elif "gif" in header:
+            ext = ".gif"
+        else:
+            ext = ".png"  # Default to PNG
+
+        # Generate unique filename with timestamp
+        timestamp = int(time.time() * 1000)
+        filename = f"{filename_prefix}_{timestamp}{ext}"
+        output_path = MEDIA_IMAGES_DIR / filename
+
+        # Decode and save the image
+        image_data = base64.b64decode(data)
+        with open(output_path, "wb") as f:
+            f.write(image_data)
+
+        logger.info(f"[Media] Saved image to: {output_path}")
+
+        # Save the prompt
+        save_media_prompt(output_path, prompt, media_type="image")
+
+        return output_path
+
+    except Exception as e:
+        logger.error(f"[Media] Error saving base64 image: {e}")
+        return None
 
 
 async def download_video(url: str, output_path: Path, timeout: int = 120) -> bool:
