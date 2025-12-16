@@ -351,23 +351,24 @@ Stay in character. Create something genuinely FUNNY.
 This is **INTERDIMENSIONAL CABLE meets ROBOT CHICKEN**: parodies of pop culture filtered through CHAOTIC WEIRD ENERGY.
 NOT prestige TV. NOT serious drama. Think 3am cable access fever dream.
 
-**EXAMPLE PARODY PITCHES (Robot Chicken style):**
-• PARODY: He-Man → TWIST: he realizes "I have the power" was always about his crippling insecurities
-• PARODY: Trix Rabbit → TWIST: finally snaps after decades of cereal denial, hostage situation ensues
-• PARODY: Tony the Tiger → TWIST: motivational speaker who's clearly dead inside, "they're... great..."
-• PARODY: G.I. Joe PSAs → TWIST: the life lesson is horrifyingly wrong, delivered with full conviction
-• PARODY: MasterClass → TWIST: taught by a creature who doesn't understand humans (or taught by a cult leader)
-• PARODY: Pharmaceutical ads → TWIST: the side effects ARE the product, delivered with unsettling cheer
-• PARODY: Alexa/smart speakers → TWIST: what it actually thinks about you, 3am confessional
-• PARODY: TED Talks → TWIST: clearly a serial killer, audience politely applauding
-• PARODY: Sesame Street → TWIST: the puppets have become self-aware, existential dread
-• PARODY: Tamagotchi → TWIST: guilt trip from your dead digital pet, it remembers everything
+**TWIST TYPES (mix it up - DON'T all go existential/dark):**
+• VIOLENCE - The mascot/host finally snaps, hostage situation, things get bloody
+• GROSS - Bodily functions, fluids, the product does something disgusting
+• HORNY - Sexual undertones become explicit, inappropriate arousal, innuendo made literal
+• SILLY - Absurd non-sequitur, dumb joke played completely straight
+• IRONIC - The opposite of what's expected, success becomes failure
+• ESCALATION - Premise taken to logical extreme until it breaks reality
+• SURREAL - Dream logic, things transform, time loops, physics break
+• DARK - Grim reveal, the cheerful thing hides something sinister
+
+⚠️ **VARIETY IS KEY** - If you always go "existential dread" you're boring. Surprise us.
 
 **YOUR PITCH MUST INCLUDE ALL OF THESE:**
 
 **PARODY_TARGET:** What SPECIFIC thing are you parodying? (Name the actual show, mascot, ad type, franchise, toy, PSA)
+⚠️ PICK SOMETHING UNIQUE - don't duplicate what other writers might pick!
 
-**TWIST:** What's the comedic angle? Go DARK, WEIRD, or EXISTENTIAL. Not just "but it's slightly different."
+**TWIST:** What's the comedic angle? Go SILLY, GROSS, DARK, HORNY, VIOLENT, ABSURD, or SURREAL.
 
 **FORMAT:** What kind of show/ad format? (infomercial, PSA, cartoon, commercial, talk show, MasterClass, etc.)
 
