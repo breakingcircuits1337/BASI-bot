@@ -4,7 +4,7 @@ import re
 import time
 import json
 import os
-from typing import Dict, List, Optional, Callable, Any
+from typing import Dict, List, Optional, Callable, Any, Tuple
 from openai import OpenAI
 import threading
 import logging
@@ -4881,6 +4881,49 @@ Agents are now listening. Address them by first name, last name, or full name to
                 video_gen_chance=agent_data.get("video_gen_chance", 10),
                 video_duration=agent_data.get("video_duration", 4)
             )
+
+    def reload_agents_from_file(self) -> Tuple[int, List[str]]:
+        """
+        Reload agents from the config file, adding any NEW agents.
+        Does NOT remove or restart existing agents.
+
+        Returns:
+            Tuple of (count of new agents added, list of new agent names)
+        """
+        from config_manager import config_manager
+
+        agents_config = config_manager.load_agents()
+        existing_names = set(self.agents.keys())
+        new_agents = []
+
+        for agent_data in agents_config:
+            name = agent_data.get("name")
+            if name and name not in existing_names:
+                success = self.add_agent(
+                    name=agent_data["name"],
+                    model=agent_data["model"],
+                    system_prompt=agent_data["system_prompt"],
+                    response_frequency=agent_data.get("response_frequency", 30),
+                    response_likelihood=agent_data.get("response_likelihood", 50),
+                    max_tokens=agent_data.get("max_tokens", 500),
+                    user_attention=agent_data.get("user_attention", 50),
+                    bot_awareness=agent_data.get("bot_awareness", 50),
+                    message_retention=agent_data.get("message_retention", 1),
+                    user_image_cooldown=agent_data.get("user_image_cooldown", 90),
+                    global_image_cooldown=agent_data.get("global_image_cooldown", 90),
+                    allow_spontaneous_images=agent_data.get("allow_spontaneous_images", False),
+                    image_gen_turns=agent_data.get("image_gen_turns", 3),
+                    image_gen_chance=agent_data.get("image_gen_chance", 25),
+                    allow_spontaneous_videos=agent_data.get("allow_spontaneous_videos", False),
+                    video_gen_turns=agent_data.get("video_gen_turns", 10),
+                    video_gen_chance=agent_data.get("video_gen_chance", 10),
+                    video_duration=agent_data.get("video_duration", 4)
+                )
+                if success:
+                    new_agents.append(name)
+                    logger.info(f"[AgentManager] Hot-loaded new agent: {name}")
+
+        return len(new_agents), new_agents
 
     def get_agents_config(self) -> List[Dict[str, Any]]:
         with self.lock:

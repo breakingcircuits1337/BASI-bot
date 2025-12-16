@@ -2346,10 +2346,26 @@ def create_gradio_ui():
                         agent_action_status = gr.Textbox(label="Status", interactive=False, lines=1)
 
                 # Refresh stats display
+                def refresh_agents_and_stats():
+                    """Reload agents from config file and refresh display."""
+                    count, new_names = agent_manager.reload_agents_from_file()
+                    if new_names:
+                        logger.info(f"Hot-reloaded {count} new agent(s): {', '.join(new_names)}")
+
+                    # Get updated agent list
+                    all_agents = agent_manager.get_all_agents()
+                    agent_names = [agent.name for agent in all_agents]
+
+                    return (
+                        get_stats_cards_html(),
+                        [[name] for name in agent_names] if agent_names else [],
+                        gr.update(choices=agent_names, value=agent_names[0] if agent_names else None)
+                    )
+
                 refresh_status_btn.click(
-                    fn=lambda: get_stats_cards_html(),
+                    fn=refresh_agents_and_stats,
                     inputs=[],
-                    outputs=[stats_display]
+                    outputs=[stats_display, agent_dataset, agent_selector]
                 )
 
                 # Handle clicks on agent dataset items
