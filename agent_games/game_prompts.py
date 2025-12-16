@@ -1096,7 +1096,7 @@ GAME_SETTINGS: Dict[str, Dict] = {
     "idcc_pitch_complete_bit": {
         "response_frequency": 15,
         "response_likelihood": 100,
-        "max_tokens": 450,  # Complete bit: PARODY/TWIST/FORMAT/CHARACTER/VOCAL/DIALOGUE/PUNCHLINE
+        "max_tokens": 650,  # Complete bit: PARODY/TWIST/FORMAT/CHARACTER/VOCAL/DIALOGUE/PUNCHLINE
     },
     "idcc_vote_lineup": {
         "response_frequency": 15,
