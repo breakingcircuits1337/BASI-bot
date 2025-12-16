@@ -1124,7 +1124,7 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                     agent_name=self.name,
                     game_context_manager=game_context_manager,
                     is_spectator=False,  # TODO: Detect spectator status
-                    video_enabled=True,  # Always provide video tool; gating happens in handler
+                    video_enabled=self.allow_spontaneous_videos,
                     video_duration=self.video_duration
                 )
                 if tools:
