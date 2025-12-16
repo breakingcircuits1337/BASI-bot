@@ -1445,6 +1445,58 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
             if full_response:
                 logger.info(f"[{self.name}] Raw response: {full_response[:100]}...")
 
+            # SIMPLE CATCH-ALL: If "generate_image" appears anywhere, handle it
+            if 'generate_image' in full_response:
+                logger.info(f"[{self.name}] Detected generate_image in response - extracting and stripping")
+
+                # Extract text BEFORE generate_image (the actual message)
+                pre_image_text = full_response.split('generate_image')[0].strip()
+
+                # Try to extract the JSON prompt from various formats
+                import re
+                prompt_match = re.search(
+                    r'generate_image\s*\(?[^{]*(\{[\s\S]*?\})\s*\)?',
+                    full_response,
+                    re.DOTALL
+                )
+
+                if prompt_match:
+                    try:
+                        args = json.loads(prompt_match.group(1))
+                        image_prompt = args.get('prompt', '')
+
+                        if image_prompt:
+                            # GATE: Check if allowed to spontaneously generate images
+                            should_generate = self.allow_spontaneous_images
+                            if not should_generate:
+                                # Check if user requested an image
+                                image_patterns = ['image', 'picture', 'photo', 'draw', 'sketch', 'paint',
+                                                 'make me', 'show me', 'create', 'generate', 'visualize']
+                                for msg in recent_messages[-10:]:
+                                    if msg.get('role') == 'user':
+                                        content = msg.get('content', '').lower()
+                                        if any(p in content for p in image_patterns):
+                                            should_generate = True
+                                            break
+
+                            if should_generate:
+                                logger.info(f"[{self.name}] Generating image: {image_prompt[:80]}...")
+                                self.last_image_request_time = time.time()
+                                if hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
+                                    asyncio.create_task(self._agent_manager_ref.generate_image(image_prompt, self.name))
+                            else:
+                                logger.warning(f"[{self.name}] Blocked spontaneous image - not allowed")
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"[{self.name}] Failed to parse generate_image JSON: {e}")
+
+                # Use only the pre-image text as the response
+                full_response = pre_image_text
+                logger.info(f"[{self.name}] Stripped generate_image, remaining: {full_response[:100] if full_response else '(empty)'}...")
+
+                # If nothing left, return None
+                if not full_response:
+                    return None
+
             # Check for DeepSeek's custom tool call format (multiple possible formats):
             # Format 1: <tool_call_begin>function<tool_sep>NAME...
             # Format 2: function<｜tool▁sep｜>NAME {...} <｜tool▁call▁end｜><｜tool▁calls▁end｜>
