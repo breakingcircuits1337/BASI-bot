@@ -1499,6 +1499,7 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                             })()
 
                     # Pattern 4: Direct generate_image({...}) call (no function prefix)
+                    is_direct_call_pattern = False
                     if not tool_call_match:
                         direct_call_match = re.search(
                             r'generate_image\s*\(\s*(\{[\s\S]*?\})\s*\)',
@@ -1506,6 +1507,7 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                             re.DOTALL
                         )
                         if direct_call_match:
+                            is_direct_call_pattern = True
                             tool_call_match = type('Match', (), {
                                 'group': lambda s, n: 'generate_image' if n == 1 else direct_call_match.group(1)
                             })()
@@ -1547,7 +1549,12 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                                     should_block = True
 
                             # Extract any text before the tool call as the message
-                            pre_tool_text = re.split(r'function[<｜\|]', full_response)[0].strip()
+                            if is_direct_call_pattern:
+                                # Pattern 4: split on generate_image( directly
+                                pre_tool_text = re.split(r'generate_image\s*\(', full_response)[0].strip()
+                            else:
+                                # Other patterns: split on function marker
+                                pre_tool_text = re.split(r'function[<｜\|]', full_response)[0].strip()
                             if pre_tool_text:
                                 # Agent said something AND called generate_image
                                 if not should_block:
