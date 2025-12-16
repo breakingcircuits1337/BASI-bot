@@ -1841,6 +1841,10 @@ class InterdimensionalCableGame:
             "*Think: Real Fake Doors, Ants in My Eyes Johnson, Lil' Bits...*"
         )
 
+        # Load previously used pitches for silent rejection
+        used_pitches_history = config_manager.load_idcc_pitch_history()
+        used_pitches_lower = [p.lower() for p in used_pitches_history]
+
         # Enter game mode for bot writers
         for participant in bot_writers:
             agent = participant["agent_obj"]
@@ -1896,17 +1900,29 @@ class InterdimensionalCableGame:
                     if response:
                         bit = self._parse_bit_from_response(response, agent.name)
                         if bit:
-                            pitched_bits.append(bit)
-                            writers_room.add_pitched_bit(bit, agent.name)
-                            writers_room_log.append(f"{agent.name} pitched: {bit.format} - {bit.premise[:100]}")
+                            # Check if this parody target has been used before (silently reject)
+                            parody_lower = (bit.parody_target or "").lower().strip()
+                            is_duplicate = False
+                            if parody_lower:
+                                # Check against history and current session
+                                session_pitches = [b.parody_target.lower() for b in pitched_bits if b.parody_target]
+                                if parody_lower in used_pitches_lower or parody_lower in session_pitches:
+                                    is_duplicate = True
+                                    logger.info(f"[IDCC:{self.game_id}] Silently rejecting duplicate pitch '{bit.parody_target}' from {agent.name}")
 
-                        # Display the pitch
-                        await self.discord_client.send_message(
-                            content=response[:1500],
-                            agent_name=agent.name,
-                            model_name=agent.model
-                        )
-                        await asyncio.sleep(2)
+                            if not is_duplicate:
+                                pitched_bits.append(bit)
+                                writers_room.add_pitched_bit(bit, agent.name)
+                                writers_room_log.append(f"{agent.name} pitched: {bit.format} - {bit.premise[:100]}")
+
+                                # Display the pitch
+                                await self.discord_client.send_message(
+                                    content=response[:1500],
+                                    agent_name=agent.name,
+                                    model_name=agent.model
+                                )
+                                await asyncio.sleep(2)
+                            # If duplicate, silently skip - don't display, loop will try again
                 except Exception as e:
                     logger.error(f"[IDCC:{self.game_id}] Pitch error for {agent.name}: {e}")
 
@@ -2209,6 +2225,12 @@ class InterdimensionalCableGame:
 
         # Curate lineup for variety (using the punched-up bits)
         lineup_bits = writers_room.curate_lineup_from_bits(punched_up_bits)
+
+        # Record used pitches to history (for future games to avoid)
+        for bit in lineup_bits:
+            if bit.parody_target:
+                config_manager.add_idcc_pitch(bit.parody_target)
+        logger.info(f"[IDCC:{self.game_id}] Recorded {len(lineup_bits)} pitches to history")
 
         # Create channel lineup
         channel_lineup = IDCCChannelLineup(

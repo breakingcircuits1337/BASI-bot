@@ -60,6 +60,7 @@ class AgentGameState:
     idcc_duration_scope: Optional[str] = None
     idcc_scene_ending_instruction: Optional[str] = None
     idcc_timing_details: Optional[str] = None
+    idcc_used_pitches_section: Optional[str] = None  # Previously used parody targets to avoid
 
 
 class GameContextManager:
@@ -337,6 +338,12 @@ class GameContextManager:
         if timing_details is not None:
             state.idcc_timing_details = timing_details
 
+    def update_idcc_used_pitches(self, agent_name: str, used_pitches_section: str) -> None:
+        """Update the used pitches section for the pitch prompt."""
+        if agent_name not in self.active_games:
+            return
+        self.active_games[agent_name].idcc_used_pitches_section = used_pitches_section
+
     def get_game_prompt_for_agent(self, agent_name: str) -> str:
         """
         Get the game-specific prompt for an agent.
@@ -376,6 +383,7 @@ class GameContextManager:
                 "{duration_scope}": game_state.idcc_duration_scope or "THREE BEATS - setup, escalation, punchline",
                 "{scene_ending_instruction}": game_state.idcc_scene_ending_instruction or "TV static/channel flip effect",
                 "{timing_details}": game_state.idcc_timing_details or "",
+                "{used_pitches_section}": game_state.idcc_used_pitches_section or "",
             }
             for key, value in replacements.items():
                 prompt = prompt.replace(key, value)

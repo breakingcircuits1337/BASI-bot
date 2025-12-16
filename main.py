@@ -818,6 +818,8 @@ def _create_discord_tab(discord_token_initial: str, discord_channel_initial: str
                 with gr.Row():
                     post_idcc_btn = gr.Button("Post Unpublished IDCC Videos", variant="primary", size="sm")
                     clear_idcc_tracking_btn = gr.Button("Clear Tracking", variant="secondary", size="sm")
+                with gr.Row():
+                    clear_pitch_history_btn = gr.Button("Clear Pitch History", variant="secondary", size="sm")
                 idcc_post_status = gr.Textbox(label="Status", interactive=False, lines=2, max_lines=3)
 
                 gr.HTML('<div class="panel-header" style="margin-top: 20px;"><h3>Help</h3></div>')
@@ -957,7 +959,7 @@ Admin users can remotely start/stop agents, change models, clear memory, etc.
     return (connect_discord_btn, disconnect_discord_btn, refresh_discord_btn, stop_all_btn,
             discord_status, connection_card, discord_token_input, discord_channel_input,
             discord_media_channel_input, active_admin_display, post_idcc_btn, clear_idcc_tracking_btn,
-            idcc_post_status)
+            clear_pitch_history_btn, idcc_post_status)
 
 def _create_config_tab(openrouter_key_initial: str, cometapi_key_initial: str, initial_models: List[str], initial_video_models: List[str], agent_model_input):
     """Create the CONFIG tab for system configuration and management."""
@@ -2507,7 +2509,7 @@ def create_gradio_ui():
             (connect_discord_btn, disconnect_discord_btn, refresh_discord_btn, stop_all_btn,
              discord_status, connection_card, discord_token_input, discord_channel_input,
              discord_media_channel_input, active_admin_display, post_idcc_btn, clear_idcc_tracking_btn,
-             idcc_post_status) = \
+             clear_pitch_history_btn, idcc_post_status) = \
                 _create_discord_tab(discord_token_initial, discord_channel_initial, discord_media_channel_initial)
             _create_live_feed_tab()
             _create_config_tab(openrouter_key_initial, cometapi_key_initial, initial_models, initial_video_models, agent_model_input)
@@ -2668,6 +2670,19 @@ def create_gradio_ui():
 
         clear_idcc_tracking_btn.click(
             fn=clear_idcc_tracking,
+            inputs=[],
+            outputs=[idcc_post_status]
+        )
+
+        def clear_pitch_history():
+            """Clear the IDCC pitch history."""
+            history = config_manager.load_idcc_pitch_history()
+            count = len(history)
+            config_manager.clear_idcc_pitch_history()
+            return f"Cleared {count} pitches from IDCC history"
+
+        clear_pitch_history_btn.click(
+            fn=clear_pitch_history,
             inputs=[],
             outputs=[idcc_post_status]
         )

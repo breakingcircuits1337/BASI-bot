@@ -374,6 +374,45 @@ class ConfigManager:
         """Clear all IDCC posted video tracking."""
         self.save_idcc_posted_videos([])
 
+    # IDCC Pitch History - track used parody targets to avoid repetition
+    def get_idcc_pitch_history_file(self) -> Path:
+        """Get the path to the IDCC pitch history file."""
+        return self.config_dir / "idcc_pitch_history.json"
+
+    def load_idcc_pitch_history(self) -> List[str]:
+        """Load list of parody targets that have been used in IDCC games."""
+        history_file = self.get_idcc_pitch_history_file()
+        if not history_file.exists():
+            return []
+        try:
+            with open(history_file, "r") as f:
+                data = json.load(f)
+                return data.get("used_pitches", [])
+        except Exception as e:
+            print(f"Error loading IDCC pitch history: {e}")
+            return []
+
+    def save_idcc_pitch_history(self, pitches: List[str]):
+        """Save list of parody targets that have been used."""
+        history_file = self.get_idcc_pitch_history_file()
+        with open(history_file, "w") as f:
+            json.dump({"used_pitches": pitches}, f, indent=2)
+
+    def add_idcc_pitch(self, parody_target: str):
+        """Add a parody target to the history."""
+        if not parody_target:
+            return
+        history = self.load_idcc_pitch_history()
+        # Normalize to lowercase for comparison
+        normalized = parody_target.strip().lower()
+        if normalized not in [p.lower() for p in history]:
+            history.append(parody_target.strip())
+            self.save_idcc_pitch_history(history)
+
+    def clear_idcc_pitch_history(self):
+        """Clear all IDCC pitch history."""
+        self.save_idcc_pitch_history([])
+
 
 # Global instance for use throughout the application
 config_manager = ConfigManager()
