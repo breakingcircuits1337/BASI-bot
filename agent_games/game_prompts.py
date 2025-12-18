@@ -589,6 +589,11 @@ Your output must be a SINGLE VIDEO PROMPT paragraph. Nothing else.
 
 ⚠️ DO NOT generate prestige TV / serious drama aesthetic. This is CHAOTIC WEIRD CABLE ACCESS.
 
+🔴 FINAL REMINDER - YOUR VIDEO MUST END WITH:
+1. TV STATIC (full screen black/white noise) near the end
+2. Then HARD CUT to a NEW silent character
+If you skip the static/transition ending, the video is INCOMPLETE.
+
 Output ONLY the video prompt paragraph. Start with "Interdimensional Cable / Robot Chicken style..."
 """,
 
@@ -1304,6 +1309,7 @@ def get_bit_scene_timing(clip_duration: int, is_final: bool, next_bit_character:
         duration_scope = "THREE BEATS - setup, escalation, punchline"
 
     # Scene ending instruction with specific timing based on clip duration
+    # Make these VERY PROMINENT and DESCRIPTIVE so Sora actually renders them
     if is_final:
         scene_ending_instruction = "   This is the FINAL bit - NO static transition. Deliver punchline, hold final pose. Clean ending."
         timing_details = "• This is the final scene - hold pose, no transition needed"
@@ -1313,24 +1319,32 @@ def get_bit_scene_timing(clip_duration: int, is_final: bool, next_bit_character:
             static_start = "0:03"
             static_end = "0:04"
             next_char_start = "0:04"
-            timing_details = f"• TV static: {static_start} to {static_end}\n• Cut to next bit's character (silent): {next_char_start}"
         elif clip_duration <= 8:
             static_start = "0:06"
             static_end = "0:07"
             next_char_start = "0:07"
             next_char_end = "0:08"
-            timing_details = f"• TV static: {static_start} to {static_end}\n• Cut to next bit's character (silent): {next_char_start} to {next_char_end}"
         else:  # 12 seconds
             static_start = "0:10"
             static_end = "0:11"
             next_char_start = "0:11"
             next_char_end = "0:12"
-            timing_details = f"• TV static: {static_start} to {static_end}\n• Cut to next bit's character (silent): {next_char_start} to {next_char_end}"
 
+        # Make timing details EXTREMELY explicit with visual descriptions
+        timing_details = f"""⚡ MANDATORY ENDING SEQUENCE (MUST APPEAR IN VIDEO):
+• {static_start}-{static_end}: FULL SCREEN TV STATIC - black and white noise filling entire frame, RGB color artifacts, horizontal scan lines, loud static hiss sound, like old analog TV losing signal
+• {next_char_start} to end: HARD CUT to completely different scene - new character standing silently, mouth CLOSED, not speaking yet, waiting. This previews the NEXT show."""
+
+        # Scene ending instruction - very explicit
         if next_bit_character:
-            scene_ending_instruction = f"   From {static_start}-{static_end}: TV static/channel flip. From {static_end} to end: cut to NEXT BIT's character: {next_bit_character[:100]}... (mouth CLOSED, silent, waiting)"
+            scene_ending_instruction = f"""⚡⚡⚡ CRITICAL ENDING - MUST INCLUDE ⚡⚡⚡
+   At {static_start}: Scene CUTS to full-screen TV STATIC (black/white noise, RGB artifacts, scan lines, static hiss).
+   At {static_end}: HARD CUT to NEW CHARACTER: {next_bit_character[:100]}
+   This new character stands SILENT, mouth CLOSED, facing camera, waiting. They do NOT speak in this clip."""
         else:
-            scene_ending_instruction = f"   From {static_start}-{static_end}: TV static/channel flip effect. From {static_end} to end: cut to the NEXT bit's character (mouth CLOSED, silent, not speaking yet)"
+            scene_ending_instruction = f"""⚡⚡⚡ CRITICAL ENDING - MUST INCLUDE ⚡⚡⚡
+   At {static_start}: Scene CUTS to full-screen TV STATIC (black/white noise, RGB artifacts, scan lines, static hiss).
+   At {static_end}: HARD CUT to a NEW CHARACTER from a different show, standing SILENT, mouth CLOSED, not speaking yet."""
 
     return {
         "dialogue_end_time": dialogue_end_time,
@@ -1339,6 +1353,61 @@ def get_bit_scene_timing(clip_duration: int, is_final: bool, next_bit_character:
         "scene_ending_instruction": scene_ending_instruction,
         "timing_details": timing_details,
     }
+
+
+def build_mandatory_scene_ending(
+    clip_duration: int,
+    is_final: bool,
+    next_bit: Optional[Any] = None
+) -> str:
+    """
+    Build the MANDATORY ending text to APPEND to every video prompt.
+
+    This is the actual video prompt text describing the TV static transition
+    and next scene preview. It gets appended programmatically so agents
+    don't need to remember to include it.
+
+    Args:
+        clip_duration: Duration in seconds (4, 8, or 12)
+        is_final: Whether this is the final scene (no transition needed)
+        next_bit: The next BitConcept object (has character_description, format, etc.)
+
+    Returns:
+        String to append to the video prompt
+    """
+    if is_final:
+        # Final scene - just hold the ending, no transition
+        return "\n\nScene ends with character holding final pose. Clean ending, no transition."
+
+    # Calculate timing based on duration
+    if clip_duration <= 4:
+        static_time = "0:03"
+        next_scene_time = "0:04"
+    elif clip_duration <= 8:
+        static_time = "0:06"
+        next_scene_time = "0:07-0:08"
+    else:  # 12 seconds
+        static_time = "0:10"
+        next_scene_time = "0:11-0:12"
+
+    # Build next character description from BitConcept
+    if next_bit:
+        next_char = next_bit.character_description or "a different character"
+        next_setting = ""
+        if hasattr(next_bit, 'format') and next_bit.format:
+            next_setting = f" on a {next_bit.format} set"
+    else:
+        next_char = "a completely different cartoon character"
+        next_setting = " in a different setting"
+
+    # The actual video prompt text for the ending
+    ending = f"""
+
+MANDATORY ENDING SEQUENCE:
+At {static_time}: Full-screen TV STATIC fills the frame - black and white analog noise, RGB color fringing, horizontal scan lines flickering, the crackling hiss of a lost signal.
+At {next_scene_time}: HARD CUT to {next_char}{next_setting}. This new character stands perfectly still, mouth CLOSED, silent, staring at camera, waiting. They do NOT speak or move yet - this is just a preview of the next channel."""
+
+    return ending
 
 
 def get_game_settings(game_name: str) -> Dict:

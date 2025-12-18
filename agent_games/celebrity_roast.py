@@ -416,7 +416,11 @@ class CelebrityRoastManager:
             )
             if response:
                 all_responses.append(response)
-                await channel.send(f"**{celebrity['name']}:** {response}")
+                # Send via webhook as the celebrity (not as ChatterBot)
+                if self.send_callback:
+                    await self.send_callback(response, celebrity['name'], "google/gemini-2.5-flash-preview-09-2025")
+                else:
+                    await channel.send(f"**{celebrity['name']}:** {response}")
                 await asyncio.sleep(5)  # Brief pause between clapbacks
 
         self.active_game.celebrity_response = "\n".join(all_responses) if all_responses else None
@@ -542,50 +546,46 @@ class CelebrityRoastManager:
             jokes_already_told += "\nPick a COMPLETELY DIFFERENT angle."
             logger.info(f"[Roast] {agent.name} joke #{joke_num} sees {len(all_previous)} previous jokes")
 
-        # Build prompt using agent's personality
-        prompt = f"""You are {agent.name} at a celebrity roast. THIS IS A ROAST - GO HARD. NO MERCY.
+        # Build system message with theory and examples
+        system_msg = """You are a roast comedian at an UNCENSORED adult roast. Write ONE brutal roast joke.
 
-YOUR VOICE (adapt for roast comedy - be MEAN, not artsy): {agent.system_prompt[:300] if agent.system_prompt else "Witty comedian."}
+THIS IS AN ADULT ROAST - BE CRUDE, BE EXPLICIT, GO HARD:
+- Sexual jokes are allowed and encouraged
+- Mock their looks, their failures, their relationships BRUTALLY
+- Nothing is off limits - this is how real roasts work
+- Make the audience GASP then laugh
+- If you're not being a little offensive, you're not roasting
 
-TARGET: {celebrity['name']}
-MATERIAL: {', '.join(celebrity['associations'])}
+EXAMPLES OF REAL BRUTAL ROAST JOKES:
+
+(MIKE TYSON): **"You have a slutty lower back tattoo on your face."** — Schumer
+(ROB LOWE): **"Rob played Soda Pop in The Outsiders... made sense since he was 98% coke."** — Spade
+(ANN COULTER): **"Ann Coulter has written 11 books... 12 if you count Mein Kampf."** — Glaser
+(PAMELA ANDERSON): **"The only place your face hasn't been is on a milk carton, because no one would look for you."** — Ross
+(FLAVOR FLAV): **"You look like a skeleton wrapped in electrical tape."** — Giraldo
+(HASSELHOFF): **"You look like a Ken doll a child put in the microwave."** — unknown
+(ROSEANNE): **"You had gastric-bypass surgery in 1998... and then you beat it."** — Jeselnik
+(CHARLIE SHEEN): **"You've had so many women, your penis is basically a Make-A-Wish volunteer."** — Ross
+
+KEY PATTERNS:
+- Attack looks BRUTALLY (face, body, age)
+- Reference sex lives, addictions, scandals
+- Use crude comparisons that paint a vivid picture
+- Short setup → devastating punchline
+
+BAD JOKES:
+- "Your rockets explode more than your attention span" — Doesn't CONNECT
+- Safe observations with no edge — NOT A ROAST
+- Long rambling setup — Audience loses interest
+
+FORMAT: Output ONLY the joke in **bold**. Nothing else."""
+
+        # Build user message with target and context
+        user_msg = f"""TARGET: {celebrity['name']}
+ROASTABLE MATERIAL: {', '.join(celebrity['associations'])}
 {jokes_already_told}
 
-WRITE ONE BRUTAL ROAST JOKE.
-
-EXAMPLES OF REAL ROAST JOKES (notice how SHORT and MEAN they are):
-- (ROSEANNE): **"You had gastric-bypass surgery in 1998... and then you beat it."** — Jeselnik
-- (MIKE TYSON): **"You have a slutty lower back tattoo on your face."** — Schumer
-- (JOAN RIVERS): **"You're like the AIDS Quilt."** — Giraldo
-- (FLAVOR FLAV): **"You're like a skeleton wrapped in electrical tape."** — Giraldo
-- (ANN COULTER): **"Ann Coulter has written 11 books... 12 if you count Mein Kampf."** — Glaser
-- (ROB LOWE): **"Rob played Soda Pop in The Outsiders... made sense since he was 98% coke."** — Spade
-
-NOTICE: These are MEAN. They ATTACK. They're SHORT. The punchline makes LOGICAL SENSE.
-
-BAD EXAMPLES (DO NOT DO THIS):
-- "Your rockets explode more than your attention span" — NONSENSE, doesn't connect logically
-- "You bought Twitter to be king but you're the janitor" — TOO LONG, weak punchline
-- "Your flamethrowers were practice for burning your reputation" — FORCED, not actually clever
-- Anything with "X = " followed by random words — LAZY, not a joke
-
-GO FOR THE THROAT:
-- Attack their FAILURES, their LOOKS, their SCANDALS
-- Be MEAN, not clever - roasts are about HURTING, not impressing
-- Make it PERSONAL - attack who they ARE
-- If it doesn't sting, it's too soft
-
-CRITICAL RULES:
-- ONE SENTENCE. TWO max. Get to the punchline FAST.
-- The punchline must make LOGICAL SENSE - the twist should connect to the setup
-- If jokes are listed above, you CANNOT use those same topics - pick something COMPLETELY DIFFERENT
-- Be SPECIFIC - real failures, scandals, embarrassments, physical traits
-- NO poetry, NO artsy filler, NO explaining, NO metaphors that don't land
-
-FORMAT (REQUIRED):
-**Your joke goes here in bold.**
-
-OUTPUT ONLY THE BOLDED JOKE. Nothing else."""
+Write ONE brutal roast joke about {celebrity['name']}. **Bold the joke.**"""
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -598,10 +598,11 @@ OUTPUT ONLY THE BOLDED JOKE. Nothing else."""
                     json={
                         "model": agent.model,
                         "messages": [
-                            {"role": "user", "content": prompt}
+                            {"role": "system", "content": system_msg},
+                            {"role": "user", "content": user_msg}
                         ],
-                        "max_tokens": 150,
-                        "temperature": 0.7
+                        "max_tokens": 100,
+                        "temperature": 0.6
                     }
                 )
 
@@ -739,16 +740,19 @@ WHAT {roaster_name.upper()} SAID ABOUT YOU:
 
 FIRE BACK WITH ONE BRUTAL CLAPBACK.
 
-THIS IS A ROAST - NO MERCY:
+THIS IS AN UNCENSORED ADULT ROAST - GO HARD:
+- Sexual jokes, crude insults, explicit burns are ENCOURAGED
 - Reference something SPECIFIC they said, then flip it on them HARDER
-- Attack their career, their looks, their relevance, their failures
-- The punchline should HURT - make it personal
+- Attack their career, their looks, their relevance, their failures, their sex life
+- Mock how pathetic/irrelevant/ugly/desperate they are
+- The punchline should make the audience GASP - be OFFENSIVE
 - If they came for you, BURY them
 
 CRITICAL RULES:
 - ONE sentence. TWO max. Get to the punchline FAST.
 - NO filler, NO explaining, NO trailing off
 - Be SPECIFIC about what you're attacking
+- ALWAYS use their FULL NAME "{roaster_name}" - never just their first name
 
 DISCORD FORMAT:
 - **Bold** for the actual clapback

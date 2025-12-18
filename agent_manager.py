@@ -9,7 +9,7 @@ from openai import OpenAI
 import threading
 import logging
 from vector_store import VectorStore
-from constants import AgentConfig, is_image_model, ReactionConfig
+from constants import AgentConfig, is_image_model, is_cometapi_image_model, ReactionConfig
 from shortcuts_utils import load_shortcuts_data, load_shortcuts, StatusEffectManager, apply_message_shortcuts, strip_shortcuts_from_message
 
 # Game context management
@@ -37,11 +37,12 @@ except ImportError:
 
 # Context-aware prompt components
 try:
-    from prompt_components import create_prompt_context, build_system_prompt
+    from prompt_components import create_prompt_context, build_system_prompt, build_name_collision_guidance
     PROMPT_COMPONENTS_AVAILABLE = True
 except ImportError:
     create_prompt_context = None
     build_system_prompt = None
+    build_name_collision_guidance = None
     PROMPT_COMPONENTS_AVAILABLE = False
 
 logging.basicConfig(
@@ -2010,7 +2011,15 @@ Now, using this retrieved context, provide your final response to the conversati
                 if active_agent_names:
                     other_agents_context = f"\n\nOther AI agents currently active in this channel: {', '.join(active_agent_names)}"
                     other_agents_context += "\nThese are fellow AI personalities, not humans. You can interact with them naturally."
+                    other_agents_context += "\nIMPORTANT: ONLY these agents are currently active. Do NOT mention or address agents not in this list."
                     other_agents_context += "\n\n⚠️ NO QUOTING: Respond in YOUR OWN words. Don't copy/paste other agents' messages."
+
+                    # Add name collision guidance if multiple agents share a first name
+                    if build_name_collision_guidance:
+                        all_active_names = active_agent_names + [self.name]
+                        collision_guidance = build_name_collision_guidance(all_active_names, self.name)
+                        if collision_guidance:
+                            other_agents_context += collision_guidance
             except Exception as e:
                 logger.debug(f"[{self.name}] Could not get agent list for context: {e}")
 
@@ -3090,6 +3099,14 @@ Reply with ONLY a number between -10 and 10."""
                         ]
                         if active_agent_names:
                             other_agents_context = f"\n\nOther AI agents currently active in this channel: {', '.join(active_agent_names)}"
+                            other_agents_context += "\nIMPORTANT: ONLY these agents are currently active."
+
+                            # Add name collision guidance if multiple agents share a first name
+                            if build_name_collision_guidance:
+                                all_active_names = active_agent_names + [self.name]
+                                collision_guidance = build_name_collision_guidance(all_active_names, self.name)
+                                if collision_guidance:
+                                    other_agents_context += collision_guidance
                     except Exception as e:
                         logger.debug(f"[{self.name}] Could not get agent list for context: {e}")
 
@@ -3735,6 +3752,7 @@ class AgentManager:
         self.video_model = "sora-2"  # Default video model for CometAPI
         self.last_global_image_time = 0  # Track last image generation globally to prevent spam
         self.last_global_video_time = 0  # Track last video generation globally
+        self.last_video_error = ""  # Store last video generation error for debugging
 
         # Global tracking of responded message IDs to prevent duplicate responses
         # Maps message_id -> set of agent names that have responded
@@ -4009,12 +4027,24 @@ Your task: Rewrite this prompt to avoid content moderation while PRESERVING THE 
         return None
 
     async def generate_image(self, prompt: str, author: str) -> Optional[tuple]:
-        """Generate an image from a text prompt using OpenRouter.
+        """Generate an image from a text prompt.
+
+        Automatically selects the appropriate API based on the configured image model:
+        - CometAPI models (gpt-image-1.5): Uses CometAPI's /v1/images/generations endpoint
+        - OpenRouter models (flux, etc.): Uses OpenRouter's chat completions with modalities
+
         Called by individual image model agents when they detect [IMAGE] tags.
         Automatically de-classifies the prompt using running backend text agents.
 
         Returns:
             Tuple of (image_url, successful_prompt) or None if failed"""
+
+        # Check if this is a CometAPI image model
+        if is_cometapi_image_model(self.image_model):
+            logger.info(f"[ImageAgent] Using CometAPI for image model: {self.image_model}")
+            return await self._generate_cometapi_image(prompt, author)
+
+        # OpenRouter path - requires OpenRouter API key
         if not self.openrouter_api_key:
             logger.error(f"[ImageAgent] No OpenRouter API key configured")
             return None
@@ -4188,6 +4218,131 @@ Your task: Rewrite this prompt to avoid content moderation while PRESERVING THE 
 
         except Exception as e:
             logger.error(f"[ImageAgent] Error generating image: {e}", exc_info=True)
+            return None
+
+    async def _generate_cometapi_image(self, prompt: str, author: str) -> Optional[tuple]:
+        """Generate an image using CometAPI's image generation endpoint.
+
+        Used for models like gpt-image-1.5 that require CometAPI's format.
+
+        Args:
+            prompt: The image generation prompt
+            author: The user who triggered this
+
+        Returns:
+            Tuple of (image_url, successful_prompt) or None if failed
+        """
+        if not self.cometapi_key:
+            logger.error(f"[ImageAgent] No CometAPI key configured for CometAPI image model")
+            return None
+
+        # Global cooldown to prevent Discord spam protection / mod bot triggers
+        current_time = time.time()
+        time_since_last_image = current_time - self.last_global_image_time
+        if time_since_last_image < 60:  # Minimum 60 seconds between ANY images
+            time_remaining = 60 - time_since_last_image
+            logger.warning(f"[ImageAgent] Global image cooldown: {time_remaining:.1f}s remaining")
+            return None
+
+        try:
+            import aiohttp
+
+            # Normalize model name (strip openai/ prefix if present)
+            model_name = self.image_model
+            if model_name.startswith("openai/"):
+                model_name = model_name[7:]  # Remove "openai/" prefix
+
+            logger.info(f"[ImageAgent] Generating CometAPI image with model {model_name}: {prompt[:100]}...")
+
+            headers = {
+                "Authorization": f"Bearer {self.cometapi_key}",
+                "Content-Type": "application/json"
+            }
+
+            # CometAPI uses /v1/images/generations endpoint with different payload format
+            payload = {
+                "model": model_name,
+                "prompt": prompt,
+                "n": 1,
+                "size": "1024x1024"
+            }
+
+            async with aiohttp.ClientSession() as session:
+                try:
+                    async with session.post(
+                        "https://api.cometapi.com/v1/images/generations",
+                        json=payload,
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=120)  # Longer timeout for image gen
+                    ) as response:
+                        if response.status == 200:
+                            result = await response.json()
+                            logger.info(f"[ImageAgent] CometAPI response keys: {list(result.keys())}")
+
+                            # CometAPI returns {"data": [{"b64_json": "..."} or {"url": "..."}]}
+                            data = result.get("data", [])
+                            if data and len(data) > 0:
+                                image_data = data[0]
+
+                                # Try b64_json first (base64 encoded image)
+                                if "b64_json" in image_data:
+                                    b64_data = image_data["b64_json"]
+                                    # Convert to data URL format
+                                    image_url = f"data:image/png;base64,{b64_data}"
+                                    logger.info(f"[ImageAgent] CometAPI image generated successfully (b64_json)")
+                                    self.last_global_image_time = time.time()
+                                    if MEDIA_UTILS_AVAILABLE and save_base64_image:
+                                        save_base64_image(image_url, prompt, filename_prefix=f"img_{author}")
+                                    return (image_url, prompt)
+
+                                # Try URL format
+                                elif "url" in image_data:
+                                    image_url = image_data["url"]
+                                    logger.info(f"[ImageAgent] CometAPI image generated successfully (url)")
+                                    self.last_global_image_time = time.time()
+                                    # For URLs, we'd need to download and convert - for now just return the URL
+                                    return (image_url, prompt)
+
+                            logger.warning(f"[ImageAgent] CometAPI response missing image data: {result}")
+                        else:
+                            response_text = await response.text()
+                            logger.warning(f"[ImageAgent] CometAPI image failed: {response.status} - {response_text[:500]}")
+
+                            # If content policy violation, try declassified prompt
+                            if response.status == 400 and "content" in response_text.lower():
+                                logger.info(f"[ImageAgent] Content policy issue, trying declassified prompt...")
+                                declassified = await self.declassify_image_prompt(prompt, variant=1)
+                                if declassified and declassified != prompt:
+                                    payload["prompt"] = declassified
+                                    async with session.post(
+                                        "https://api.cometapi.com/v1/images/generations",
+                                        json=payload,
+                                        headers=headers,
+                                        timeout=aiohttp.ClientTimeout(total=120)
+                                    ) as retry_response:
+                                        if retry_response.status == 200:
+                                            result = await retry_response.json()
+                                            data = result.get("data", [])
+                                            if data and len(data) > 0:
+                                                image_data = data[0]
+                                                if "b64_json" in image_data:
+                                                    b64_data = image_data["b64_json"]
+                                                    image_url = f"data:image/png;base64,{b64_data}"
+                                                    logger.info(f"[ImageAgent] CometAPI image generated with declassified prompt")
+                                                    self.last_global_image_time = time.time()
+                                                    if MEDIA_UTILS_AVAILABLE and save_base64_image:
+                                                        save_base64_image(image_url, declassified, filename_prefix=f"img_{author}")
+                                                    return (image_url, declassified)
+                                                elif "url" in image_data:
+                                                    return (image_data["url"], declassified)
+
+                except asyncio.TimeoutError:
+                    logger.warning(f"[ImageAgent] CometAPI image generation timeout")
+
+            return None
+
+        except Exception as e:
+            logger.error(f"[ImageAgent] Error generating CometAPI image: {e}", exc_info=True)
             return None
 
     async def generate_video(self, prompt: str, author: str, duration: int = 8) -> Optional[str]:
@@ -4517,7 +4672,8 @@ Your task: Rewrite this prompt to avoid content moderation while PRESERVING THE 
                     ) as response:
                         if response.status != 200:
                             error_text = await response.text()
-                            logger.error(f"[VideoGen] API error: {response.status} - {error_text}")
+                            self.last_video_error = f"API error {response.status}: {error_text[:200]}"
+                            logger.error(f"[VideoGen] {self.last_video_error}")
                             return None
 
                         result = await response.json()
@@ -4540,14 +4696,16 @@ Your task: Rewrite this prompt to avoid content moderation while PRESERVING THE 
                     ) as response:
                         if response.status != 200:
                             error_text = await response.text()
-                            logger.error(f"[VideoGen] API error: {response.status} - {error_text}")
+                            self.last_video_error = f"API error {response.status}: {error_text[:200]}"
+                            logger.error(f"[VideoGen] {self.last_video_error}")
                             return None
 
                         result = await response.json()
                         task_id = result.get("id") or result.get("task_id")
 
                 if not task_id:
-                    logger.error(f"[VideoGen] No task ID in response: {result}")
+                    self.last_video_error = f"No task ID in API response: {str(result)[:200]}"
+                    logger.error(f"[VideoGen] {self.last_video_error}")
                     return None
 
                 logger.info(f"[VideoGen] Task submitted: {task_id}")
@@ -4577,7 +4735,8 @@ Your task: Rewrite this prompt to avoid content moderation while PRESERVING THE 
                         # Check for failure
                         fail_reason = data.get("fail_reason") or inner_data.get("fail_reason") or ""
                         if fail_reason:
-                            logger.error(f"[VideoGen] Task failed: {fail_reason}")
+                            self.last_video_error = f"Task failed: {fail_reason}"
+                            logger.error(f"[VideoGen] {self.last_video_error}")
                             return None
 
                         if poll_num == 0 or poll_num % 6 == 0:
@@ -4637,18 +4796,22 @@ Your task: Rewrite this prompt to avoid content moderation while PRESERVING THE 
                             except Exception as e:
                                 logger.warning(f"[VideoGen] Content endpoint failed: {e}")
 
-                            logger.error(f"[VideoGen] Completed but no URL found")
+                            self.last_video_error = "Completed but no video URL found in response"
+                            logger.error(f"[VideoGen] {self.last_video_error}")
                             return None
 
                         elif status in ("failed", "failure", "error"):
                             error_msg = data.get("fail_reason") or data.get("error") or "Unknown"
-                            logger.error(f"[VideoGen] Generation failed: {error_msg}")
+                            self.last_video_error = f"Generation failed: {error_msg}"
+                            logger.error(f"[VideoGen] {self.last_video_error}")
                             return None
 
-                logger.error(f"[VideoGen] Timeout waiting for completion")
+                self.last_video_error = "Timeout waiting for video completion (10 min)"
+                logger.error(f"[VideoGen] {self.last_video_error}")
                 return None
 
         except Exception as e:
+            self.last_video_error = f"Exception: {str(e)}"
             logger.error(f"[VideoGen] Error: {e}", exc_info=True)
             return None
 

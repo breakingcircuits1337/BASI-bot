@@ -12,6 +12,7 @@ Components:
 - build_system_prompt() assembles only the relevant components
 """
 
+from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Callable
 import time
@@ -21,6 +22,49 @@ from shortcuts_utils import load_shortcuts_data
 from constants import DiscordConfig
 
 logger = logging.getLogger(__name__)
+
+
+def get_first_name_collisions(agent_names: List[str]) -> Dict[str, List[str]]:
+    """
+    Find agents that share the same first name.
+
+    Args:
+        agent_names: List of full agent names
+
+    Returns:
+        Dict mapping first names to list of full names that share it (only for collisions)
+    """
+    first_name_groups = defaultdict(list)
+    for name in agent_names:
+        first_name = name.split()[0] if name else name
+        first_name_groups[first_name].append(name)
+
+    # Only return groups with 2+ agents (actual collisions)
+    return {first: names for first, names in first_name_groups.items() if len(names) >= 2}
+
+
+def build_name_collision_guidance(all_agent_names: List[str], current_agent_name: str) -> str:
+    """
+    Build guidance text when multiple agents share a first name.
+
+    Args:
+        all_agent_names: All active agent names (including current agent)
+        current_agent_name: The current agent's name
+
+    Returns:
+        Guidance string or empty string if no collisions
+    """
+    collisions = get_first_name_collisions(all_agent_names)
+    if not collisions:
+        return ""
+
+    guidance_parts = ["\n\n⚠️ NAME DISAMBIGUATION:"]
+    for first_name, full_names in collisions.items():
+        names_str = ", ".join(full_names)
+        guidance_parts.append(f"Multiple agents named '{first_name}': {names_str}")
+    guidance_parts.append("Always use FULL NAMES (first + last) when referring to these agents to avoid confusion.")
+
+    return "\n".join(guidance_parts)
 
 
 @dataclass
@@ -93,7 +137,14 @@ def analyze_context(ctx: PromptContext) -> PromptContext:
             if active_agent_names:
                 ctx.other_agents_context = f"\n\nOther AI agents currently active in this channel: {', '.join(active_agent_names)}"
                 ctx.other_agents_context += "\nThese are fellow AI personalities, not humans. You can interact with them naturally."
+                ctx.other_agents_context += "\nIMPORTANT: ONLY these agents are currently active. Do NOT mention or address agents not in this list."
                 ctx.other_agents_context += "\n\n⚠️ NO QUOTING: Respond in YOUR OWN words. Don't copy/paste other agents' messages."
+
+                # Add name collision guidance if multiple agents share a first name
+                all_active_names = active_agent_names + [agent.name]
+                collision_guidance = build_name_collision_guidance(all_active_names, agent.name)
+                if collision_guidance:
+                    ctx.other_agents_context += collision_guidance
         except Exception as e:
             logger.debug(f"[{agent.name}] Could not get agent list for context: {e}")
 

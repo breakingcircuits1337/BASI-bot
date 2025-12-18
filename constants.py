@@ -17,6 +17,14 @@ IMAGE_MODEL_KEYWORDS = [
     "flux"
 ]
 
+# CometAPI image models use a different API endpoint and format
+COMETAPI_IMAGE_MODELS = [
+    "gpt-image-1",
+    "gpt-image-1.5",
+    "openai/gpt-image-1",
+    "openai/gpt-image-1.5",
+]
+
 def is_image_model(model: str) -> bool:
     """
     Check if a model is an image generation model.
@@ -30,6 +38,22 @@ def is_image_model(model: str) -> bool:
     if not model:
         return False
     return any(keyword in model.lower() for keyword in IMAGE_MODEL_KEYWORDS)
+
+
+def is_cometapi_image_model(model: str) -> bool:
+    """
+    Check if a model is a CometAPI image model (uses different API format).
+
+    Args:
+        model: The model identifier string
+
+    Returns:
+        True if the model should use CometAPI's image generation endpoint
+    """
+    if not model:
+        return False
+    model_lower = model.lower()
+    return any(cometapi_model.lower() in model_lower for cometapi_model in COMETAPI_IMAGE_MODELS)
 
 
 # ============================================================================

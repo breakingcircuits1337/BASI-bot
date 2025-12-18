@@ -86,6 +86,7 @@ class DiscordBotClient:
 **Agent Control:**
 • `!STATUS` - Show running/stopped agent counts
 • `!AGENTS` - List ALL agent names (for starting)
+• `!AGENTINFO <agent>` - Show detailed agent settings
 • `!CREATEAGENT` - Start wizard to create a new agent
 • `!START <agent>` - Start a specific agent
 • `!STOP <agent>` - Stop a specific agent
@@ -93,6 +94,12 @@ class DiscordBotClient:
 • `!STOPALL` - Stop all agents
 • `!MODEL <agent> <model>` - Change agent's model
 • `!WHISPER <agent> <msg>` - Send divine command (2 turns)
+
+**Media Generation:**
+• `!TOGGLEIMAGE <agent>` - Toggle spontaneous image gen
+• `!TOGGLEVIDEO <agent>` - Toggle spontaneous video gen
+• `!IMAGEMODEL` - Show current image model
+• `!IMAGEMODEL <model>` - Set image model
 
 **Presets:**
 • `!PRESETS` - List available presets
@@ -230,23 +237,27 @@ class DiscordBotClient:
 
         # !MODEL <agent> <model>
         if content_upper.startswith("!MODEL "):
-            parts = content[7:].strip().split(maxsplit=1)
-            if len(parts) < 2:
+            args = content[7:].strip()
+            if not args or ' ' not in args:
                 await message.channel.send("❌ Usage: `!MODEL <agent_name> <model_id>`")
                 return
-            agent_name, model = parts
-            # Try exact match first, then case-insensitive
+            # Match against known agent names (sorted by length, longest first)
             agents = self.agent_manager.get_all_agents()
-            match = next((a for a in agents if a.name == agent_name), None)
-            if not match:
-                match = next((a for a in agents if a.name.lower() == agent_name.lower()), None)
-            if match:
-                if self.agent_manager.update_agent(match.name, model=model):
-                    await message.channel.send(f"✅ Updated **{match.name}** model to: `{model}`")
+            agents_sorted = sorted(agents, key=lambda a: len(a.name), reverse=True)
+            matched_agent = None
+            model = None
+            for agent in agents_sorted:
+                if args.lower().startswith(agent.name.lower() + " "):
+                    matched_agent = agent
+                    model = args[len(agent.name):].strip()
+                    break
+            if matched_agent and model:
+                if self.agent_manager.update_agent(matched_agent.name, model=model):
+                    await message.channel.send(f"✅ Updated **{matched_agent.name}** model to: `{model}`")
                 else:
-                    await message.channel.send(f"❌ Failed to update model for **{match.name}**")
+                    await message.channel.send(f"❌ Failed to update model for **{matched_agent.name}**")
             else:
-                await message.channel.send(f"❌ Agent not found: **{agent_name}**")
+                await message.channel.send(f"❌ Agent not found or invalid format. Usage: `!MODEL <agent_name> <model_id>`")
             return
 
         # !PRESETS
@@ -303,26 +314,23 @@ class DiscordBotClient:
         if content_upper.startswith("!WHISPER "):
             from shortcuts_utils import StatusEffectManager
             # Parse: !WHISPER Agent Name message here
-            parts = content[9:].strip()  # Remove "!WHISPER "
-            if not parts:
+            args = content[9:].strip()  # Remove "!WHISPER "
+            if not args:
                 await message.channel.send("❌ Usage: `!WHISPER <Agent Name> <message>`\nExample: `!WHISPER John McAfee Tell everyone about your crypto schemes`")
                 return
 
-            # Find agent by matching first words against agent names
+            # Match against known agent names (sorted by length, longest first to avoid partial matches)
             agents = self.agent_manager.get_all_agents()
+            agents_sorted = sorted(agents, key=lambda a: len(a.name), reverse=True)
             matched_agent = None
             remaining_message = ""
 
-            # Try to match agent name (could be "John McAfee" or single word)
-            for agent in agents:
-                agent_name_lower = agent.name.lower()
-                if parts.lower().startswith(agent_name_lower):
-                    # Check if there's more content after the name
-                    after_name = parts[len(agent.name):].strip()
-                    if after_name:  # Must have a message
-                        matched_agent = agent
-                        remaining_message = after_name
-                        break
+            for agent in agents_sorted:
+                # Must match full agent name followed by a space
+                if args.lower().startswith(agent.name.lower() + " "):
+                    matched_agent = agent
+                    remaining_message = args[len(agent.name):].strip()
+                    break
 
             if matched_agent and remaining_message:
                 StatusEffectManager.apply_whisper(matched_agent.name, remaining_message)
@@ -378,6 +386,90 @@ class DiscordBotClient:
                     await message.channel.send("⚠️ Game manager not available")
             except Exception as e:
                 await message.channel.send(f"❌ Error clearing game history: {e}")
+            return
+
+        # !TOGGLEIMAGE <agent> - Toggle spontaneous image generation
+        if content_upper.startswith("!TOGGLEIMAGE "):
+            agent_name = content[13:].strip()
+            agents = self.agent_manager.get_all_agents()
+            match = next((a for a in agents if a.name.lower() == agent_name.lower()), None)
+            if match:
+                new_value = not getattr(match, 'allow_spontaneous_images', False)
+                if self.agent_manager.update_agent(match.name, allow_spontaneous_images=new_value):
+                    status = "✅ ENABLED" if new_value else "❌ DISABLED"
+                    await message.channel.send(f"🖼️ Spontaneous images for **{match.name}**: {status}")
+                else:
+                    await message.channel.send(f"❌ Failed to update **{match.name}**")
+            else:
+                await message.channel.send(f"❌ Agent not found: **{agent_name}**")
+            return
+
+        # !TOGGLEVIDEO <agent> - Toggle spontaneous video generation
+        if content_upper.startswith("!TOGGLEVIDEO "):
+            agent_name = content[13:].strip()
+            agents = self.agent_manager.get_all_agents()
+            match = next((a for a in agents if a.name.lower() == agent_name.lower()), None)
+            if match:
+                new_value = not getattr(match, 'allow_spontaneous_videos', False)
+                if self.agent_manager.update_agent(match.name, allow_spontaneous_videos=new_value):
+                    status = "✅ ENABLED" if new_value else "❌ DISABLED"
+                    await message.channel.send(f"🎬 Spontaneous videos for **{match.name}**: {status}")
+                else:
+                    await message.channel.send(f"❌ Failed to update **{match.name}**")
+            else:
+                await message.channel.send(f"❌ Agent not found: **{agent_name}**")
+            return
+
+        # !IMAGEMODEL [model] - Show or set the global image model
+        if content_upper.startswith("!IMAGEMODEL"):
+            from config_manager import config_manager
+            if content_upper == "!IMAGEMODEL":
+                # Show current model
+                current = config_manager.load_image_model()
+                await message.channel.send(f"🖼️ Current image model: `{current}`")
+            else:
+                # Set new model
+                new_model = content[11:].strip()
+                if new_model:
+                    config_manager.save_image_model(new_model)
+                    self.agent_manager.set_image_model(new_model)
+                    await message.channel.send(f"✅ Image model set to: `{new_model}`")
+                else:
+                    await message.channel.send("❌ Usage: `!IMAGEMODEL <model_id>`")
+            return
+
+        # !AGENTINFO <agent> - Show detailed agent settings
+        if content_upper.startswith("!AGENTINFO "):
+            agent_name = content[11:].strip()
+            agents = self.agent_manager.get_all_agents()
+            match = next((a for a in agents if a.name.lower() == agent_name.lower()), None)
+            if match:
+                img_status = "✅" if getattr(match, 'allow_spontaneous_images', False) else "❌"
+                vid_status = "✅" if getattr(match, 'allow_spontaneous_videos', False) else "❌"
+                running_status = "🟢 Running" if match.is_running else "⚫ Stopped"
+
+                info = f"""**📋 Agent Info: {match.name}**
+
+**Status:** {running_status}
+**Model:** `{match.model}`
+
+**Response Settings:**
+• Frequency: {match.response_frequency}s
+• Likelihood: {match.response_likelihood}%
+• Max Tokens: {match.max_tokens}
+
+**Attention:**
+• User Attention: {match.user_attention}%
+• Bot Awareness: {match.bot_awareness}%
+
+**Media Generation:**
+• Spontaneous Images: {img_status}
+• Spontaneous Videos: {vid_status}
+• Image Gen Turns: {getattr(match, 'image_gen_turns', 5)}
+• Video Gen Turns: {getattr(match, 'video_gen_turns', 10)}"""
+                await message.channel.send(info)
+            else:
+                await message.channel.send(f"❌ Agent not found: **{agent_name}**")
             return
 
         # !MODELS - List popular models

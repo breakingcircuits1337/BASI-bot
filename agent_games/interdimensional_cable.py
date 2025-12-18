@@ -44,6 +44,7 @@ from .ffmpeg_utils import (
     is_ffmpeg_available,
     copy_video_to_media,
     save_media_prompt,
+    save_failed_prompt,
     VIDEO_TEMP_DIR,
     MEDIA_VIDEOS_DIR
 )
@@ -2510,7 +2511,8 @@ class InterdimensionalCableGame:
                     attempt_time = time.time() - start_time
                     total_scene_time += attempt_time
 
-                    if video_result:
+                    # Check if video_result is a success (has "path") or failure (has "error")
+                    if video_result and "path" in video_result:
                         clip.video_path = video_result["path"]
                         clip.video_url = video_result.get("url")
                         clip.success = True
@@ -2526,13 +2528,36 @@ class InterdimensionalCableGame:
                             f"**Scene {clip_num} complete!** ({total_scene_time:.0f}s) by {creator_name}"
                         )
 
-                    else:
-                        # Failed - log and retry (DO NOT move to next scene)
-                        logger.warning(f"[IDCC:{self.game_id}] Scene {clip_num} attempt {scene_attempt}/{MAX_SCENE_RETRIES} failed, retrying...")
+                    elif video_result and "error" in video_result:
+                        # Got error info from _generate_video_clip - save failed prompt
+                        error_msg = video_result.get("error", "Unknown error")
+                        attempts = video_result.get("attempts", 0)
+                        declassified = video_result.get("declassified_prompts", [])
+
+                        # Save failed prompt with error details
+                        save_failed_prompt(
+                            game_id=self.game_id,
+                            clip_number=clip_num,
+                            prompt=prompt,
+                            error_message=error_msg,
+                            attempts=attempts,
+                            declassified_prompts=declassified
+                        )
+                        clip.error_message = error_msg
+
+                        # Log and retry
+                        logger.warning(f"[IDCC:{self.game_id}] Scene {clip_num} attempt {scene_attempt}/{MAX_SCENE_RETRIES} failed: {error_msg}")
                         await self._send_gamemaster_message(
                             f"**Scene {clip_num} attempt {scene_attempt} failed.** Retrying with modified prompt..."
                         )
                         # Brief pause before retry
+                        await asyncio.sleep(3)
+                    else:
+                        # Unexpected None result
+                        logger.warning(f"[IDCC:{self.game_id}] Scene {clip_num} attempt {scene_attempt}/{MAX_SCENE_RETRIES} returned None")
+                        await self._send_gamemaster_message(
+                            f"**Scene {clip_num} attempt {scene_attempt} failed.** Retrying with modified prompt..."
+                        )
                         await asyncio.sleep(3)
 
                 except Exception as e:
@@ -2728,7 +2753,7 @@ class InterdimensionalCableGame:
         Returns:
             Generated prompt string
         """
-        from agent_games.game_prompts import get_bit_scene_timing
+        from agent_games.game_prompts import get_bit_scene_timing, build_mandatory_scene_ending
 
         try:
             # Get this scene's BitConcept from the channel lineup
@@ -2834,6 +2859,23 @@ class InterdimensionalCableGame:
                 if prompt.lower().startswith(prefix.lower()):
                     prompt = prompt[len(prefix):].strip()
 
+            # PROGRAMMATICALLY APPEND the mandatory ending sequence
+            # This ensures TV static + next scene preview is ALWAYS included
+            # regardless of what the agent generated
+            if bit:
+                clip_duration = self.state.channel_lineup.clip_duration_seconds
+                is_final = (clip_number == self.num_clips)
+
+                # Get next bit for transition preview
+                next_bit = None
+                if not is_final and clip_number < len(self.state.channel_lineup.bits):
+                    next_bit = self.state.channel_lineup.get_bit(clip_number + 1)
+
+                # Append mandatory ending
+                mandatory_ending = build_mandatory_scene_ending(clip_duration, is_final, next_bit)
+                prompt = prompt + mandatory_ending
+                logger.info(f"[IDCC:{self.game_id}] Appended mandatory ending for clip {clip_number} (final={is_final})")
+
             logger.info(f"[IDCC:{self.game_id}] {agent.name} generated: {prompt[:100]}...")
             return prompt
 
@@ -2864,8 +2906,11 @@ class InterdimensionalCableGame:
 
         Returns:
             Dict with 'path' and optionally 'url', or None on failure
+            On failure, returns dict with 'error', 'attempts', 'declassified_prompts' for debugging
         """
         max_retries = idcc_config.max_retries_per_clip
+        declassified_prompts = []  # Track all declassified prompts tried
+        last_error = "Unknown error"
 
         for attempt in range(max_retries):
             try:
@@ -2888,6 +2933,7 @@ class InterdimensionalCableGame:
 
                     if declassified:
                         use_prompt = declassified
+                        declassified_prompts.append(f"[Variant {effective_variant}] {declassified}")
                         logger.info(f"[IDCC:{self.game_id}] Using declassified prompt: {use_prompt[:100]}...")
                     else:
                         # Declassifier failed - apply manual fallback modifications
@@ -2917,6 +2963,7 @@ class InterdimensionalCableGame:
                             sanitized = sanitized.replace(old, new).replace(old.capitalize(), new.capitalize())
 
                         use_prompt = f"{prefix} {sanitized}"
+                        declassified_prompts.append(f"[Manual Fallback {effective_variant}] {use_prompt}")
                         logger.info(f"[IDCC:{self.game_id}] Manual fallback prompt: {use_prompt[:100]}...")
 
                 # Prepare reference frame if provided
@@ -2948,18 +2995,32 @@ class InterdimensionalCableGame:
                             video_path = VIDEO_TEMP_DIR / f"clip_{self.game_id}_{int(time.time())}.mp4"
                             success = await download_video(video_result, video_path)
                             if not success:
+                                last_error = "Failed to download video from URL"
                                 continue
 
                         return {"path": video_path, "url": video_result}
+                else:
+                    # Get detailed error from agent_manager if available
+                    api_error = getattr(self.agent_manager, 'last_video_error', '')
+                    if api_error:
+                        last_error = f"API: {api_error}"
+                    else:
+                        last_error = f"Video generation returned None (attempt {attempt + 1})"
 
             except Exception as e:
+                last_error = f"Exception on attempt {attempt + 1}: {str(e)}"
                 logger.error(f"[IDCC:{self.game_id}] Video generation attempt {attempt + 1} failed: {e}")
 
             # Wait before retry
             if attempt < max_retries - 1:
                 await asyncio.sleep(5)
 
-        return None
+        # All retries failed - return error info for saving
+        return {
+            "error": last_error,
+            "attempts": max_retries,
+            "declassified_prompts": declassified_prompts
+        }
 
     # ========================================================================
     # PHASE 4: CONCATENATION

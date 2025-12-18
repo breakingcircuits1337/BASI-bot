@@ -43,6 +43,7 @@ VIDEO_TEMP_DIR = BASE_DIR / "data" / "video_temp"
 MEDIA_DIR = BASE_DIR / "data" / "Media"
 MEDIA_VIDEOS_DIR = MEDIA_DIR / "Videos"
 MEDIA_VIDEOS_PROMPTS_DIR = MEDIA_VIDEOS_DIR / "Prompts"
+MEDIA_VIDEOS_FAILED_DIR = MEDIA_VIDEOS_DIR / "FailedPrompts"
 MEDIA_IMAGES_DIR = MEDIA_DIR / "Images"
 MEDIA_IMAGES_PROMPTS_DIR = MEDIA_IMAGES_DIR / "Prompts"
 
@@ -105,12 +106,14 @@ def ensure_media_dirs() -> dict:
     """
     MEDIA_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
     MEDIA_VIDEOS_PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
+    MEDIA_VIDEOS_FAILED_DIR.mkdir(parents=True, exist_ok=True)
     MEDIA_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     MEDIA_IMAGES_PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
 
     return {
         "videos_dir": MEDIA_VIDEOS_DIR,
         "videos_prompts_dir": MEDIA_VIDEOS_PROMPTS_DIR,
+        "videos_failed_dir": MEDIA_VIDEOS_FAILED_DIR,
         "images_dir": MEDIA_IMAGES_DIR,
         "images_prompts_dir": MEDIA_IMAGES_PROMPTS_DIR
     }
@@ -150,6 +153,71 @@ def save_media_prompt(media_path: Path, prompt: str, media_type: str = "video") 
 
     except Exception as e:
         logger.error(f"[Media] Error saving prompt: {e}")
+        return None
+
+
+def save_failed_prompt(
+    game_id: str,
+    clip_number: int,
+    prompt: str,
+    error_message: str,
+    attempts: int = 0,
+    declassified_prompts: Optional[List[str]] = None
+) -> Optional[Path]:
+    """
+    Save a failed video generation prompt with error details for debugging.
+
+    Args:
+        game_id: The IDCC game ID
+        clip_number: Which clip number failed
+        prompt: The original prompt that was attempted
+        error_message: The error or failure reason
+        attempts: How many attempts were made
+        declassified_prompts: List of declassified prompt variants that were tried
+
+    Returns:
+        Path to the saved failed prompt file, or None on error
+    """
+    try:
+        ensure_media_dirs()
+
+        # Create filename with timestamp for uniqueness
+        timestamp = int(time.time())
+        filename = f"failed_{game_id}_clip{clip_number}_{timestamp}.txt"
+        failed_path = MEDIA_VIDEOS_FAILED_DIR / filename
+
+        # Build the failure report
+        lines = [
+            f"=== FAILED VIDEO GENERATION ===",
+            f"Game ID: {game_id}",
+            f"Clip Number: {clip_number}",
+            f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+            f"Attempts: {attempts}",
+            f"",
+            f"=== ERROR ===",
+            f"{error_message}",
+            f"",
+            f"=== ORIGINAL PROMPT ===",
+            prompt,
+        ]
+
+        if declassified_prompts:
+            lines.append("")
+            lines.append("=== DECLASSIFIED VARIANTS TRIED ===")
+            for i, dp in enumerate(declassified_prompts, 1):
+                lines.append(f"--- Variant {i} ---")
+                lines.append(dp)
+                lines.append("")
+
+        # Save the file
+        with open(failed_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+
+        logger.info(f"[Media] Saved failed prompt to: {failed_path}")
+        return failed_path
+
+    except Exception as e:
+        logger.error(f"[Media] Error saving failed prompt: {e}")
         return None
 
 
