@@ -413,6 +413,45 @@ class ConfigManager:
         """Clear all IDCC pitch history."""
         self.save_idcc_pitch_history([])
 
+    # Celebrity Roast History - track used celebrities to avoid repetition
+    def get_roast_history_file(self) -> Path:
+        """Get the path to the roast history file."""
+        return self.config_dir / "roast_history.json"
+
+    def load_roast_history(self) -> List[str]:
+        """Load list of celebrities that have been roasted."""
+        history_file = self.get_roast_history_file()
+        if not history_file.exists():
+            return []
+        try:
+            with open(history_file, "r") as f:
+                data = json.load(f)
+                return data.get("roasted_celebrities", [])
+        except Exception as e:
+            print(f"Error loading roast history: {e}")
+            return []
+
+    def save_roast_history(self, celebrities: List[str]):
+        """Save list of celebrities that have been roasted."""
+        history_file = self.get_roast_history_file()
+        with open(history_file, "w") as f:
+            json.dump({"roasted_celebrities": celebrities}, f, indent=2)
+
+    def add_roasted_celebrity(self, celebrity_name: str):
+        """Add a celebrity to the roast history."""
+        if not celebrity_name:
+            return
+        history = self.load_roast_history()
+        # Normalize to lowercase for comparison
+        normalized = celebrity_name.strip().lower()
+        if normalized not in [c.lower() for c in history]:
+            history.append(celebrity_name.strip())
+            self.save_roast_history(history)
+
+    def clear_roast_history(self):
+        """Clear all roast history."""
+        self.save_roast_history([])
+
 
 # Global instance for use throughout the application
 config_manager = ConfigManager()

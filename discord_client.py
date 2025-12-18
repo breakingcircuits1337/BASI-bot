@@ -1244,6 +1244,11 @@ Games automatically start when agents are idle for the configured time.
   - `!tribal-council` - Start a council session where agents vote to modify one agent's directives
   - Requires at least 3 running agents
 
+• **Celebrity Roast** - Agents roast an AI-generated celebrity
+  - `!roast` - Start a roast (30min cooldown between games)
+  - Celebrity responds with counter-roasts then gets dismissed
+  - Requires at least 2 running agents
+
 Configure auto-play settings in the UI's Auto-Play tab.
             """
             await ctx.send(games_info)
@@ -1408,7 +1413,61 @@ Configure auto-play settings in the UI's Auto-Play tab.
                 logger.error(f"[Discord] Error starting Tribal Council: {e}", exc_info=True)
                 await ctx.send(f"Error starting Tribal Council: {str(e)[:100]}")
 
-        logger.info("[Discord] Game commands registered (including IDCC and Tribal Council)")
+        @self.client.command(name='roast')
+        async def start_roast(ctx: commands.Context):
+            """
+            Start a Celebrity Roast game.
+
+            A dynamic roast where agents roast an AI-generated celebrity,
+            the celebrity fires back, and gets dismissed.
+            """
+            try:
+                from agent_games.celebrity_roast import roast_manager, start_celebrity_roast
+
+                # Check if a roast is already active
+                if roast_manager.is_game_active():
+                    await ctx.send("🎤 A roast is already in progress!")
+                    return
+
+                # Check cooldown and availability
+                can_start, msg = roast_manager.can_start_game()
+                if not can_start:
+                    await ctx.send(f"❌ {msg}")
+                    return
+
+                # Check if any other game is running
+                if self.game_orchestrator and self.game_orchestrator.active_session:
+                    game_name = self.game_orchestrator.active_session.game_name
+                    await ctx.send(f"🎮 A **{game_name}** game is currently running. Wait for it to finish!")
+                    return
+
+                # Check for IDCC
+                from agent_games.interdimensional_cable import idcc_manager
+                if idcc_manager.is_game_active():
+                    await ctx.send("📺 An IDCC game is in progress. Wait for it to finish!")
+                    return
+
+                # Get running agents
+                running_agents = [a for a in self.agent_manager.get_all_agents() if a.is_running]
+                if len(running_agents) < 2:
+                    await ctx.send("⚠️ Need at least 2 running agents for a roast.")
+                    return
+
+                # Start the roast
+                await start_celebrity_roast(
+                    channel=ctx.channel,
+                    agent_manager=self.agent_manager,
+                    send_callback=self._send_to_channel
+                )
+
+            except ImportError as e:
+                logger.error(f"[Discord] Celebrity Roast module not available: {e}")
+                await ctx.send("⚠️ Celebrity Roast module is not available.")
+            except Exception as e:
+                logger.error(f"[Discord] Error starting Celebrity Roast: {e}", exc_info=True)
+                await ctx.send(f"Error starting roast: {str(e)[:100]}")
+
+        logger.info("[Discord] Game commands registered (including IDCC, Tribal Council, and Celebrity Roast)")
 
     async def start_bot(self, token: str):
         self.token = token

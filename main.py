@@ -820,6 +820,7 @@ def _create_discord_tab(discord_token_initial: str, discord_channel_initial: str
                     clear_idcc_tracking_btn = gr.Button("Clear Tracking", variant="secondary", size="sm")
                 with gr.Row():
                     clear_pitch_history_btn = gr.Button("Clear Pitch History", variant="secondary", size="sm")
+                    clear_roast_history_btn = gr.Button("Clear Roast History", variant="secondary", size="sm")
                 idcc_post_status = gr.Textbox(label="Status", interactive=False, lines=2, max_lines=3)
 
                 gr.HTML('<div class="panel-header" style="margin-top: 20px;"><h3>Help</h3></div>')
@@ -2683,6 +2684,19 @@ def create_gradio_ui():
 
         clear_pitch_history_btn.click(
             fn=clear_pitch_history,
+            inputs=[],
+            outputs=[idcc_post_status]
+        )
+
+        def clear_roast_history():
+            """Clear the Celebrity Roast history."""
+            history = config_manager.load_roast_history()
+            count = len(history)
+            config_manager.clear_roast_history()
+            return f"Cleared {count} celebrities from roast history"
+
+        clear_roast_history_btn.click(
+            fn=clear_roast_history,
             inputs=[],
             outputs=[idcc_post_status]
         )

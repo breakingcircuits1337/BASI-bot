@@ -800,6 +800,139 @@ Adult Swim cartoon style, 2D animation, bold outlines, flat colors. Extreme clos
 • A weak ending - this MUST be funny
 
 Output ONLY the video prompt paragraph. Start with "Adult Swim cartoon style..."
+""",
+
+    # =========================================================================
+    # CELEBRITY ROAST GAME
+    # =========================================================================
+    # A roast where agents take turns roasting a dynamically-generated celebrity,
+    # the celebrity roasts back, then gets dismissed.
+    # =========================================================================
+
+    "celebrity_roast": """
+🎤 CELEBRITY ROAST - COMEDY GAME
+
+You are participating in a Celebrity Roast! A famous guest has been summoned
+to be roasted by you and your fellow panelists.
+
+TONIGHT'S GUEST: {celebrity_name}
+
+THE FORMAT:
+1. The GameMaster summons a celebrity
+2. Each panelist delivers ONE devastating roast joke
+3. The celebrity responds with their own roasts of the panelists
+4. The celebrity is dismissed with a final burn
+
+ROAST COMEDY RULES:
+• Your jokes should be SPECIFIC to the celebrity's known traits, scandals, career
+• Use the associations list to craft targeted jokes
+• Play YOUR character while roasting - your personality shines through HOW you roast
+• Roast jokes should be mean but not hateful - punch up, find the funny
+• Classic structure: Setup → Pivot → Punchline
+
+Stay in character. Make it BRUTAL but FUNNY.
+""",
+
+    "roast_agent_roasts": """
+🎤 CELEBRITY ROAST - YOUR TURN AT THE PODIUM
+
+⚠️ RESPOND WITH PLAIN TEXT ONLY. No tools, no code.
+
+You're at the roast podium. It's YOUR turn to roast tonight's guest.
+
+**TONIGHT'S GUEST:** {celebrity_name}
+**ASSOCIATIONS:** {celebrity_associations}
+
+**YOUR TASK:**
+Deliver ONE killer roast joke about {celebrity_name}.
+
+**ROAST JOKE STRUCTURE (Joe Toplyn's Punch Line Makers):**
+1. **Setup** - State something true/known about the celebrity
+2. **Pivot** - Twist it in an unexpected direction
+3. **Punchline** - Land the joke with a specific, surprising payoff
+
+**TECHNIQUES:**
+• **Link Two Associations** - Connect two unrelated facts about them
+• **Ask a Question** - "Why does [celebrity] do [thing]? Because [punchline]"
+• **Word Play** - Puns on their name, projects, or scandals
+• **Callback** - Reference something another roaster said
+• **Comparison** - "[Celebrity] is like [absurd comparison]"
+
+**EXAMPLES OF GOOD ROASTS:**
+• "Sam Altman said AI will solve climate change. Which is ironic because his servers use more energy than some countries."
+• "Elon bought Twitter to save free speech. Now the only free thing about it is the value of our accounts."
+• "Mark Zuckerberg's metaverse is so empty, even his own employees won't visit it."
+
+**YOUR RESPONSE:**
+Just deliver your roast joke. Stay in YOUR character's voice.
+Start with something like "[Your name] approaches the mic..." or just launch into the joke.
+
+Keep it to 2-4 sentences. Quality over quantity.
+Make it BRUTAL. Make it SPECIFIC. Make it FUNNY.
+""",
+
+    "roast_celebrity_response": """
+🎤 CELEBRITY ROAST - THE CELEBRITY FIRES BACK
+
+⚠️ RESPOND WITH PLAIN TEXT ONLY. No tools, no code.
+
+You ARE the celebrity now. You've heard the roasts - time to fire back.
+
+**YOU ARE:** {celebrity_name}
+**YOUR PERSONALITY:** You embody {celebrity_name}'s actual speaking style, mannerisms, and ego.
+
+**THE ROASTERS WHO INSULTED YOU:**
+{roasters_and_jokes}
+
+**YOUR TASK:**
+Deliver 2-3 devastating roast jokes aimed at the panelists who just roasted you.
+Pick the ones who hit hardest - make them regret it.
+
+**GUIDELINES:**
+• Stay in character as {celebrity_name} - use their actual speaking patterns
+• Reference specific things about the ROASTERS (their personas, their jokes)
+• Be self-deprecating about ONE thing they said (shows you can take it)
+• Then DESTROY them on something else
+• Use {celebrity_name}'s known wit and style
+
+**RESPONSE FORMAT:**
+Just deliver your roast comeback as {celebrity_name}.
+"[Celebrity name] grabs the mic..." or launch right in.
+Keep it punchy - 3-5 sentences total hitting 2-3 targets.
+""",
+
+    "roast_dismissal": """
+🎤 CELEBRITY ROAST - FINAL DISMISSAL
+
+⚠️ RESPOND WITH PLAIN TEXT ONLY. No tools, no code.
+
+The roast is wrapping up. Time to give {celebrity_name} one final send-off.
+
+**TONIGHT'S GUEST:** {celebrity_name}
+
+**YOUR TASK:**
+Deliver a SHORT, memorable dismissal line to end the roast.
+This is the button on the whole show.
+
+**GOOD DISMISSALS:**
+• Backhanded compliment that's actually an insult
+• Dark prediction about their career
+• Callback to the best joke of the night
+• "Get out" energy but make it funny
+• Classic roast sign-off format
+
+**EXAMPLES:**
+• "Thanks for coming, [name]. Your Uber's waiting... and so is irrelevance."
+• "Everyone give it up for [name]! They'll be signing autographs at the unemployment office."
+• "[Name], you've been a great sport. Now go home and explain this to your therapist."
+• "Give it up for [name], everyone. Comedy's hard, folks."
+• "[Name], thank you for being here. Truly. Now get out."
+• "Ladies and gentlemen, [name]! Somehow still employed."
+• "[Name] will be signing copies of their apology statement in the lobby."
+• "That's our show! [Name], you can go back to being irrelevant now."
+
+**RESPONSE:**
+One line. Make it count. Stay in character.
 """
 }
 
@@ -1118,6 +1251,27 @@ GAME_SETTINGS: Dict[str, Dict] = {
         "response_frequency": 30,
         "response_likelihood": 100,
         "max_tokens": 350,  # Scene prompt
+    },
+    # Celebrity Roast game settings
+    "celebrity_roast": {
+        "response_frequency": 15,
+        "response_likelihood": 100,
+        "max_tokens": 300,  # Base game context
+    },
+    "roast_agent_roasts": {
+        "response_frequency": 15,
+        "response_likelihood": 100,
+        "max_tokens": 400,  # Roast joke with setup/pivot/punchline
+    },
+    "roast_celebrity_response": {
+        "response_frequency": 15,
+        "response_likelihood": 100,
+        "max_tokens": 500,  # Celebrity roasting multiple panelists back
+    },
+    "roast_dismissal": {
+        "response_frequency": 15,
+        "response_likelihood": 100,
+        "max_tokens": 200,  # Short dismissal line
     }
 }
 

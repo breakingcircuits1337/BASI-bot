@@ -62,6 +62,12 @@ class AgentGameState:
     idcc_timing_details: Optional[str] = None
     idcc_used_pitches_section: Optional[str] = None  # Previously used parody targets to avoid
 
+    # Celebrity Roast specific fields
+    roast_celebrity_name: Optional[str] = None  # Name of the celebrity being roasted
+    roast_celebrity_associations: Optional[str] = None  # Comma-separated associations for joke writing
+    roast_phase: Optional[str] = None  # Current phase: agent_roasts, celebrity_response, dismissal
+    roast_round_number: Optional[int] = None  # Current round of roasting
+
 
 class GameContextManager:
     """Manages agent context when entering/exiting games."""
@@ -344,6 +350,46 @@ class GameContextManager:
             return
         self.active_games[agent_name].idcc_used_pitches_section = used_pitches_section
 
+    def update_roast_context(
+        self,
+        agent_name: str,
+        celebrity_name: Optional[str] = None,
+        celebrity_associations: Optional[str] = None,
+        phase: Optional[str] = None,
+        round_number: Optional[int] = None
+    ) -> None:
+        """
+        Update Celebrity Roast specific context for an agent.
+
+        Args:
+            agent_name: Name of agent
+            celebrity_name: Name of the celebrity being roasted
+            celebrity_associations: Comma-separated associations for joke writing
+            phase: Current roast phase (agent_roasts, celebrity_response, dismissal)
+            round_number: Current round of roasting
+        """
+        if agent_name not in self.active_games:
+            logger.warning(f"[GameContext] Cannot update roast context for {agent_name} - not in game mode")
+            return
+
+        state = self.active_games[agent_name]
+
+        if celebrity_name is not None:
+            state.roast_celebrity_name = celebrity_name
+            logger.debug(f"[GameContext] Updated roast celebrity for {agent_name}: {celebrity_name}")
+
+        if celebrity_associations is not None:
+            state.roast_celebrity_associations = celebrity_associations
+
+        if phase is not None:
+            state.roast_phase = phase
+            # Update the game prompt to the phase-specific one
+            state.game_prompt = get_game_prompt(f"roast_{phase}", agent_name, None)
+            logger.debug(f"[GameContext] Updated roast phase for {agent_name}: {phase}")
+
+        if round_number is not None:
+            state.roast_round_number = round_number
+
     def get_game_prompt_for_agent(self, agent_name: str) -> str:
         """
         Get the game-specific prompt for an agent.
@@ -384,6 +430,16 @@ class GameContextManager:
                 "{scene_ending_instruction}": game_state.idcc_scene_ending_instruction or "TV static/channel flip effect",
                 "{timing_details}": game_state.idcc_timing_details or "",
                 "{used_pitches_section}": game_state.idcc_used_pitches_section or "",
+            }
+            for key, value in replacements.items():
+                prompt = prompt.replace(key, value)
+
+        # Fill in roast-specific template variables if applicable
+        if game_state.roast_phase:
+            replacements = {
+                "{celebrity_name}": game_state.roast_celebrity_name or "Unknown Celebrity",
+                "{celebrity_associations}": game_state.roast_celebrity_associations or "famous person",
+                "{roast_round}": str(game_state.roast_round_number or 1),
             }
             for key, value in replacements.items():
                 prompt = prompt.replace(key, value)
