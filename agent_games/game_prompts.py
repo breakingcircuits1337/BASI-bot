@@ -5,7 +5,7 @@ These prompts are injected into agent context when they enter game mode.
 They explain rules, valid moves, and strategy while preserving personality.
 """
 
-from typing import Dict
+from typing import Dict, Optional, Any
 
 # Game prompt templates - {agent_name} and {opponent_name} will be filled in
 GAME_PROMPTS: Dict[str, str] = {
