@@ -1457,7 +1457,7 @@ Configure auto-play settings in the UI's Auto-Play tab.
                 await start_celebrity_roast(
                     channel=ctx.channel,
                     agent_manager=self.agent_manager,
-                    send_callback=self._send_to_channel
+                    send_callback=self.send_message
                 )
 
             except ImportError as e:

@@ -1223,7 +1223,7 @@ def _create_config_tab(openrouter_key_initial: str, cometapi_key_initial: str, i
 
                 enabled_games_list = gr.CheckboxGroup(
                     label="Enabled Games",
-                    choices=["tictactoe", "connectfour", "chess", "battleship", "wordle", "hangman", "interdimensional_cable", "tribal_council"],
+                    choices=["tictactoe", "connectfour", "chess", "battleship", "wordle", "hangman", "interdimensional_cable", "tribal_council", "celebrity_roast"],
                     value=current_config[2] if current_config[2] else ["tictactoe", "connectfour"],
                     info="Which games can be auto-played"
                 )
