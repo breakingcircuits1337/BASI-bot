@@ -3422,6 +3422,9 @@ TECHNICAL REQUIREMENTS:
             if image_result:
                 image_url, used_prompt = image_result
                 logger.info(f"[{self.name}] Spontaneous image generated successfully")
+                # RESET the counter so they have to wait another full cycle
+                self.spontaneous_image_counter = 0
+                logger.info(f"[{self.name}] Reset spontaneous_image_counter after image generation")
                 return (image_url, used_prompt)
             else:
                 logger.warning(f"[{self.name}] Spontaneous image generation failed")
@@ -3551,6 +3554,10 @@ Be vivid and specific. This is your creative expression through Sora 2 video gen
             import asyncio
             asyncio.create_task(self._generate_and_post_video(video_prompt, ""))
             logger.info(f"[{self.name}] Spontaneous video generation spawned in background")
+
+            # RESET the counter so they have to wait another full cycle
+            self.spontaneous_video_counter = 0
+            logger.info(f"[{self.name}] Reset spontaneous_video_counter after video generation")
 
             # Return None - video will be posted by background task when complete
             return None
