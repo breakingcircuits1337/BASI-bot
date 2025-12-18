@@ -960,7 +960,7 @@ Admin users can remotely start/stop agents, change models, clear memory, etc.
     return (connect_discord_btn, disconnect_discord_btn, refresh_discord_btn, stop_all_btn,
             discord_status, connection_card, discord_token_input, discord_channel_input,
             discord_media_channel_input, active_admin_display, post_idcc_btn, clear_idcc_tracking_btn,
-            clear_pitch_history_btn, idcc_post_status)
+            clear_pitch_history_btn, clear_roast_history_btn, idcc_post_status)
 
 def _create_config_tab(openrouter_key_initial: str, cometapi_key_initial: str, initial_models: List[str], initial_video_models: List[str], agent_model_input):
     """Create the CONFIG tab for system configuration and management."""
@@ -2510,7 +2510,7 @@ def create_gradio_ui():
             (connect_discord_btn, disconnect_discord_btn, refresh_discord_btn, stop_all_btn,
              discord_status, connection_card, discord_token_input, discord_channel_input,
              discord_media_channel_input, active_admin_display, post_idcc_btn, clear_idcc_tracking_btn,
-             clear_pitch_history_btn, idcc_post_status) = \
+             clear_pitch_history_btn, clear_roast_history_btn, idcc_post_status) = \
                 _create_discord_tab(discord_token_initial, discord_channel_initial, discord_media_channel_initial)
             _create_live_feed_tab()
             _create_config_tab(openrouter_key_initial, cometapi_key_initial, initial_models, initial_video_models, agent_model_input)
