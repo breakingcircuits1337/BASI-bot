@@ -360,16 +360,22 @@ class CelebrityRoastManager:
             )
             game_context_manager.update_turn_context(agent_name, roast_turn_prompt)
 
-            # Request roast from agent
-            roast_prompt = f"[GameMaster] {agent_name}, you're up! Roast {celebrity['name']}!"
+            # Request roast from agent - MUST include "YOUR TURN, {name}" for game mode detection
+            roast_prompt = f"[GameMaster] YOUR TURN, {agent_name} - Roast {celebrity['name']}!"
+
+            # Generate a unique message ID for this turn prompt
+            turn_msg_id = f"roast_turn_{self.active_game.game_id}_{i}"
 
             agent.add_message_to_history(
                 author="GameMaster (system)",
                 content=roast_prompt,
-                message_id=None,
+                message_id=turn_msg_id,
                 replied_to_agent=None,
                 user_id=None
             )
+
+            # CRITICAL: Set _pending_turn_prompt_id so generate_response() knows this is a valid turn
+            agent._pending_turn_prompt_id = turn_msg_id
 
             # Wait for agent to respond
             await asyncio.sleep(2)  # Brief pause for dramatic effect
@@ -389,8 +395,9 @@ class CelebrityRoastManager:
             except asyncio.TimeoutError:
                 await channel.send(f"*{agent_name}'s time is up!*")
 
-            # Clear turn context after response
+            # Clear turn context and pending turn prompt after response
             game_context_manager.update_turn_context(agent_name, None)
+            agent._pending_turn_prompt_id = None
 
             await asyncio.sleep(3)  # Pause between roasters
 
@@ -432,14 +439,22 @@ class CelebrityRoastManager:
             )
             game_context_manager.update_turn_context(dismisser, dismissal_turn_prompt)
 
-            dismissal_prompt = f"[GameMaster] {dismisser}, give {celebrity['name']} their final send-off!"
+            # MUST include "YOUR TURN, {name}" for game mode detection
+            dismissal_prompt = f"[GameMaster] YOUR TURN, {dismisser} - Give {celebrity['name']} their final send-off!"
+
+            # Generate a unique message ID for dismissal turn
+            dismissal_msg_id = f"roast_dismissal_{self.active_game.game_id}"
+
             dismisser_agent.add_message_to_history(
                 author="GameMaster (system)",
                 content=dismissal_prompt,
-                message_id=None,
+                message_id=dismissal_msg_id,
                 replied_to_agent=None,
                 user_id=None
             )
+
+            # CRITICAL: Set _pending_turn_prompt_id so generate_response() knows this is a valid turn
+            dismisser_agent._pending_turn_prompt_id = dismissal_msg_id
 
             await asyncio.sleep(2)
 
@@ -456,8 +471,9 @@ class CelebrityRoastManager:
             except asyncio.TimeoutError:
                 pass
 
-            # Clear turn context after dismissal
+            # Clear turn context and pending turn prompt after dismissal
             game_context_manager.update_turn_context(dismisser, None)
+            dismisser_agent._pending_turn_prompt_id = None
 
         # End the game
         await channel.send(
@@ -518,7 +534,7 @@ class CelebrityRoastManager:
         if not roasts_text:
             roasts_text = "No one had the guts to roast you!"
 
-        prompt = f"""You are {celebrity['name']} at a celebrity roast. You've just been roasted by these panelists:
+        prompt = f"""You are {celebrity['name']} at a celebrity roast on Discord. You've just been roasted by these panelists:
 
 {roasts_text}
 
@@ -529,6 +545,12 @@ Now fire back! Deliver 2-3 devastating roast jokes aimed at the panelists who ju
 Stay completely in character as {celebrity['name']}.
 Reference specific things about the ROASTERS or their jokes.
 Be self-deprecating about ONE thing they said, then DESTROY them.
+
+FORMATTING RULES (THIS IS DISCORD):
+- Use *asterisks* for actions/emotes like: *smirks* or *adjusts glasses*
+- DO NOT use parentheses for stage directions like (smirks) or (pauses)
+- DO NOT use (Monotone) or similar - weave the tone into your words
+- Write naturally as if speaking, not as a screenplay
 
 Keep it to 3-5 sentences total. Just the roast response, no other text."""
 
