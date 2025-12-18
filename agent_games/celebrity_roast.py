@@ -258,8 +258,8 @@ class CelebrityRoastManager:
 
         # Get available agents (running and not in game)
         available_agents = []
-        for agent in self.agent_manager.agents:
-            if agent.running and not game_context_manager.is_in_game(agent.name):
+        for agent in self.agent_manager.get_all_agents():
+            if agent.is_running and not game_context_manager.is_in_game(agent.name):
                 available_agents.append(agent)
 
         if len(available_agents) < roast_config.min_roasters:
