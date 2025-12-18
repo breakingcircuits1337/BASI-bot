@@ -16,6 +16,7 @@ import asyncio
 import json
 import logging
 import random
+import re
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -505,49 +506,38 @@ class CelebrityRoastManager:
             3: "Focus on their RELATIONSHIPS, personal life, or social media presence."
         }.get(joke_num, "Pick any roastable angle.")
 
-        # Build BANNED TOPICS from previous jokes
-        banned_topics = set()
+        # Build context of ALL previous jokes in the roast
+        jokes_already_told = ""
 
-        # Extract keywords from previous jokes to ban
-        def extract_topics(joke_text: str) -> List[str]:
-            """Extract key topics from a joke to ban reuse."""
-            topics = []
-            joke_lower = joke_text.lower()
-            # Common roast topics to detect
-            topic_keywords = {
-                "metaverse": ["metaverse", "meta verse", "vr", "virtual reality", "avatar"],
-                "legs": ["legs", "no legs", "legless"],
-                "robot": ["robot", "android", "ai", "artificial", "machine", "algorithm"],
-                "gray shirt": ["gray shirt", "grey shirt", "same shirt", "t-shirt"],
-                "haircut": ["haircut", "hair", "barber"],
-                "congress": ["congress", "testified", "testimony", "senate", "hearing"],
-                "privacy": ["privacy", "data", "cambridge", "breach", "tracking"],
-                "zuckerberg looks": ["look like", "looks like", "face", "eyes", "stare"],
-                "mars": ["mars", "colony", "space", "rocket"],
-                "twitter": ["twitter", "x", "bird app"],
-                "tesla": ["tesla", "car", "cybertruck", "autopilot"],
-                "neuralink": ["neuralink", "brain chip", "chip"],
-                "boring company": ["boring company", "tunnel"],
-            }
-            for topic, keywords in topic_keywords.items():
-                if any(kw in joke_lower for kw in keywords):
-                    topics.append(topic)
-            return topics
+        def extract_bold_text(text: str) -> str:
+            """Extract only the bolded joke text, ignoring emotes/actions."""
+            # Find all **bolded** text
+            bold_matches = re.findall(r'\*\*([^*]+)\*\*', text)
+            if bold_matches:
+                return ' '.join(bold_matches)[:150]
+            # If no bold, return the text without italics (emotes)
+            clean = re.sub(r'\*[^*]+\*', '', text).strip()
+            return clean[:150] if clean else text[:150]
 
-        # Ban topics from own previous jokes
+        # Combine own jokes and others' jokes into one list
+        all_previous = []
         if my_previous_jokes:
             for joke in my_previous_jokes:
-                banned_topics.update(extract_topics(joke))
-
-        # Ban topics from other roasters' jokes
+                joke_text = extract_bold_text(joke)
+                if joke_text:
+                    all_previous.append(f"YOU: {joke_text}")
         if all_jokes_so_far:
             for j in all_jokes_so_far:
                 if j["agent"] != agent.name:
-                    banned_topics.update(extract_topics(j["joke"]))
+                    joke_text = extract_bold_text(j["joke"])
+                    if joke_text:
+                        all_previous.append(f"{j['agent']}: {joke_text}")
 
-        banned_text = ""
-        if banned_topics:
-            banned_text = f"\n\n⛔ BANNED TOPICS (already used by you or others - DO NOT MENTION):\n{', '.join(banned_topics)}\nPick something COMPLETELY DIFFERENT to attack."
+        if all_previous:
+            jokes_already_told = "\n\n⛔ JOKES ALREADY TOLD (DO NOT REPEAT THESE TOPICS):\n"
+            for joke in all_previous:
+                jokes_already_told += f"  • {joke}\n"
+            jokes_already_told += "\nPick a COMPLETELY DIFFERENT angle."
 
         # Build prompt using agent's personality
         prompt = f"""You are {agent.name} at a celebrity roast. THIS IS A ROAST - GO HARD. NO MERCY.
@@ -556,7 +546,7 @@ YOUR VOICE (adapt for roast comedy - be MEAN, not artsy): {agent.system_prompt[:
 
 TARGET: {celebrity['name']}
 MATERIAL: {', '.join(celebrity['associations'])}
-{banned_text}
+{jokes_already_told}
 
 WRITE ONE BRUTAL ROAST JOKE.
 
@@ -585,7 +575,7 @@ GO FOR THE THROAT:
 CRITICAL RULES:
 - ONE SENTENCE. TWO max. Get to the punchline FAST.
 - The punchline must make LOGICAL SENSE - the twist should connect to the setup
-- If there are BANNED TOPICS above, you CANNOT mention them - find a fresh angle
+- DO NOT repeat topics from jokes already told - pick something FRESH
 - Be SPECIFIC - real failures, scandals, embarrassments, physical traits
 - NO poetry, NO artsy filler, NO explaining, NO metaphors that don't land
 
