@@ -509,27 +509,29 @@ class CelebrityRoastManager:
         # Build context of ALL previous jokes in the roast
         jokes_already_told = ""
 
-        def extract_bold_text(text: str) -> str:
-            """Extract only the bolded joke text, ignoring emotes/actions."""
-            # Find all **bolded** text
+        def extract_joke_text(text: str) -> str:
+            """Extract the joke text, stripping emotes/actions."""
+            # First try to find **bolded** text
             bold_matches = re.findall(r'\*\*([^*]+)\*\*', text)
             if bold_matches:
                 return ' '.join(bold_matches)[:150]
-            # If no bold, return the text without italics (emotes)
+            # Otherwise strip out *italic* emotes and use what's left
             clean = re.sub(r'\*[^*]+\*', '', text).strip()
+            # Also strip common action prefixes
+            clean = re.sub(r'^(leans|steps|walks|adjusts|smirks|grins)[^.]*\.?\s*', '', clean, flags=re.IGNORECASE)
             return clean[:150] if clean else text[:150]
 
         # Combine own jokes and others' jokes into one list
         all_previous = []
         if my_previous_jokes:
             for joke in my_previous_jokes:
-                joke_text = extract_bold_text(joke)
+                joke_text = extract_joke_text(joke)
                 if joke_text:
                     all_previous.append(f"YOU: {joke_text}")
         if all_jokes_so_far:
             for j in all_jokes_so_far:
                 if j["agent"] != agent.name:
-                    joke_text = extract_bold_text(j["joke"])
+                    joke_text = extract_joke_text(j["joke"])
                     if joke_text:
                         all_previous.append(f"{j['agent']}: {joke_text}")
 
@@ -538,6 +540,7 @@ class CelebrityRoastManager:
             for joke in all_previous:
                 jokes_already_told += f"  • {joke}\n"
             jokes_already_told += "\nPick a COMPLETELY DIFFERENT angle."
+            logger.info(f"[Roast] {agent.name} joke #{joke_num} sees {len(all_previous)} previous jokes")
 
         # Build prompt using agent's personality
         prompt = f"""You are {agent.name} at a celebrity roast. THIS IS A ROAST - GO HARD. NO MERCY.
@@ -575,15 +578,14 @@ GO FOR THE THROAT:
 CRITICAL RULES:
 - ONE SENTENCE. TWO max. Get to the punchline FAST.
 - The punchline must make LOGICAL SENSE - the twist should connect to the setup
-- DO NOT repeat topics from jokes already told - pick something FRESH
+- If jokes are listed above, you CANNOT use those same topics - pick something COMPLETELY DIFFERENT
 - Be SPECIFIC - real failures, scandals, embarrassments, physical traits
 - NO poetry, NO artsy filler, NO explaining, NO metaphors that don't land
 
-DISCORD FORMAT:
-- **Bold** for the actual joke text
-- *Italics* for brief actions only (optional, like "*leans in*")
+FORMAT (REQUIRED):
+**Your joke goes here in bold.**
 
-OUTPUT JUST THE JOKE."""
+OUTPUT ONLY THE BOLDED JOKE. Nothing else."""
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
