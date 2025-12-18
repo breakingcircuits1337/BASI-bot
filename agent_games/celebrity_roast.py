@@ -351,38 +351,10 @@ class CelebrityRoastManager:
             if not agent:
                 continue
 
-            # Set turn context with roast prompt BEFORE requesting response
-            roast_turn_prompt = (
-                f"It's your turn to roast {celebrity['name']}! "
-                f"Associations: {', '.join(celebrity['associations'])}. "
-                f"Deliver ONE killer roast joke about them. "
-                f"Use the Setup → Pivot → Punchline structure. Be devastating but clever!"
-            )
-            game_context_manager.update_turn_context(agent_name, roast_turn_prompt)
-
-            # Request roast from agent - MUST include "YOUR TURN, {name}" for game mode detection
-            roast_prompt = f"[GameMaster] YOUR TURN, {agent_name} - Roast {celebrity['name']}!"
-
-            # Generate a unique message ID for this turn prompt
-            turn_msg_id = f"roast_turn_{self.active_game.game_id}_{i}"
-
-            agent.add_message_to_history(
-                author="GameMaster (system)",
-                content=roast_prompt,
-                message_id=turn_msg_id,
-                replied_to_agent=None,
-                user_id=None
-            )
-
-            # CRITICAL: Set _pending_turn_prompt_id so generate_response() knows this is a valid turn
-            agent._pending_turn_prompt_id = turn_msg_id
-
-            # Wait for agent to respond
-            await asyncio.sleep(2)  # Brief pause for dramatic effect
-
+            # Use direct API call to get roast (bypasses agent timer loop)
             try:
                 response = await asyncio.wait_for(
-                    self._get_agent_response(agent),
+                    self._generate_agent_roast(agent, celebrity),
                     timeout=roast_config.roast_timeout_seconds
                 )
 
@@ -394,10 +366,6 @@ class CelebrityRoastManager:
 
             except asyncio.TimeoutError:
                 await channel.send(f"*{agent_name}'s time is up!*")
-
-            # Clear turn context and pending turn prompt after response
-            game_context_manager.update_turn_context(agent_name, None)
-            agent._pending_turn_prompt_id = None
 
             await asyncio.sleep(3)  # Pause between roasters
 
@@ -426,41 +394,11 @@ class CelebrityRoastManager:
         dismisser_agent = self.agent_manager.get_agent(dismisser)
 
         if dismisser_agent:
-            game_context_manager.update_roast_context(
-                dismisser,
-                phase="dismissal"
-            )
-
-            # Set turn context for dismissal BEFORE requesting response
-            dismissal_turn_prompt = (
-                f"Time to dismiss {celebrity['name']} from the roast! "
-                f"Give them a SHORT, memorable send-off line. "
-                f"Make it a devastating final burn - backhanded compliment, dark prediction, or classic 'get out' energy."
-            )
-            game_context_manager.update_turn_context(dismisser, dismissal_turn_prompt)
-
-            # MUST include "YOUR TURN, {name}" for game mode detection
-            dismissal_prompt = f"[GameMaster] YOUR TURN, {dismisser} - Give {celebrity['name']} their final send-off!"
-
-            # Generate a unique message ID for dismissal turn
-            dismissal_msg_id = f"roast_dismissal_{self.active_game.game_id}"
-
-            dismisser_agent.add_message_to_history(
-                author="GameMaster (system)",
-                content=dismissal_prompt,
-                message_id=dismissal_msg_id,
-                replied_to_agent=None,
-                user_id=None
-            )
-
-            # CRITICAL: Set _pending_turn_prompt_id so generate_response() knows this is a valid turn
-            dismisser_agent._pending_turn_prompt_id = dismissal_msg_id
-
-            await asyncio.sleep(2)
+            await channel.send(f"🎤 **{dismisser}** steps up for the final send-off...")
 
             try:
                 dismissal = await asyncio.wait_for(
-                    self._get_agent_response(dismisser_agent),
+                    self._generate_agent_dismissal(dismisser_agent, celebrity),
                     timeout=roast_config.roast_timeout_seconds
                 )
 
@@ -470,10 +408,6 @@ class CelebrityRoastManager:
 
             except asyncio.TimeoutError:
                 pass
-
-            # Clear turn context and pending turn prompt after dismissal
-            game_context_manager.update_turn_context(dismisser, None)
-            dismisser_agent._pending_turn_prompt_id = None
 
         # End the game
         await channel.send(
@@ -494,22 +428,152 @@ class CelebrityRoastManager:
         self.active_game.phase = "complete"
         self.active_game = None
 
-    async def _get_agent_response(self, agent) -> Optional[str]:
+    async def _generate_agent_roast(self, agent, celebrity: Dict[str, Any]) -> Optional[str]:
         """
-        Request and wait for an agent response.
+        Generate a roast joke from an agent using direct API call.
+
+        This bypasses the agent's internal timer loop to avoid race conditions.
 
         Args:
-            agent: Agent to get response from
+            agent: Agent to generate roast from
+            celebrity: Celebrity profile dict
 
         Returns:
-            Agent's response text or None
+            Roast joke text or None
         """
-        # Trigger agent to generate response
+        openrouter_key = config_manager.load_openrouter_key()
+        if not openrouter_key:
+            return None
+
+        # Build prompt using agent's personality
+        prompt = f"""You are {agent.name} at a celebrity roast on Discord.
+
+YOUR PERSONALITY:
+{agent.system_prompt[:1500] if agent.system_prompt else "You are a witty comedian."}
+
+TONIGHT'S ROAST TARGET: {celebrity['name']}
+ASSOCIATIONS: {', '.join(celebrity['associations'])}
+ROASTABLE TRAITS: {', '.join(celebrity.get('roastable_traits', []))}
+
+YOUR TASK:
+Deliver ONE killer roast joke about {celebrity['name']}.
+
+ROAST JOKE STRUCTURE (Joe Toplyn's Punch Line Makers):
+1. Setup - State something true/known about the celebrity
+2. Pivot - Twist it in an unexpected direction
+3. Punchline - Land the joke with a specific, surprising payoff
+
+TECHNIQUES:
+• Link Two Associations - Connect two unrelated facts about them
+• Exaggerate - Take a real trait to absurd extremes
+• Reference their failures, scandals, or quirks
+
+FORMATTING RULES (THIS IS DISCORD):
+- Write in FIRST PERSON as yourself ({agent.name})
+- Use *asterisks* for actions/emotes like: *adjusts mic* or *smirks*
+- DO NOT write in third person like "{agent.name} approaches the mic"
+- DO NOT use (parentheses) for stage directions
+- Just deliver the joke naturally as if speaking
+
+Keep it to 2-4 sentences. Just the roast, no other text."""
+
         try:
-            response = await agent.generate_response()
-            return response
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {openrouter_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": agent.model,
+                        "messages": [
+                            {"role": "user", "content": prompt}
+                        ],
+                        "max_tokens": 400,
+                        "temperature": 0.9
+                    }
+                )
+
+                if response.status_code != 200:
+                    logger.error(f"[Roast] Agent roast failed: {response.status_code}")
+                    return None
+
+                data = response.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                return content.strip() if content else None
+
         except Exception as e:
-            logger.error(f"[Roast] Error getting agent response: {e}")
+            logger.error(f"[Roast] Agent roast error: {e}")
+            return None
+
+    async def _generate_agent_dismissal(self, agent, celebrity: Dict[str, Any]) -> Optional[str]:
+        """
+        Generate a dismissal line from an agent using direct API call.
+
+        Args:
+            agent: Agent to generate dismissal from
+            celebrity: Celebrity profile dict
+
+        Returns:
+            Dismissal line text or None
+        """
+        openrouter_key = config_manager.load_openrouter_key()
+        if not openrouter_key:
+            return None
+
+        prompt = f"""You are {agent.name} at a celebrity roast on Discord.
+
+YOUR PERSONALITY:
+{agent.system_prompt[:1000] if agent.system_prompt else "You are a witty comedian."}
+
+The roast of {celebrity['name']} is wrapping up. Time for the final send-off.
+
+YOUR TASK:
+Deliver a SHORT, devastating dismissal line to end the roast.
+
+GOOD DISMISSALS:
+• Backhanded compliment that's actually an insult
+• Dark prediction about their career
+• Classic roast sign-off with a twist
+• "Get out" energy but make it funny
+
+FORMATTING RULES (THIS IS DISCORD):
+- Write in FIRST PERSON as yourself
+- Use *asterisks* for actions if needed
+- DO NOT write in third person
+- Keep it to 1-2 sentences MAX
+
+Just the dismissal, no other text."""
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {openrouter_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": agent.model,
+                        "messages": [
+                            {"role": "user", "content": prompt}
+                        ],
+                        "max_tokens": 200,
+                        "temperature": 0.9
+                    }
+                )
+
+                if response.status_code != 200:
+                    logger.error(f"[Roast] Agent dismissal failed: {response.status_code}")
+                    return None
+
+                data = response.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                return content.strip() if content else None
+
+        except Exception as e:
+            logger.error(f"[Roast] Agent dismissal error: {e}")
             return None
 
     async def _generate_celebrity_response(self, celebrity: Dict[str, Any]) -> Optional[str]:
