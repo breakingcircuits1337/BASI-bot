@@ -116,7 +116,7 @@ async def generate_celebrity_profile(openrouter_key: str) -> Optional[Dict[str, 
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "google/gemini-2.5-flash-preview",
+                    "model": "google/gemini-2.5-flash-preview-09-2025",
                     "messages": [
                         {"role": "user", "content": prompt}
                     ],
@@ -467,7 +467,7 @@ class CelebrityRoastManager:
         """
         # Trigger agent to generate response
         try:
-            response = await agent.generate_response_async()
+            response = await agent.generate_response()
             return response
         except Exception as e:
             logger.error(f"[Roast] Error getting agent response: {e}")
@@ -518,7 +518,7 @@ Keep it to 3-5 sentences total. Just the roast response, no other text."""
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": "google/gemini-2.5-flash-preview",
+                        "model": "google/gemini-2.5-flash-preview-09-2025",
                         "messages": [
                             {"role": "user", "content": prompt}
                         ],
