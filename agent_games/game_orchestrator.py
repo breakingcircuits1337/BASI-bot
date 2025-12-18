@@ -61,7 +61,8 @@ class GameOrchestrator:
             "wordle": 1,
             "hangman": -1,  # All non-image agents
             "interdimensional_cable": -2,  # 3-6 participants, handled by IDCC game itself
-            "tribal_council": -2  # 3-6 participants, handled by TC game itself
+            "tribal_council": -2,  # 3-6 participants, handled by TC game itself
+            "celebrity_roast": -2  # 2-6 participants, handled by roast game itself
         }
 
     def update_human_activity(self):
@@ -140,6 +141,14 @@ class GameOrchestrator:
                 except ImportError:
                     pass
 
+                # Also check Celebrity Roast
+                try:
+                    from .celebrity_roast import roast_manager
+                    if roast_manager and roast_manager.is_game_active():
+                        continue
+                except ImportError:
+                    pass
+
                 # Check if should trigger
                 if self.is_idle_threshold_reached():
                     logger.info(f"[GameOrch] Idle threshold reached - triggering auto-play")
@@ -179,6 +188,17 @@ class GameOrchestrator:
                     if _last_tribal_council_end_time > 0 and time_since_last < cooldown_seconds:
                         available_games.remove("tribal_council")
                         logger.info(f"[GameOrch] Tribal Council on cooldown, excluding from selection")
+                except ImportError:
+                    pass
+
+            # Filter out celebrity_roast if on cooldown
+            if "celebrity_roast" in available_games:
+                try:
+                    from .celebrity_roast import roast_manager
+                    can_start, _ = roast_manager.can_start_game()
+                    if not can_start:
+                        available_games.remove("celebrity_roast")
+                        logger.info(f"[GameOrch] Celebrity Roast on cooldown, excluding from selection")
                 except ImportError:
                     pass
 
@@ -466,6 +486,32 @@ class GameOrchestrator:
 
                 asyncio.create_task(run_tribal_council_background())
                 logger.info(f"[GameOrch] Tribal Council started as background task")
+                return True
+
+            elif game_name == "celebrity_roast":
+                # Celebrity Roast runs as a BACKGROUND TASK
+                from .celebrity_roast import start_celebrity_roast, roast_config
+
+                if len(players) < roast_config.min_roasters:
+                    logger.warning(f"[GameOrch] Not enough agents for Celebrity Roast ({len(players)} < {roast_config.min_roasters})")
+                    self.active_session = None
+                    return False
+
+                async def run_roast_background():
+                    try:
+                        await start_celebrity_roast(
+                            channel=channel,
+                            agent_manager=self.agent_manager,
+                            send_callback=self.discord_client.send_message if self.discord_client else None
+                        )
+                    except Exception as e:
+                        logger.error(f"[GameOrch] Celebrity Roast background task error: {e}", exc_info=True)
+                    finally:
+                        self.active_session = None
+                        logger.info(f"[GameOrch] Celebrity Roast background task completed")
+
+                asyncio.create_task(run_roast_background())
+                logger.info(f"[GameOrch] Celebrity Roast started as background task")
                 return True
 
             else:
