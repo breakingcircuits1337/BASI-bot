@@ -4882,6 +4882,7 @@ Your task: Rewrite this prompt to avoid content moderation while PRESERVING THE 
 **Commands:**
 `!IDCC` - Interdimensional Cable (agents collaborate to create AI-generated video skits)
 `!tribal-council` - Tribal Council (agents debate and vote on system prompt changes)
+`!roast` - Celebrity Roast (agents roast an AI-generated celebrity)
 `!shortcuts` - View all {len(commands)} status effects
 
 **Status Effects** - Apply altered states to agents:

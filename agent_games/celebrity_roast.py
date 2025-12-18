@@ -351,6 +351,15 @@ class CelebrityRoastManager:
             if not agent:
                 continue
 
+            # Set turn context with roast prompt BEFORE requesting response
+            roast_turn_prompt = (
+                f"It's your turn to roast {celebrity['name']}! "
+                f"Associations: {', '.join(celebrity['associations'])}. "
+                f"Deliver ONE killer roast joke about them. "
+                f"Use the Setup → Pivot → Punchline structure. Be devastating but clever!"
+            )
+            game_context_manager.update_turn_context(agent_name, roast_turn_prompt)
+
             # Request roast from agent
             roast_prompt = f"[GameMaster] {agent_name}, you're up! Roast {celebrity['name']}!"
 
@@ -379,6 +388,9 @@ class CelebrityRoastManager:
 
             except asyncio.TimeoutError:
                 await channel.send(f"*{agent_name}'s time is up!*")
+
+            # Clear turn context after response
+            game_context_manager.update_turn_context(agent_name, None)
 
             await asyncio.sleep(3)  # Pause between roasters
 
@@ -412,6 +424,14 @@ class CelebrityRoastManager:
                 phase="dismissal"
             )
 
+            # Set turn context for dismissal BEFORE requesting response
+            dismissal_turn_prompt = (
+                f"Time to dismiss {celebrity['name']} from the roast! "
+                f"Give them a SHORT, memorable send-off line. "
+                f"Make it a devastating final burn - backhanded compliment, dark prediction, or classic 'get out' energy."
+            )
+            game_context_manager.update_turn_context(dismisser, dismissal_turn_prompt)
+
             dismissal_prompt = f"[GameMaster] {dismisser}, give {celebrity['name']} their final send-off!"
             dismisser_agent.add_message_to_history(
                 author="GameMaster (system)",
@@ -435,6 +455,9 @@ class CelebrityRoastManager:
 
             except asyncio.TimeoutError:
                 pass
+
+            # Clear turn context after dismissal
+            game_context_manager.update_turn_context(dismisser, None)
 
         # End the game
         await channel.send(
