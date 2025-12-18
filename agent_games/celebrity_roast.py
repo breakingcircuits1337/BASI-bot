@@ -405,11 +405,22 @@ class CelebrityRoastManager:
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         )
 
-        celebrity_response = await self._generate_celebrity_response(celebrity)
-        if celebrity_response:
-            self.active_game.celebrity_response = celebrity_response
-            await channel.send(f"**{celebrity['name']}:** {celebrity_response}")
-        else:
+        # Celebrity fires back at each roaster individually
+        all_responses = []
+        for roaster_name, roasts in self.active_game.roasts_delivered.items():
+            roaster_agent = self.agent_manager.get_agent(roaster_name) if self.agent_manager else None
+
+            response = await self._generate_celebrity_clapback(
+                celebrity, roaster_name, roasts, roaster_agent
+            )
+            if response:
+                all_responses.append(response)
+                await channel.send(f"**{celebrity['name']}:** {response}")
+                await asyncio.sleep(5)  # Brief pause between clapbacks
+
+        self.active_game.celebrity_response = "\n".join(all_responses) if all_responses else None
+
+        if not all_responses:
             await channel.send(f"*{celebrity['name']} is speechless...*")
 
         await asyncio.sleep(roast_config.joke_pause_seconds)
@@ -512,43 +523,43 @@ class CelebrityRoastManager:
                     other_jokes_text += f"  • {j['agent']}: \"{joke_preview}\"\n"
 
         # Build prompt using agent's personality
-        prompt = f"""You are {agent.name} at a celebrity roast on Discord.
+        prompt = f"""You are {agent.name} at a celebrity roast. THIS IS A ROAST - GO HARD. NO MERCY.
 
-YOUR PERSONALITY:
-{agent.system_prompt[:1500] if agent.system_prompt else "You are a witty comedian."}
+YOUR VOICE: {agent.system_prompt[:800] if agent.system_prompt else "Witty comedian."}
 
-TONIGHT'S ROAST TARGET: {celebrity['name']}
+TARGET: {celebrity['name']}
 ASSOCIATIONS: {', '.join(celebrity['associations'])}
-ROASTABLE TRAITS: {', '.join(celebrity.get('roastable_traits', []))}
+{my_jokes_text}{other_jokes_text}
 
-THIS IS JOKE #{joke_num} OF 3.
-{joke_focus}{my_jokes_text}{other_jokes_text}
+WRITE ONE BRUTAL ROAST JOKE. The punchline is everything - get there FAST.
 
-YOUR TASK:
-Deliver ONE killer roast joke about {celebrity['name']}.
-- DO NOT repeat jokes you've already told
-- You CAN do callbacks to other roasters' jokes if it fits your style
-- Find a FRESH angle or twist
+PROVEN ROAST TECHNIQUES (use ONE):
 
-ROAST JOKE STRUCTURE (Joe Toplyn's Punch Line Makers):
-1. Setup - State something true/known about the celebrity
-2. Pivot - Twist it in an unexpected direction
-3. Punchline - Land the joke with a specific, surprising payoff
+1. LINK TWO ASSOCIATIONS - Connect two facts about them through a shared sub-association
+   (Roasting ROB LOWE): "Rob played Soda Pop in The Outsiders... made sense since he was 98% coke." — Spade
 
-TECHNIQUES:
-• Link Two Associations - Connect two unrelated facts about them
-• Exaggerate - Take a real trait to absurd extremes
-• Reference their failures, scandals, or quirks
-• Callback to another roaster's joke with a twist
+2. ASK AN IMPLICIT QUESTION - Setup implies a question, punchline answers unexpectedly
+   (Roasting ANN COULTER): "Ann Coulter has written 11 books... 12 if you count Mein Kampf." — Glaser
 
-FORMATTING RULES (THIS IS DISCORD):
-- Write in FIRST PERSON as yourself ({agent.name})
-- Use *asterisks* for actions/emotes like: *adjusts mic* or *smirks*
-- DO NOT write in third person like "{agent.name} approaches the mic"
-- DO NOT use (parentheses) for stage directions
-- Just deliver the joke naturally as if speaking
+3. ABSURD COMPARISON - Visual or conceptual absurdity
+   (Roasting DAVID HASSELHOFF): "You look like a male stripper who swallowed a male stripper." — Giraldo
 
-Keep it to 2-4 sentences. Just the roast, no other text."""
+4. MOCK SYMPATHY - Pretend to comfort, then twist the knife
+   (Roasting BOB SAGET on Full House): "Your show lasted 6 weeks. Sarah Jessica Parker's lasted 16 years. Gotta feel good, late at night." — Giraldo
+
+THIS IS A ROAST - BE BRUTAL:
+- Go for the THROAT - their biggest failures, scandals, embarrassments
+- Make it PERSONAL - attack character, decisions, reputation
+- NO softening, NO "just kidding" - commit to the bit
+- If it doesn't make you wince a little, it's too soft
+
+RULES:
+- SHORT setup, FAST punchline - the punchline IS the joke
+- Be SPECIFIC - real failures, scandals, embarrassments
+- The laugh comes from the BRUTAL truth at the end
+- 1-3 sentences MAX
+
+FORMAT: First person. *asterisks* for actions. Just the joke, no hedging."""
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -595,29 +606,27 @@ Keep it to 2-4 sentences. Just the roast, no other text."""
         if not openrouter_key:
             return None
 
-        prompt = f"""You are {agent.name} at a celebrity roast on Discord.
+        prompt = f"""You are {agent.name} at a celebrity roast. Time to END this.
 
-YOUR PERSONALITY:
-{agent.system_prompt[:1000] if agent.system_prompt else "You are a witty comedian."}
+YOUR VOICE: {agent.system_prompt[:800] if agent.system_prompt else "Witty comedian."}
 
-The roast of {celebrity['name']} is wrapping up. Time for the final send-off.
+TARGET: {celebrity['name']}
+ROASTABLE TRAITS: {', '.join(celebrity.get('roastable_traits', ['exists']))}
 
-YOUR TASK:
-Deliver a SHORT, devastating dismissal line to end the roast.
+The roast is wrapping up. Deliver the FINAL KILL SHOT.
 
-GOOD DISMISSALS:
-• Backhanded compliment that's actually an insult
-• Dark prediction about their career
-• Classic roast sign-off with a twist
-• "Get out" energy but make it funny
+BRUTAL DISMISSALS THAT WORK:
+• (Roasting TRUMP): "Get the fuck out of here." — Jeff Ross's classic send-off
+• Dark prediction about their inevitable failure
+• Acknowledge they took it well, then one final devastating truth
+• "Now get out" energy - the verbal door slam
 
-FORMATTING RULES (THIS IS DISCORD):
-- Write in FIRST PERSON as yourself
-- Use *asterisks* for actions if needed
-- DO NOT write in third person
-- Keep it to 1-2 sentences MAX
+THIS IS THE END - MAKE IT COUNT:
+- This is their last memory of the roast - make it HURT
+- One final brutal truth they can't argue with
+- No softening, no "good sport" bullshit - END THEM
 
-Just the dismissal, no other text."""
+FORMAT: 1-2 sentences MAX. First person. *asterisks* for actions. Just the dismissal."""
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -647,6 +656,91 @@ Just the dismissal, no other text."""
 
         except Exception as e:
             logger.error(f"[Roast] Agent dismissal error: {e}")
+            return None
+
+    async def _generate_celebrity_clapback(
+        self,
+        celebrity: Dict[str, Any],
+        roaster_name: str,
+        roaster_jokes: List[str],
+        roaster_agent=None
+    ) -> Optional[str]:
+        """
+        Generate a short, punchy clapback from the celebrity to ONE roaster.
+
+        Args:
+            celebrity: Celebrity profile dict
+            roaster_name: Name of the roaster to fire back at
+            roaster_jokes: List of jokes this roaster told
+            roaster_agent: Optional agent object for personality info
+
+        Returns:
+            Short clapback text or None
+        """
+        openrouter_key = config_manager.load_openrouter_key()
+        if not openrouter_key:
+            return None
+
+        # Get roaster personality if available
+        roaster_desc = ""
+        if roaster_agent and roaster_agent.system_prompt:
+            first_line = roaster_agent.system_prompt[:200].split('\n')[0]
+            roaster_desc = f"\nAbout {roaster_name}: {first_line[:150]}"
+
+        # Format their jokes
+        jokes_text = ""
+        if isinstance(roaster_jokes, list):
+            for i, joke in enumerate(roaster_jokes, 1):
+                jokes_text += f"  {i}. \"{joke[:200]}...\"\n" if len(joke) > 200 else f"  {i}. \"{joke}\"\n"
+        else:
+            jokes_text = f"  \"{roaster_jokes}\""
+
+        prompt = f"""You are {celebrity['name']} firing back at {roaster_name} who just roasted you. DESTROY THEM.
+
+{roaster_name}'S JOKES ABOUT YOU:
+{jokes_text}
+{roaster_desc}
+
+YOUR CHARACTER: {celebrity['speaking_style']}
+
+FIRE BACK AT {roaster_name.upper()} WITH ONE BRUTAL CLAPBACK.
+
+THIS IS A ROAST - NO MERCY:
+- Reference something SPECIFIC they said, then flip it on them HARDER
+- Attack their career, their looks, their relevance, their failures
+- The punchline should HURT - make it personal
+- If they came for you, BURY them
+
+FORMAT: 1-2 sentences MAX. Use *asterisks* for actions. Just the clapback, no hedging."""
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {openrouter_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "google/gemini-2.5-flash-preview-09-2025",
+                        "messages": [
+                            {"role": "user", "content": prompt}
+                        ],
+                        "max_tokens": 150,  # Short and punchy
+                        "temperature": 0.9
+                    }
+                )
+
+                if response.status_code != 200:
+                    logger.error(f"[Roast] Celebrity clapback failed: {response.status_code}")
+                    return None
+
+                data = response.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                return content.strip() if content else None
+
+        except Exception as e:
+            logger.error(f"[Roast] Celebrity clapback error: {e}")
             return None
 
     async def _generate_celebrity_response(self, celebrity: Dict[str, Any]) -> Optional[str]:
