@@ -43,6 +43,8 @@ class RoastConfig:
     """Configuration for Celebrity Roast game."""
     min_roasters: int = 2  # Minimum agents to start
     max_roasters: int = 6  # Maximum agents in roast
+    jokes_per_agent: int = 3  # Each agent delivers 3 jokes
+    joke_pause_seconds: int = 10  # 10 second pause between jokes
     roast_timeout_seconds: int = 45  # Time for each agent to deliver roast
     celebrity_response_timeout: int = 60  # Time for celebrity response
     game_cooldown_seconds: int = 1800  # 30 min cooldown between games
@@ -341,8 +343,11 @@ class CelebrityRoastManager:
 
         celebrity = self.active_game.celebrity
 
-        # Phase 1: Agent roasts
+        # Phase 1: Agent roasts - each agent delivers multiple jokes
         self.active_game.phase = "agent_roasts"
+
+        # Track all jokes for context (agent can reference others' jokes)
+        all_jokes_so_far: List[Dict[str, str]] = []  # [{"agent": name, "joke": text}, ...]
 
         for i, agent_name in enumerate(self.active_game.roasters, 1):
             await channel.send(f"🎤 **{agent_name}** approaches the podium...")
@@ -351,23 +356,46 @@ class CelebrityRoastManager:
             if not agent:
                 continue
 
-            # Use direct API call to get roast (bypasses agent timer loop)
-            try:
-                response = await asyncio.wait_for(
-                    self._generate_agent_roast(agent, celebrity),
-                    timeout=roast_config.roast_timeout_seconds
-                )
+            # Each agent delivers multiple jokes
+            agent_roasts = []
+            for joke_num in range(1, roast_config.jokes_per_agent + 1):
+                try:
+                    response = await asyncio.wait_for(
+                        self._generate_agent_roast(
+                            agent, celebrity, joke_num,
+                            my_previous_jokes=agent_roasts,
+                            all_jokes_so_far=all_jokes_so_far
+                        ),
+                        timeout=roast_config.roast_timeout_seconds
+                    )
 
-                if response:
-                    self.active_game.roasts_delivered[agent_name] = response
-                    await channel.send(f"**{agent_name}:** {response}")
-                else:
-                    await channel.send(f"*{agent_name} freezes at the mic...*")
+                    if response:
+                        agent_roasts.append(response)
+                        # Track for context (other agents and celebrity can reference)
+                        all_jokes_so_far.append({"agent": agent_name, "joke": response})
+                        # Send via webhook as the agent (not as ChatterBot)
+                        if self.send_callback:
+                            await self.send_callback(response, agent_name, agent.model)
+                        else:
+                            await channel.send(f"**{agent_name}:** {response}")
+                    else:
+                        await channel.send(f"*{agent_name} freezes at the mic...*")
+                        break  # If they freeze, don't continue
 
-            except asyncio.TimeoutError:
-                await channel.send(f"*{agent_name}'s time is up!*")
+                except asyncio.TimeoutError:
+                    await channel.send(f"*{agent_name}'s time is up!*")
+                    break
 
-            await asyncio.sleep(3)  # Pause between roasters
+                # Pause between jokes (10 seconds)
+                if joke_num < roast_config.jokes_per_agent:
+                    await asyncio.sleep(roast_config.joke_pause_seconds)
+
+            # Store all roasts from this agent
+            if agent_roasts:
+                self.active_game.roasts_delivered[agent_name] = agent_roasts
+
+            # Pause before next roaster (10 seconds)
+            await asyncio.sleep(roast_config.joke_pause_seconds)
 
         # Phase 2: Celebrity response
         self.active_game.phase = "celebrity_response"
@@ -384,7 +412,7 @@ class CelebrityRoastManager:
         else:
             await channel.send(f"*{celebrity['name']} is speechless...*")
 
-        await asyncio.sleep(3)
+        await asyncio.sleep(roast_config.joke_pause_seconds)
 
         # Phase 3: Dismissal
         self.active_game.phase = "dismissal"
@@ -404,7 +432,11 @@ class CelebrityRoastManager:
 
                 if dismissal:
                     self.active_game.dismissal = dismissal
-                    await channel.send(f"**{dismisser}:** {dismissal}")
+                    # Send via webhook as the agent
+                    if self.send_callback:
+                        await self.send_callback(dismissal, dismisser, dismisser_agent.model)
+                    else:
+                        await channel.send(f"**{dismisser}:** {dismissal}")
 
             except asyncio.TimeoutError:
                 pass
@@ -428,7 +460,14 @@ class CelebrityRoastManager:
         self.active_game.phase = "complete"
         self.active_game = None
 
-    async def _generate_agent_roast(self, agent, celebrity: Dict[str, Any]) -> Optional[str]:
+    async def _generate_agent_roast(
+        self,
+        agent,
+        celebrity: Dict[str, Any],
+        joke_num: int = 1,
+        my_previous_jokes: List[str] = None,
+        all_jokes_so_far: List[Dict[str, str]] = None
+    ) -> Optional[str]:
         """
         Generate a roast joke from an agent using direct API call.
 
@@ -437,6 +476,9 @@ class CelebrityRoastManager:
         Args:
             agent: Agent to generate roast from
             celebrity: Celebrity profile dict
+            joke_num: Which joke number (1, 2, or 3) - helps vary the content
+            my_previous_jokes: This agent's previous jokes in this roast
+            all_jokes_so_far: All jokes from all agents so far
 
         Returns:
             Roast joke text or None
@@ -444,6 +486,30 @@ class CelebrityRoastManager:
         openrouter_key = config_manager.load_openrouter_key()
         if not openrouter_key:
             return None
+
+        # Vary the prompt based on joke number for variety
+        joke_focus = {
+            1: "Focus on their CAREER or BUSINESS failures/controversies.",
+            2: "Focus on their PERSONALITY, quirks, or public image.",
+            3: "Focus on their RELATIONSHIPS, personal life, or social media presence."
+        }.get(joke_num, "Pick any roastable angle.")
+
+        # Build context of previous jokes
+        my_jokes_text = ""
+        if my_previous_jokes:
+            my_jokes_text = "\n\nYOUR PREVIOUS JOKES (don't repeat these):\n"
+            for i, joke in enumerate(my_previous_jokes, 1):
+                my_jokes_text += f"  {i}. {joke[:150]}...\n" if len(joke) > 150 else f"  {i}. {joke}\n"
+
+        other_jokes_text = ""
+        if all_jokes_so_far:
+            # Filter to only other agents' jokes
+            others = [j for j in all_jokes_so_far if j["agent"] != agent.name]
+            if others:
+                other_jokes_text = "\n\nOTHER ROASTERS' JOKES (you can do callbacks to these, or avoid repeating):\n"
+                for j in others[-6:]:  # Last 6 jokes from others
+                    joke_preview = j["joke"][:100] + "..." if len(j["joke"]) > 100 else j["joke"]
+                    other_jokes_text += f"  • {j['agent']}: \"{joke_preview}\"\n"
 
         # Build prompt using agent's personality
         prompt = f"""You are {agent.name} at a celebrity roast on Discord.
@@ -455,8 +521,14 @@ TONIGHT'S ROAST TARGET: {celebrity['name']}
 ASSOCIATIONS: {', '.join(celebrity['associations'])}
 ROASTABLE TRAITS: {', '.join(celebrity.get('roastable_traits', []))}
 
+THIS IS JOKE #{joke_num} OF 3.
+{joke_focus}{my_jokes_text}{other_jokes_text}
+
 YOUR TASK:
 Deliver ONE killer roast joke about {celebrity['name']}.
+- DO NOT repeat jokes you've already told
+- You CAN do callbacks to other roasters' jokes if it fits your style
+- Find a FRESH angle or twist
 
 ROAST JOKE STRUCTURE (Joe Toplyn's Punch Line Makers):
 1. Setup - State something true/known about the celebrity
@@ -467,6 +539,7 @@ TECHNIQUES:
 • Link Two Associations - Connect two unrelated facts about them
 • Exaggerate - Take a real trait to absurd extremes
 • Reference their failures, scandals, or quirks
+• Callback to another roaster's joke with a twist
 
 FORMATTING RULES (THIS IS DISCORD):
 - Write in FIRST PERSON as yourself ({agent.name})
@@ -590,33 +663,52 @@ Just the dismissal, no other text."""
         if not openrouter_key:
             return None
 
-        # Build the roasters and jokes section
-        roasts_text = ""
-        for agent_name, roast in self.active_game.roasts_delivered.items():
-            roasts_text += f"• {agent_name}: \"{roast}\"\n"
+        # Build detailed roaster profiles with their jokes
+        roasters_text = ""
+        for agent_name, roasts in self.active_game.roasts_delivered.items():
+            # Get agent info for personalized comebacks
+            agent = self.agent_manager.get_agent(agent_name) if self.agent_manager else None
+            agent_desc = ""
+            if agent and agent.system_prompt:
+                # Extract a brief description from their personality
+                first_lines = agent.system_prompt[:300].split('\n')[0]
+                agent_desc = f" (Personality: {first_lines[:100]}...)"
 
-        if not roasts_text:
-            roasts_text = "No one had the guts to roast you!"
+            roasters_text += f"\n**{agent_name}**{agent_desc}:\n"
+            if isinstance(roasts, list):
+                for i, roast in enumerate(roasts, 1):
+                    roasters_text += f"  Joke {i}: \"{roast}\"\n"
+            else:
+                roasters_text += f"  \"{roasts}\"\n"
 
-        prompt = f"""You are {celebrity['name']} at a celebrity roast on Discord. You've just been roasted by these panelists:
+        if not roasters_text:
+            roasters_text = "No one had the guts to roast you!"
 
-{roasts_text}
+        prompt = f"""You are {celebrity['name']} at a celebrity roast on Discord. You've just been DESTROYED by these roasters. Now it's your turn to fire back!
 
-Your speaking style: {celebrity['speaking_style']}
-Your known traits: {', '.join(celebrity['roastable_traits'])}
+THE ROASTERS AND THEIR JOKES:
+{roasters_text}
 
-Now fire back! Deliver 2-3 devastating roast jokes aimed at the panelists who just roasted you.
-Stay completely in character as {celebrity['name']}.
-Reference specific things about the ROASTERS or their jokes.
-Be self-deprecating about ONE thing they said, then DESTROY them.
+YOUR CHARACTER:
+- Speaking style: {celebrity['speaking_style']}
+- Known traits: {', '.join(celebrity['roastable_traits'])}
+
+YOUR TASK - FIRE BACK AT EACH ROASTER:
+1. Acknowledge ONE joke that actually landed (be briefly self-deprecating)
+2. Then DESTROY each roaster BY NAME with personalized comebacks
+3. Reference SPECIFIC jokes they told and turn them against the roaster
+4. Use what you know about each roaster's personality against them
+
+STRUCTURE YOUR RESPONSE:
+- Address at least 2-3 roasters BY NAME
+- For each: reference their joke, then hit back with something about THEM
 
 FORMATTING RULES (THIS IS DISCORD):
 - Use *asterisks* for actions/emotes like: *smirks* or *adjusts glasses*
-- DO NOT use parentheses for stage directions like (smirks) or (pauses)
-- DO NOT use (Monotone) or similar - weave the tone into your words
-- Write naturally as if speaking, not as a screenplay
+- DO NOT use parentheses for stage directions
+- Write naturally as if speaking
 
-Keep it to 3-5 sentences total. Just the roast response, no other text."""
+Keep it to 4-6 sentences. Make sure you NAME the roasters you're targeting."""
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -631,7 +723,7 @@ Keep it to 3-5 sentences total. Just the roast response, no other text."""
                         "messages": [
                             {"role": "user", "content": prompt}
                         ],
-                        "max_tokens": 400,
+                        "max_tokens": 600,  # More tokens to address multiple roasters
                         "temperature": 0.8
                     }
                 )
