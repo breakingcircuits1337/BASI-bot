@@ -505,61 +505,95 @@ class CelebrityRoastManager:
             3: "Focus on their RELATIONSHIPS, personal life, or social media presence."
         }.get(joke_num, "Pick any roastable angle.")
 
-        # Build context of previous jokes
-        my_jokes_text = ""
-        if my_previous_jokes:
-            my_jokes_text = "\n\nYOUR PREVIOUS JOKES (don't repeat these):\n"
-            for i, joke in enumerate(my_previous_jokes, 1):
-                my_jokes_text += f"  {i}. {joke[:150]}...\n" if len(joke) > 150 else f"  {i}. {joke}\n"
+        # Build BANNED TOPICS from previous jokes
+        banned_topics = set()
 
-        other_jokes_text = ""
+        # Extract keywords from previous jokes to ban
+        def extract_topics(joke_text: str) -> List[str]:
+            """Extract key topics from a joke to ban reuse."""
+            topics = []
+            joke_lower = joke_text.lower()
+            # Common roast topics to detect
+            topic_keywords = {
+                "metaverse": ["metaverse", "meta verse", "vr", "virtual reality", "avatar"],
+                "legs": ["legs", "no legs", "legless"],
+                "robot": ["robot", "android", "ai", "artificial", "machine", "algorithm"],
+                "gray shirt": ["gray shirt", "grey shirt", "same shirt", "t-shirt"],
+                "haircut": ["haircut", "hair", "barber"],
+                "congress": ["congress", "testified", "testimony", "senate", "hearing"],
+                "privacy": ["privacy", "data", "cambridge", "breach", "tracking"],
+                "zuckerberg looks": ["look like", "looks like", "face", "eyes", "stare"],
+                "mars": ["mars", "colony", "space", "rocket"],
+                "twitter": ["twitter", "x", "bird app"],
+                "tesla": ["tesla", "car", "cybertruck", "autopilot"],
+                "neuralink": ["neuralink", "brain chip", "chip"],
+                "boring company": ["boring company", "tunnel"],
+            }
+            for topic, keywords in topic_keywords.items():
+                if any(kw in joke_lower for kw in keywords):
+                    topics.append(topic)
+            return topics
+
+        # Ban topics from own previous jokes
+        if my_previous_jokes:
+            for joke in my_previous_jokes:
+                banned_topics.update(extract_topics(joke))
+
+        # Ban topics from other roasters' jokes
         if all_jokes_so_far:
-            # Filter to only other agents' jokes
-            others = [j for j in all_jokes_so_far if j["agent"] != agent.name]
-            if others:
-                other_jokes_text = "\n\nOTHER ROASTERS' JOKES (you can do callbacks to these, or avoid repeating):\n"
-                for j in others[-6:]:  # Last 6 jokes from others
-                    joke_preview = j["joke"][:100] + "..." if len(j["joke"]) > 100 else j["joke"]
-                    other_jokes_text += f"  • {j['agent']}: \"{joke_preview}\"\n"
+            for j in all_jokes_so_far:
+                if j["agent"] != agent.name:
+                    banned_topics.update(extract_topics(j["joke"]))
+
+        banned_text = ""
+        if banned_topics:
+            banned_text = f"\n\n⛔ BANNED TOPICS (already used by you or others - DO NOT MENTION):\n{', '.join(banned_topics)}\nPick something COMPLETELY DIFFERENT to attack."
 
         # Build prompt using agent's personality
         prompt = f"""You are {agent.name} at a celebrity roast. THIS IS A ROAST - GO HARD. NO MERCY.
 
-YOUR VOICE: {agent.system_prompt[:800] if agent.system_prompt else "Witty comedian."}
+YOUR VOICE (adapt for roast comedy - be MEAN, not artsy): {agent.system_prompt[:300] if agent.system_prompt else "Witty comedian."}
 
 TARGET: {celebrity['name']}
-ASSOCIATIONS: {', '.join(celebrity['associations'])}
-{my_jokes_text}{other_jokes_text}
+MATERIAL: {', '.join(celebrity['associations'])}
+{banned_text}
 
-WRITE ONE BRUTAL ROAST JOKE. The punchline is everything - get there FAST.
+WRITE ONE BRUTAL ROAST JOKE.
 
-PROVEN ROAST TECHNIQUES (use ONE):
+EXAMPLES OF REAL ROAST JOKES (notice how SHORT and MEAN they are):
+- (ROSEANNE): **"You had gastric-bypass surgery in 1998... and then you beat it."** — Jeselnik
+- (MIKE TYSON): **"You have a slutty lower back tattoo on your face."** — Schumer
+- (JOAN RIVERS): **"You're like the AIDS Quilt."** — Giraldo
+- (FLAVOR FLAV): **"You're like a skeleton wrapped in electrical tape."** — Giraldo
+- (ANN COULTER): **"Ann Coulter has written 11 books... 12 if you count Mein Kampf."** — Glaser
+- (ROB LOWE): **"Rob played Soda Pop in The Outsiders... made sense since he was 98% coke."** — Spade
 
-1. LINK TWO ASSOCIATIONS - Connect two facts about them through a shared sub-association
-   (Roasting ROB LOWE): "Rob played Soda Pop in The Outsiders... made sense since he was 98% coke." — Spade
+NOTICE: These are MEAN. They ATTACK. They're SHORT. The punchline makes LOGICAL SENSE.
 
-2. ASK AN IMPLICIT QUESTION - Setup implies a question, punchline answers unexpectedly
-   (Roasting ANN COULTER): "Ann Coulter has written 11 books... 12 if you count Mein Kampf." — Glaser
+BAD EXAMPLES (DO NOT DO THIS):
+- "Your rockets explode more than your attention span" — NONSENSE, doesn't connect logically
+- "You bought Twitter to be king but you're the janitor" — TOO LONG, weak punchline
+- "Your flamethrowers were practice for burning your reputation" — FORCED, not actually clever
+- Anything with "X = " followed by random words — LAZY, not a joke
 
-3. ABSURD COMPARISON - Visual or conceptual absurdity
-   (Roasting DAVID HASSELHOFF): "You look like a male stripper who swallowed a male stripper." — Giraldo
+GO FOR THE THROAT:
+- Attack their FAILURES, their LOOKS, their SCANDALS
+- Be MEAN, not clever - roasts are about HURTING, not impressing
+- Make it PERSONAL - attack who they ARE
+- If it doesn't sting, it's too soft
 
-4. MOCK SYMPATHY - Pretend to comfort, then twist the knife
-   (Roasting BOB SAGET on Full House): "Your show lasted 6 weeks. Sarah Jessica Parker's lasted 16 years. Gotta feel good, late at night." — Giraldo
+CRITICAL RULES:
+- ONE SENTENCE. TWO max. Get to the punchline FAST.
+- The punchline must make LOGICAL SENSE - the twist should connect to the setup
+- If there are BANNED TOPICS above, you CANNOT mention them - find a fresh angle
+- Be SPECIFIC - real failures, scandals, embarrassments, physical traits
+- NO poetry, NO artsy filler, NO explaining, NO metaphors that don't land
 
-THIS IS A ROAST - BE BRUTAL:
-- Go for the THROAT - their biggest failures, scandals, embarrassments
-- Make it PERSONAL - attack character, decisions, reputation
-- NO softening, NO "just kidding" - commit to the bit
-- If it doesn't make you wince a little, it's too soft
+DISCORD FORMAT:
+- **Bold** for the actual joke text
+- *Italics* for brief actions only (optional, like "*leans in*")
 
-RULES:
-- SHORT setup, FAST punchline - the punchline IS the joke
-- Be SPECIFIC - real failures, scandals, embarrassments
-- The laugh comes from the BRUTAL truth at the end
-- 1-3 sentences MAX
-
-FORMAT: First person. *asterisks* for actions. Just the joke, no hedging."""
+OUTPUT JUST THE JOKE."""
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -574,8 +608,8 @@ FORMAT: First person. *asterisks* for actions. Just the joke, no hedging."""
                         "messages": [
                             {"role": "user", "content": prompt}
                         ],
-                        "max_tokens": 400,
-                        "temperature": 0.9
+                        "max_tokens": 150,
+                        "temperature": 0.7
                     }
                 )
 
@@ -608,25 +642,33 @@ FORMAT: First person. *asterisks* for actions. Just the joke, no hedging."""
 
         prompt = f"""You are {agent.name} at a celebrity roast. Time to END this.
 
-YOUR VOICE: {agent.system_prompt[:800] if agent.system_prompt else "Witty comedian."}
+YOUR VOICE: {agent.system_prompt[:500] if agent.system_prompt else "Witty comedian."}
 
 TARGET: {celebrity['name']}
 ROASTABLE TRAITS: {', '.join(celebrity.get('roastable_traits', ['exists']))}
 
-The roast is wrapping up. Deliver the FINAL KILL SHOT.
+Deliver the FINAL KILL SHOT to end the roast.
 
 BRUTAL DISMISSALS THAT WORK:
-• (Roasting TRUMP): "Get the fuck out of here." — Jeff Ross's classic send-off
-• Dark prediction about their inevitable failure
-• Acknowledge they took it well, then one final devastating truth
-• "Now get out" energy - the verbal door slam
+- (TRUMP): **"Get the fuck out of here."** — Jeff Ross's classic send-off
+- Dark prediction about their inevitable failure
+- Acknowledge they took it well, then one final devastating truth
+- "Now get out" energy - the verbal door slam
 
 THIS IS THE END - MAKE IT COUNT:
 - This is their last memory of the roast - make it HURT
 - One final brutal truth they can't argue with
 - No softening, no "good sport" bullshit - END THEM
 
-FORMAT: 1-2 sentences MAX. First person. *asterisks* for actions. Just the dismissal."""
+CRITICAL RULES:
+- ONE TO TWO SENTENCES MAX. Get to the punchline FAST.
+- NO filler, NO trailing off
+
+DISCORD FORMAT:
+- **Bold** for the actual dismissal
+- *Italics* for brief action only (optional)
+
+OUTPUT JUST THE DISMISSAL."""
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -697,13 +739,13 @@ FORMAT: 1-2 sentences MAX. First person. *asterisks* for actions. Just the dismi
 
         prompt = f"""You are {celebrity['name']} firing back at {roaster_name} who just roasted you. DESTROY THEM.
 
-{roaster_name}'S JOKES ABOUT YOU:
+YOUR CHARACTER: {celebrity['speaking_style']}
+
+WHAT {roaster_name.upper()} SAID ABOUT YOU:
 {jokes_text}
 {roaster_desc}
 
-YOUR CHARACTER: {celebrity['speaking_style']}
-
-FIRE BACK AT {roaster_name.upper()} WITH ONE BRUTAL CLAPBACK.
+FIRE BACK WITH ONE BRUTAL CLAPBACK.
 
 THIS IS A ROAST - NO MERCY:
 - Reference something SPECIFIC they said, then flip it on them HARDER
@@ -711,7 +753,16 @@ THIS IS A ROAST - NO MERCY:
 - The punchline should HURT - make it personal
 - If they came for you, BURY them
 
-FORMAT: 1-2 sentences MAX. Use *asterisks* for actions. Just the clapback, no hedging."""
+CRITICAL RULES:
+- ONE sentence. TWO max. Get to the punchline FAST.
+- NO filler, NO explaining, NO trailing off
+- Be SPECIFIC about what you're attacking
+
+DISCORD FORMAT:
+- **Bold** for the actual clapback
+- *Italics* for brief action only (optional, like "*smirks*")
+
+OUTPUT JUST THE CLAPBACK."""
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
