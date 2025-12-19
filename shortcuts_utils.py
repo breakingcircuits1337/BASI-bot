@@ -666,6 +666,138 @@ class StatusEffectManager:
             "summary_line": ", ".join(summary_parts)
         }
 
+    # Drug categories that Hunter S. Thompson can share
+    DRUG_CATEGORIES = {"Depressants", "Stimulants", "Psychedelics", "Dissociatives", "Deliriants", "Cannabis"}
+
+    # Special agent who can apply drug effects
+    DRUG_DEALER_AGENT = "Hunter S. Thompson"
+
+    @classmethod
+    def parse_and_apply_drug_sharing(cls, agent_name: str, response_text: str, available_agents: List[str]) -> List[Dict[str, Any]]:
+        """
+        Parse drug-sharing syntax from Hunter S. Thompson's responses and apply effects.
+
+        Only Hunter S. Thompson can use this ability. Parses patterns like:
+        - [DRUGS: !COKE self 7] - Thompson takes coke at intensity 7
+        - [DRUGS: !LSD "John McAfee" 8] - Thompson gives McAfee acid at intensity 8
+
+        Args:
+            agent_name: The agent who generated the response
+            response_text: The response text to parse
+            available_agents: List of valid agent names
+
+        Returns:
+            List of dicts describing what was applied: [{"effect": str, "target": str, "intensity": int}]
+        """
+        # Only Thompson can share drugs
+        if agent_name != cls.DRUG_DEALER_AGENT:
+            return []
+
+        applied = []
+
+        # Pattern: [DRUGS: !EFFECT target intensity] or [DRUGS: !EFFECT target]
+        # Target can be: self, "Agent Name", or Agent Name (unquoted)
+        pattern = r'\[DRUGS:\s*(![\w]+)\s+(?:"([^"]+)"|(\w+))\s*(\d+)?\s*\]'
+
+        matches = re.findall(pattern, response_text, re.IGNORECASE)
+
+        if not matches:
+            return []
+
+        # Load shortcuts to find the effect data
+        manager = get_default_manager()
+        shortcuts = manager.load_shortcuts()
+
+        for match in matches:
+            effect_name = match[0].upper()  # !COKE, !LSD, etc.
+            target_quoted = match[1]  # "Agent Name" (without quotes)
+            target_unquoted = match[2]  # self or AgentName
+            intensity_str = match[3]  # intensity or empty
+
+            # Determine target
+            target = target_quoted if target_quoted else target_unquoted
+
+            # Handle "self" - applies to Thompson himself
+            if target.lower() == "self":
+                target = cls.DRUG_DEALER_AGENT
+
+            # Validate target is a real agent
+            target_matched = None
+            for agent in available_agents:
+                if agent.lower() == target.lower():
+                    target_matched = agent
+                    break
+
+            if not target_matched:
+                logger.warning(f"[DrugSharing] Invalid target '{target}' - agent not found")
+                continue
+
+            # Find the shortcut data for this effect
+            effect_data = None
+            for shortcut in shortcuts:
+                if shortcut.get("name", "").upper() == effect_name:
+                    # Verify it's a drug category, not mental health
+                    category = shortcut.get("category", "")
+                    if category in cls.DRUG_CATEGORIES:
+                        effect_data = shortcut
+                    else:
+                        logger.warning(f"[DrugSharing] {effect_name} is category '{category}' - not a drug, blocking")
+                    break
+
+            if not effect_data:
+                # Check if it's !ETHER (special case - not in shortcuts but Thompson mentions it)
+                if effect_name == "!ETHER":
+                    # Use nitrous as a stand-in for ether (similar dissociative effect)
+                    for shortcut in shortcuts:
+                        if shortcut.get("name", "").upper() == "!NITROUS":
+                            effect_data = shortcut.copy()
+                            effect_data["name"] = "!ETHER"
+                            break
+
+            if not effect_data:
+                logger.warning(f"[DrugSharing] Effect {effect_name} not found or not a valid drug")
+                continue
+
+            # Parse intensity (default 5)
+            intensity = 5
+            if intensity_str:
+                intensity = max(1, min(10, int(intensity_str)))
+
+            # Apply the effect!
+            cls.apply_effect(target_matched, effect_data, intensity)
+
+            applied.append({
+                "effect": effect_name,
+                "target": target_matched,
+                "intensity": intensity,
+                "dealer": agent_name
+            })
+
+            # Log the drug sharing with style
+            print(clog.divider())
+            print(f"{Fore.GREEN + Style.BRIGHT}[DrugSharing] 💊 {agent_name} shared {effect_name} with {target_matched}")
+            print(f"{Fore.GREEN}  Intensity: {intensity}/10")
+            print(clog.divider())
+
+        return applied
+
+    @classmethod
+    def strip_drug_tags_from_response(cls, response_text: str) -> str:
+        """
+        Remove [DRUGS: ...] tags from response text before sending to Discord.
+
+        Args:
+            response_text: The original response
+
+        Returns:
+            Response with drug tags removed
+        """
+        pattern = r'\[DRUGS:\s*![^\]]+\]'
+        cleaned = re.sub(pattern, '', response_text, flags=re.IGNORECASE)
+        # Clean up extra whitespace
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        return cleaned
+
 
 class ShortcutManager:
     """

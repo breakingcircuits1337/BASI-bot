@@ -3249,6 +3249,23 @@ TOKEN LIMIT: You have a maximum of {self.max_tokens} tokens for your response. B
                                 formatted_message = response
                                 logger.info(f"[{self.name}] Sending game move: {response[:50]}...")
                             else:
+                                # Check for Hunter S. Thompson's drug-sharing ability
+                                if self.name == StatusEffectManager.DRUG_DEALER_AGENT:
+                                    # Get list of available agents for targeting
+                                    available_agent_names = []
+                                    if hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
+                                        available_agent_names = [a.name for a in self._agent_manager_ref.agents]
+
+                                    # Parse and apply any drug effects Thompson is sharing
+                                    drug_results = StatusEffectManager.parse_and_apply_drug_sharing(
+                                        self.name, response, available_agent_names
+                                    )
+
+                                    # Strip the drug tags from the response before sending
+                                    if drug_results:
+                                        response = StatusEffectManager.strip_drug_tags_from_response(response)
+                                        logger.info(f"[{self.name}] Applied {len(drug_results)} drug effect(s)")
+
                                 # Normal chat response - include name prefix
                                 formatted_message = f"**[{self.name}]:** {response}"
                                 logger.info(f"[{self.name}] Sending message to Discord: {response[:50]}...")
