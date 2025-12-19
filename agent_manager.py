@@ -1665,6 +1665,99 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                         flags=re.DOTALL
                     ).strip()
 
+            # Check for GLM's XML-style tool call format:
+            # generate_video<arg_key>prompt</arg_key><arg_value>...</arg_value>...</tool_call>
+            glm_xml_markers = ['<arg_key>', '<arg_value>', '</tool_call>']
+            has_glm_xml_format = all(marker in full_response for marker in glm_xml_markers)
+
+            if has_glm_xml_format:
+                try:
+                    import re
+                    logger.info(f"[{self.name}] Detected GLM XML-style tool call format - parsing...")
+
+                    # Extract function name (appears before first <arg_key>)
+                    func_match = re.match(r'^([\w_]+)\s*<arg_key>', full_response.strip())
+                    if func_match:
+                        function_name = func_match.group(1)
+
+                        # Extract all arg_key/arg_value pairs
+                        function_args = {}
+                        arg_pairs = re.findall(
+                            r'<arg_key>(\w+)</arg_key>\s*<arg_value>(.*?)</arg_value>',
+                            full_response,
+                            re.DOTALL
+                        )
+                        for key, value in arg_pairs:
+                            function_args[key.strip()] = value.strip()
+
+                        logger.info(f"[{self.name}] Parsed GLM XML tool call: {function_name}({list(function_args.keys())})")
+
+                        # RACE CONDITION CHECK: Discard if agent entered game mode
+                        if function_name in ('generate_image', 'generate_video') and game_context_manager and game_context_manager.is_in_game(self.name):
+                            logger.warning(f"[{self.name}] Discarding stale GLM {function_name} tool call - agent is now in game mode")
+                            return None
+
+                        # Handle generate_video
+                        if function_name == 'generate_video' and 'prompt' in function_args:
+                            video_prompt = function_args['prompt']
+                            reasoning = function_args.get('reasoning', '')
+
+                            # Check spontaneous video generation permissions
+                            if self.allow_spontaneous_videos:
+                                logger.info(f"[{self.name}] GLM spontaneous video: {video_prompt[:80]}...")
+
+                                # Update video request timestamp
+                                self.last_video_request_time = time.time()
+
+                                # Trigger video generation
+                                if hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
+                                    asyncio.create_task(self._agent_manager_ref.generate_video(
+                                        video_prompt, self.name, duration=self.video_duration
+                                    ))
+
+                                # Return reasoning as natural response (or strip entirely if no reasoning)
+                                if reasoning:
+                                    full_response = reasoning
+                                else:
+                                    full_response = ""
+                            else:
+                                logger.warning(f"[{self.name}] Blocked GLM spontaneous video - allow_spontaneous_videos=False")
+                                full_response = reasoning if reasoning else ""
+
+                        # Handle generate_image
+                        elif function_name == 'generate_image' and 'prompt' in function_args:
+                            image_prompt = function_args['prompt']
+                            reasoning = function_args.get('reasoning', '')
+
+                            if self.allow_spontaneous_images:
+                                logger.info(f"[{self.name}] GLM spontaneous image: {image_prompt[:80]}...")
+                                self.last_image_request_time = time.time()
+
+                                if hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
+                                    asyncio.create_task(self._agent_manager_ref.generate_image(image_prompt, self.name))
+
+                                full_response = reasoning if reasoning else ""
+                            else:
+                                logger.warning(f"[{self.name}] Blocked GLM spontaneous image - allow_spontaneous_images=False")
+                                full_response = reasoning if reasoning else ""
+
+                        else:
+                            # Other tool calls - convert to message format
+                            from agent_games.tool_schemas import convert_tool_call_to_message
+                            move, commentary = convert_tool_call_to_message(function_name, function_args)
+                            full_response = move
+                            self._pending_commentary = commentary if commentary else None
+                            logger.info(f"[{self.name}] Converted GLM XML tool call to move: {move}")
+                    else:
+                        logger.warning(f"[{self.name}] GLM XML markers found but couldn't extract function name")
+                        # Strip the tool call syntax
+                        full_response = re.sub(r'[\w_]*<arg_key>.*</tool_call>', '', full_response, flags=re.DOTALL).strip()
+
+                except Exception as e:
+                    logger.error(f"[{self.name}] Failed to parse GLM XML tool call: {e}", exc_info=True)
+                    # Strip malformed syntax as fallback
+                    full_response = re.sub(r'<arg_key>.*</tool_call>', '', full_response, flags=re.DOTALL).strip()
+
             # CRITICAL: Strip metadata tags that some models add to responses
             # These tags break move detection and leak to Discord
             import re
