@@ -452,13 +452,25 @@ input[type="range"] {
 }
 
 /* Slider number input boxes - need more width to show 2-3 digit values */
+/* Broad selectors to catch Gradio's various structures */
 .gr-slider input[type="number"],
 input[type="number"].slider-number,
-.gradio-slider input[type="number"] {
-    min-width: 60px !important;
-    width: 60px !important;
+.gradio-slider input[type="number"],
+.gr-number input,
+.gradio-number input,
+input.svelte-1cl284s,
+.wrap input[type="number"],
+[data-testid="number-input"] input,
+.block input[type="number"] {
+    min-width: 70px !important;
+    width: 70px !important;
     text-align: center !important;
     padding: 6px 4px !important;
+}
+
+/* Even broader catch-all for any number inputs in the app */
+.gradio-container input[type="number"] {
+    min-width: 65px !important;
 }
 
 /* Checkbox styling */

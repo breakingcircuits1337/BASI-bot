@@ -2333,7 +2333,32 @@ class InterdimensionalCableGame:
                         return None
 
                     result = await response.json()
-                    content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    message = result.get("choices", [{}])[0].get("message", {})
+                    content = message.get("content") or ""
+
+                    # Handle models that output tool_calls even without tools defined
+                    if not content:
+                        tool_calls = message.get("tool_calls", [])
+                        if tool_calls:
+                            try:
+                                args_str = tool_calls[0].get("function", {}).get("arguments", "{}")
+                                import json as json_module
+                                args = json_module.loads(args_str) if isinstance(args_str, str) else args_str
+                                content = args.get("prompt", "")
+                                if content:
+                                    logger.info(f"[IDCC:{self.game_id}] Extracted prompt from tool_call")
+                            except Exception:
+                                pass
+
+                    # Handle GLM XML format in content
+                    if not content and "<arg_key>" in str(message):
+                        import re
+                        raw = str(message)
+                        match = re.search(r'<arg_key>prompt</arg_key>\s*<arg_value>(.*?)</arg_value>', raw, re.DOTALL)
+                        if match:
+                            content = match.group(1).strip()
+                            logger.info(f"[IDCC:{self.game_id}] Extracted prompt from GLM XML format")
+
                     return content.strip() if content else None
 
         except Exception as e:
