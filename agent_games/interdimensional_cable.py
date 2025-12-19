@@ -76,6 +76,11 @@ class IDCCConfig:
     use_crossfade: bool = False  # Crossfade between clips (slower)
     crossfade_duration: float = 0.5  # Seconds of crossfade
     spitball_round_timeout_seconds: int = 45  # Time for humans to submit in each spitball round
+    game_cooldown_seconds: int = 1800  # 30 min cooldown between games (matches other games)
+
+
+# Global cooldown tracking
+_last_idcc_end_time: float = 0
 
 
 class IDCCConfigManager:
@@ -3242,6 +3247,24 @@ class IDCCGameManager:
         """Check if a game is currently running."""
         return self.active_game is not None
 
+    def can_start_game(self) -> tuple[bool, str]:
+        """Check if a new IDCC game can be started."""
+        global _last_idcc_end_time
+
+        if self.active_game:
+            return False, "An IDCC game is already in progress!"
+
+        # Check cooldown
+        config = idcc_config_manager.get_config()
+        elapsed = time.time() - _last_idcc_end_time
+        if _last_idcc_end_time > 0 and elapsed < config.game_cooldown_seconds:
+            remaining = int(config.game_cooldown_seconds - elapsed)
+            mins = remaining // 60
+            secs = remaining % 60
+            return False, f"IDCC on cooldown. Try again in {mins}m {secs}s"
+
+        return True, "Ready to channel surf!"
+
     async def start_game(
         self,
         agent_manager,
@@ -3283,8 +3306,11 @@ class IDCCGameManager:
             await self.active_game.start(ctx)
             return True
         finally:
+            global _last_idcc_end_time
             async with self._lock:
                 self.active_game = None
+                _last_idcc_end_time = time.time()
+                logger.info(f"[IDCC] Game ended, cooldown started")
 
     async def handle_join(self, user_name: str, user_id: Optional[str] = None) -> bool:
         """

@@ -202,6 +202,17 @@ class GameOrchestrator:
                 except ImportError:
                     pass
 
+            # Filter out interdimensional_cable if on cooldown
+            if "interdimensional_cable" in available_games:
+                try:
+                    from .interdimensional_cable import idcc_manager
+                    can_start, _ = idcc_manager.can_start_game()
+                    if not can_start:
+                        available_games.remove("interdimensional_cable")
+                        logger.info(f"[GameOrch] IDCC on cooldown, excluding from selection")
+                except ImportError:
+                    pass
+
             if not available_games:
                 logger.warning(f"[GameOrch] All enabled games are on cooldown")
                 return False

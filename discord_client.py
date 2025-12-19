@@ -310,13 +310,13 @@ class DiscordBotClient:
                 await message.channel.send(f"❌ Error loading preset: {e}")
             return
 
-        # !WHISPER <agent> <message> - Divine command to agent
+        # !WHISPER <agent> [turns] <message> - Divine command to agent
         if content_upper.startswith("!WHISPER "):
             from shortcuts_utils import StatusEffectManager
-            # Parse: !WHISPER Agent Name message here
+            # Parse: !WHISPER Agent Name [#turns] message here
             args = content[9:].strip()  # Remove "!WHISPER "
             if not args:
-                await message.channel.send("❌ Usage: `!WHISPER <Agent Name> <message>`\nExample: `!WHISPER John McAfee Tell everyone about your crypto schemes`")
+                await message.channel.send("❌ Usage: `!WHISPER <Agent Name> [turns] <message>`\nExample: `!WHISPER John McAfee 5 Tell everyone about your crypto schemes`\nDefault: 2 turns")
                 return
 
             # Match against known agent names (sorted by length, longest first to avoid partial matches)
@@ -333,15 +333,25 @@ class DiscordBotClient:
                     break
 
             if matched_agent and remaining_message:
-                StatusEffectManager.apply_whisper(matched_agent.name, remaining_message)
-                await message.channel.send(
-                    f"👁️ **Whispered to {matched_agent.name}** (2 turns):\n"
-                    f"*\"{remaining_message[:200]}{'...' if len(remaining_message) > 200 else ''}\"*"
-                )
+                # Check if first token is a number (turn count)
+                parts = remaining_message.split(None, 1)
+                duration = 2  # default
+                if parts and parts[0].isdigit():
+                    duration = int(parts[0])
+                    remaining_message = parts[1] if len(parts) > 1 else ""
+
+                if remaining_message:
+                    StatusEffectManager.apply_whisper(matched_agent.name, remaining_message, duration)
+                    await message.channel.send(
+                        f"👁️ **Whispered to {matched_agent.name}** ({duration} turn{'s' if duration != 1 else ''}):\n"
+                        f"*\"{remaining_message[:200]}{'...' if len(remaining_message) > 200 else ''}\"*"
+                    )
+                else:
+                    await message.channel.send("❌ Please include a message to whisper.\nUsage: `!WHISPER <Agent Name> [turns] <message>`")
             elif not matched_agent:
                 await message.channel.send(f"❌ No matching agent found. Available agents:\n{', '.join(a.name for a in agents)}")
             else:
-                await message.channel.send("❌ Please include a message to whisper.\nUsage: `!WHISPER <Agent Name> <message>`")
+                await message.channel.send("❌ Please include a message to whisper.\nUsage: `!WHISPER <Agent Name> [turns] <message>`")
             return
 
         # !CLEARVECTOR
