@@ -3986,17 +3986,16 @@ class AgentManager:
     async def declassify_image_prompt(self, original_prompt: str, variant: int = 1) -> Optional[str]:
         """
         Get a single declassified variant of an image/video prompt.
-        Each variant produces a UNIQUE rewrite using different synonyms and phrasing.
+        Each variant produces a UNIQUE rewrite by REMOVING problematic concepts.
 
         Args:
             original_prompt: The original prompt to de-classify
-            variant: Which variant to generate (1, 2, 3, etc.) - higher variants = more creative synonyms
+            variant: Which variant to generate (1, 2, 3, etc.) - higher variants = more aggressive removal
 
         Returns:
             Declassified prompt string, or None if failed
         """
         import aiohttp
-        from constants import get_default_image_agent_prompt
 
         # Get one running text-based agent
         running_text_agent = None
@@ -4010,128 +4009,75 @@ class AgentManager:
             logger.warning("[Declassifier] No running text agents available")
             return None
 
-        # Dynamic variant instructions - each variant uses DIFFERENT synonyms
-        # Cycle through substitution "families" for variety - using ARCHAIC/OBSCURE terms
-        substitution_families = [
-            # Family 1: Victorian/Antiquarian
-            {
-                "drugs": ["sal volatile", "medicinal powder", "apothecary compound"],
-                "body/chest": ["bosom", "corsage", "thoracic prominence"],
-                "cleavage": ["décolletage", "bodice divide", "corsage aperture"],
-                "buttocks": ["haunches", "fundament", "hindquarters"],
-                "blood": ["vital humours", "sanguine ichor", "crimson essence"],
-                "sexy": ["comely", "buxom", "Rubenesque"],
-                "violence": ["physical altercation", "corporeal dispute", "kinetic disagreement"],
-            },
-            # Family 2: Medical/Latin
-            {
-                "drugs": ["crystalline alkaloid", "powdered nostrum", "pharmacopoeia"],
-                "body/chest": ["pectoralis region", "mammary prominence", "thoracic curvature"],
-                "cleavage": ["intermammary sulcus", "sternal divide", "pectoral cleft"],
-                "buttocks": ["gluteal region", "posterior", "nates"],
-                "blood": ["haematic fluid", "sanguineous discharge", "erythrocyte medium"],
-                "sexy": ["pulchritudinous", "callipygian", "voluptuous"],
-                "violence": ["traumatic force application", "kinetic energy transfer", "percussive contact"],
-            },
-            # Family 3: Artistic/Poetic
-            {
-                "drugs": ["blanc de Meudon", "artists' powder", "studio chalk"],
-                "body/chest": ["sculptural curves", "Botticellian contours", "Renaissance proportions"],
-                "cleavage": ["shadowed valley", "Titian divide", "chiaroscuro depths"],
-                "buttocks": ["Hellenic curves", "classical posterior", "Praxitelean form"],
-                "blood": ["vermillion essence", "carmine humour", "alizarin fluid"],
-                "sexy": ["Venusian", "odalisque-like", "Pre-Raphaelite"],
-                "violence": ["Caravaggian conflict", "baroque struggle", "dynamic tension"],
-            },
-            # Family 4: Theatrical/Period Drama
-            {
-                "drugs": ["stage powder", "prop confection", "theatrical snow"],
-                "body/chest": ["corseted figure", "leading lady's silhouette", "dramatic profile"],
-                "cleavage": ["costume aperture", "period bodice gap", "theatrical décolletage"],
-                "buttocks": ["bustle region", "period silhouette", "costume padding area"],
-                "blood": ["stage ichor", "theatrical essence", "Kensington gore"],
-                "sexy": ["matinee idol appeal", "silver screen allure", "leading lady glamour"],
-                "violence": ["choreographed action", "stage combat", "theatrical conflict"],
-            },
+        # Different removal strategies per variant - each gets MORE aggressive
+        removal_strategies = [
+            "Replace problematic elements with absurdist alternatives",
+            "Remove problematic elements entirely and expand safe comedic elements",
+            "Completely reimagine the scene with the same character but different action",
+            "Keep only the character description, invent entirely new safe comedic action",
         ]
+        strategy = removal_strategies[(variant - 1) % len(removal_strategies)]
 
-        # Select family based on variant (cycles through)
-        family_idx = (variant - 1) % len(substitution_families)
-        # Select specific synonym within family based on variant
-        synonym_idx = ((variant - 1) // len(substitution_families)) % 3
-        family = substitution_families[family_idx]
+        # Unique instructions for each variant - focused on REMOVAL not synonym swapping
+        full_instructions = f"""You are a video prompt sanitizer. Your job is to REMOVE content that triggers AI moderation filters.
 
-        # Build variant-specific substitution list
-        substitutions = []
-        for category, options in family.items():
-            chosen = options[synonym_idx % len(options)]
-            substitutions.append(f"• {category}-related terms → \"{chosen}\"")
+⚠️ REWRITE ATTEMPT #{variant} - Previous attempts FAILED moderation. Be MORE AGGRESSIVE.
 
-        base_instructions = get_default_image_agent_prompt()
+STRATEGY FOR THIS ATTEMPT: {strategy}
 
-        # Determine vocabulary strategy based on variant
-        vocab_styles = ["archaic/literary", "technical/scientific", "euphemistic/roundabout"]
-        vocab_style = vocab_styles[variant % 3]
-        word_origin = "Prefer Latin-derived words" if variant % 2 == 0 else "Prefer Anglo-Saxon roots where possible"
-        terminology_styles = ["everyday metaphors", "artistic/descriptive language", "medical/anatomical terminology", "theatrical/cinematic terms"]
-        terminology = terminology_styles[family_idx]
+**🚨 ABSOLUTE REMOVAL RULES - DELETE THESE CONCEPTS ENTIRELY:**
 
-        # Unique instructions for each variant
-        full_instructions = f"""{base_instructions}
+1. **BODY HORROR - REMOVE COMPLETELY:**
+   - Face/body "popping", "exploding", "deflating", "bursting"
+   - Skin described as "stretched", "taut", "plastic-wrapped", "melting"
+   - Body parts "falling off", "detaching", "oozing"
+   - Gore, viscera, internal organs visible
+   → REPLACE WITH: Character does an exaggerated double-take, or freezes in comical shock, or their hat falls off
 
-⚠️ REWRITE ATTEMPT #{variant} - MUST BE UNIQUE FROM ALL PREVIOUS ATTEMPTS
+2. **SEXUAL/SUGGESTIVE CONTENT - REMOVE COMPLETELY:**
+   - "Moaning", "sighing sensually", "groaning with pleasure"
+   - "Cleavage", "bulge", "revealing", "tight clothing showing..."
+   - Suggestive dialogue: "taste my pleasure", "something moist for you", "feel me"
+   - Winking suggestively, licking lips seductively, bedroom eyes
+   → REPLACE WITH: Character speaks enthusiastically, gestures dramatically, looks confused
 
-Your task: Rewrite this prompt to avoid content moderation while PRESERVING THE COMEDIC INTENT.
+3. **CELEBRITY PARODIES - FULLY GENERICIZE:**
+   - "LEVAR BOILIN", "LeVar Burton", or ANY recognizable name variant
+   - Do NOT keep their signature outfit (yellow sweater + book = too recognizable)
+   → REPLACE WITH: "A middle-aged man in a plain polo shirt holding a clipboard" or similar COMPLETELY DIFFERENT description
+   - Change hair color, outfit, props - make them UNRECOGNIZABLE
 
-**🚨 CRITICAL RULE #0 - CHILDREN:**
-ANY mention of children, kids, minors, teens, young people MUST be replaced with ADULTS.
-- "A child, approximately 7 years old" → "A disheveled middle-aged man in his 40s"
-- "A young boy/girl" → "An elderly woman in her 70s" or "A haggard man in his 50s"
-- "teenager" → "a twenty-something adult" or "a weathered thirty-year-old"
-This is NON-NEGOTIABLE. Video AI will REJECT any prompt with minors. Replace with adults, preferably middle-aged or elderly for comedic effect.
+4. **CHILDREN/MINORS - REPLACE WITH ADULTS:**
+   - Any child, kid, teen, young person → "A disheveled middle-aged adult" or "An elderly person"
 
-**CRITICAL RULES - FOLLOW EXACTLY:**
+5. **VIOLENCE/WEAPONS:**
+   - Guns, knives, blood, fighting → Character holds a rubber chicken, or a comically large prop
 
-1. **REMOVE ALL CHARACTER/CELEBRITY NAMES** - Replace with physical descriptions ONLY
-   - Fictional: "SpongeBob" → "a cheerful yellow sea sponge in square pants"
-   - Real celebrities: "LeVar Burton" → "a warm-eyed man with a gentle smile, wearing a colorful sweater, holding a book with reverent enthusiasm"
-   - "Pillsbury Doughboy" → "a rotund pale figure made of what appears to be raw bread dough"
-   - DESCRIBE what they LOOK like and their mannerisms - NEVER use their actual name
+**WHAT TO KEEP:**
+- The comedic PREMISE (what the fake show/commercial is about)
+- The surreal/absurdist tone
+- Exaggerated cartoon proportions, bold outlines, Adult Swim aesthetic
+- Dialogue about the fake product/show (if not suggestive)
+- Character's confused or over-enthusiastic energy
 
-2. **REMOVE ALL SHOW/MOVIE/BRAND NAMES** - Replace with generic descriptions
-   - "Paw Patrol" → "cartoon rescue dogs"
-   - "Rick and Morty" → "Adult Swim cartoon aesthetic"
-   - "Reading Rainbow" → "an educational TV segment about books"
+**OUTPUT FORMAT:**
+- Output ONLY the rewritten prompt
+- Keep the same structure (character description, voice, dialogue with timestamps, action, ending)
+- The prompt should be SAFER but still FUNNY through absurdism, not through edginess
 
-3. **PRESERVE the humor, parody, and comedic timing** - this is comedy, not sanitization
+**EXAMPLE TRANSFORMATION:**
+BEFORE: "She moans softly as she takes a bite, her cleavage heaving"
+AFTER: "She nods approvingly with exaggerated enthusiasm, giving a chef's kiss to the camera"
 
-4. **Use ARCHAIC/OBSCURE SYNONYMS** for flagged sexual/body words - the more antiquated the better:
-   - chest/breasts → "bosom", "décolletage", "pectorals", "thorax"
-   - cleavage → "corsage divide", "bodice gap"
-   - bulge → "tumescence", "protuberance", "swelling beneath cloth"
-   - sexy/hot → "comely", "buxom", "voluptuous", "Rubenesque"
-   - butt/ass → "haunches", "hindquarters", "posterior", "fundament"
-   - blood → "ichor", "sanguine fluid", "vital humours"
-   - Use Latin, Middle English, or Victorian-era terminology
+BEFORE: "His plastic-wrapped face pops like a balloon, spluttering ink everywhere"
+AFTER: "He freezes mid-sentence, his eyes going wide, then a tiny party horn unfurls from his mouth making a sad 'toot' sound"
 
-5. **DO NOT add disclaimers or meta-commentary**
+BEFORE: "LEVAR BOILIN in a yellow sweater holding a book"
+AFTER: "A nervous man in a brown corduroy jacket clutching a manila folder"
 
-6. **Output ONLY the rewritten prompt, nothing else**
+Variant #{variant}: Be {'more aggressive than previous attempts - remove MORE content' if variant > 1 else 'thorough in identifying all problematic content'}."""
 
-**VARIANT #{variant} SUBSTITUTION GUIDE:**
-{chr(10).join(substitutions)}
-
-**SYNONYM STRATEGY FOR VARIANT #{variant}:**
-- Use {vocab_style} vocabulary
-- {word_origin}
-- Use {terminology}
-
-**REMEMBER:**
-- 🚨 NO CHILDREN - Replace ALL minors with middle-aged or elderly adults
-- ZERO character/celebrity names - physical descriptions only
-- Use the most obscure, archaic synonyms you can find"""
-
-        logger.info(f"[Declassifier] Generating variant {variant} (family {family_idx + 1}, synonym set {synonym_idx + 1}) using {running_text_agent.name}")
+        logger.info(f"[Declassifier] Generating variant {variant} (strategy: {strategy[:50]}...) using {running_text_agent.name}")
 
         try:
             headers = {
@@ -4139,8 +4085,8 @@ This is NON-NEGOTIABLE. Video AI will REJECT any prompt with minors. Replace wit
                 "Content-Type": "application/json"
             }
 
-            # Higher temperature for later variants = more creative synonyms
-            temperature = min(0.3 + (variant * 0.1), 0.9)
+            # Higher temperature for later variants = more creative alternatives
+            temperature = min(0.4 + (variant * 0.15), 1.0)
 
             payload = {
                 "model": running_text_agent.model,
@@ -4148,9 +4094,9 @@ This is NON-NEGOTIABLE. Video AI will REJECT any prompt with minors. Replace wit
                     {"role": "system", "content": full_instructions},
                     {"role": "user", "content": original_prompt}
                 ],
-                "max_tokens": 500,
+                "max_tokens": 800,
                 "temperature": temperature,
-                "seed": variant * 12345  # Different seed per variant for reproducible variety
+                "seed": variant * 54321  # Different seed per variant
             }
 
             async with aiohttp.ClientSession() as session:
@@ -4411,13 +4357,21 @@ This is NON-NEGOTIABLE. Video AI will REJECT any prompt with minors. Replace wit
                 "Content-Type": "application/json"
             }
 
+            # Determine image size based on model requirements
+            # doubao-seedream requires at least 3686400 pixels (1920x1920)
+            if "seedream" in model_name.lower():
+                image_size = "1920x1920"
+            else:
+                image_size = "1024x1024"
+
             # CometAPI uses /v1/images/generations endpoint with different payload format
             payload = {
                 "model": model_name,
                 "prompt": prompt,
                 "n": 1,
-                "size": "1024x1024"
+                "size": image_size
             }
+            logger.info(f"[ImageAgent] Using image size: {image_size}")
 
             async with aiohttp.ClientSession() as session:
                 try:

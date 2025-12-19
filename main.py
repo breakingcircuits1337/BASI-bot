@@ -1086,14 +1086,19 @@ def _create_config_tab(openrouter_key_initial: str, cometapi_key_initial: str, i
                 gr.HTML('<div class="panel-header"><h3>Image Generation Model</h3></div>')
                 gr.HTML('<p style="color: #666; font-size: 11px; margin: -10px 0 10px 0;">Model used when agents generate images via tool call</p>')
 
-                # Common image models on OpenRouter
+                # Common image models on OpenRouter and CometAPI
                 common_image_models = [
                     "google/gemini-2.0-flash-exp:free",
                     "google/gemini-2.5-flash-preview-05-20",
                     "openai/gpt-4o",
                     "openai/dall-e-3",
                     "black-forest-labs/flux-1.1-pro",
-                    "black-forest-labs/flux-schnell"
+                    "black-forest-labs/flux-schnell",
+                    # CometAPI image models
+                    "gpt-image-1",
+                    "gpt-image-1.5",
+                    "doubao-seedream-4-5-251128",
+                    "qwen-image",
                 ]
 
                 # Merge with saved custom models

@@ -14,7 +14,9 @@ IMAGE_MODEL_KEYWORDS = [
     "dall-e",
     "stable-diffusion",
     "midjourney",
-    "flux"
+    "flux",
+    "seedream",
+    "qwen-image",
 ]
 
 # CometAPI image models use a different API endpoint and format
@@ -23,6 +25,8 @@ COMETAPI_IMAGE_MODELS = [
     "gpt-image-1.5",
     "openai/gpt-image-1",
     "openai/gpt-image-1.5",
+    "doubao-seedream",
+    "qwen-image",
 ]
 
 def is_image_model(model: str) -> bool:
