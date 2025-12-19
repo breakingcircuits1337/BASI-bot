@@ -451,6 +451,16 @@ input[type="range"] {
     accent-color: var(--accent) !important;
 }
 
+/* Slider number input boxes - need more width to show 2-3 digit values */
+.gr-slider input[type="number"],
+input[type="number"].slider-number,
+.gradio-slider input[type="number"] {
+    min-width: 60px !important;
+    width: 60px !important;
+    text-align: center !important;
+    padding: 6px 4px !important;
+}
+
 /* Checkbox styling */
 input[type="checkbox"] {
     accent-color: var(--accent) !important;

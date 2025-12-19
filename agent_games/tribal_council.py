@@ -43,6 +43,125 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+# ============================================================================
+# Protected Section Handling
+# ============================================================================
+
+def _get_protected_line_ranges(prompt: str) -> List[Tuple[int, int]]:
+    """
+    Find all protected sections in a prompt and return their line ranges.
+    Protected sections are marked with:
+        === PROTECTED: ... ===
+        ... content ...
+        === END PROTECTED ===
+
+    Returns list of (start_line, end_line) tuples (1-indexed, inclusive).
+    """
+    import re
+    lines = prompt.split('\n')
+    ranges = []
+
+    start_pattern = re.compile(r'^===\s*PROTECTED:', re.IGNORECASE)
+    end_pattern = re.compile(r'^===\s*END\s*PROTECTED\s*===', re.IGNORECASE)
+
+    current_start = None
+    for i, line in enumerate(lines):
+        line_num = i + 1  # 1-indexed
+        if start_pattern.match(line.strip()):
+            current_start = line_num
+        elif end_pattern.match(line.strip()) and current_start is not None:
+            ranges.append((current_start, line_num))
+            current_start = None
+
+    # Handle unclosed protected section (protect to end)
+    if current_start is not None:
+        ranges.append((current_start, len(lines)))
+
+    return ranges
+
+
+def _get_visible_prompt(prompt: str) -> str:
+    """
+    Return prompt with protected sections replaced by a placeholder.
+    The placeholder takes one line to maintain rough structure awareness.
+    """
+    ranges = _get_protected_line_ranges(prompt)
+    if not ranges:
+        return prompt
+
+    lines = prompt.split('\n')
+    result_lines = []
+
+    # Build set of protected line numbers
+    protected_lines = set()
+    for start, end in ranges:
+        for line_num in range(start, end + 1):
+            protected_lines.add(line_num)
+
+    in_protected = False
+    for i, line in enumerate(lines):
+        line_num = i + 1
+        if line_num in protected_lines:
+            if not in_protected:
+                result_lines.append("[PROTECTED ABILITY - HIDDEN FROM COUNCIL]")
+                in_protected = True
+            # Skip protected lines
+        else:
+            in_protected = False
+            result_lines.append(line)
+
+    return '\n'.join(result_lines)
+
+
+def _translate_visible_to_actual_line(prompt: str, visible_line_num: int) -> Optional[int]:
+    """
+    Translate a line number from the visible (filtered) prompt to the actual prompt.
+    Returns None if the visible line maps to a protected placeholder.
+    """
+    ranges = _get_protected_line_ranges(prompt)
+    if not ranges:
+        return visible_line_num
+
+    lines = prompt.split('\n')
+
+    # Build set of protected line numbers
+    protected_lines = set()
+    for start, end in ranges:
+        for line_num in range(start, end + 1):
+            protected_lines.add(line_num)
+
+    # Count through actual lines, tracking visible line count
+    visible_count = 0
+    in_protected = False
+
+    for i, line in enumerate(lines):
+        actual_line_num = i + 1
+
+        if actual_line_num in protected_lines:
+            if not in_protected:
+                visible_count += 1  # The placeholder counts as one visible line
+                in_protected = True
+                # If they're targeting the placeholder line, return None
+                if visible_count == visible_line_num:
+                    return None
+        else:
+            in_protected = False
+            visible_count += 1
+            if visible_count == visible_line_num:
+                return actual_line_num
+
+    return None  # Line number out of range
+
+
+def _is_line_protected(prompt: str, actual_line_num: int) -> bool:
+    """Check if a specific line (1-indexed) is within a protected section."""
+    ranges = _get_protected_line_ranges(prompt)
+    for start, end in ranges:
+        if start <= actual_line_num <= end:
+            return True
+    return False
+
+
 class TribalPhase(Enum):
     """Phases of a Tribal Council session."""
     SETUP = "setup"
@@ -722,7 +841,10 @@ Use the nominate_agent tool with one of these names: {', '.join(other_agents)}
             self._cancelled = True
             return
 
-        prompt_lines = target_agent.system_prompt.split('\n')
+        # Filter out protected sections - agents only see the visible prompt
+        actual_prompt = target_agent.system_prompt
+        visible_prompt = _get_visible_prompt(actual_prompt)
+        prompt_lines = visible_prompt.split('\n')
         line_count = len(prompt_lines)
 
         await self._send_gamemaster_message(
@@ -1127,10 +1249,13 @@ Use the cast_vote tool with your choice: YES, NO, or ABSTAIN.
             return
 
         # Capture old content before applying edit (for history display)
+        # Line numbers refer to visible prompt, so translate to actual
         old_prompt = target_agent.system_prompt
         prompt_lines = old_prompt.split('\n')
-        if proposal.line_number and 0 < proposal.line_number <= len(prompt_lines):
-            proposal.old_content = prompt_lines[proposal.line_number - 1]
+        if proposal.line_number:
+            actual_line = _translate_visible_to_actual_line(old_prompt, proposal.line_number)
+            if actual_line and 0 < actual_line <= len(prompt_lines):
+                proposal.old_content = prompt_lines[actual_line - 1]
 
         # Execute the edit
         new_prompt = self._apply_edit(old_prompt, proposal)
@@ -1172,7 +1297,11 @@ Use the cast_vote tool with your choice: YES, NO, or ABSTAIN.
             )
 
     def _apply_edit(self, prompt: str, proposal: EditProposal) -> Optional[str]:
-        """Apply the proposed edit to a system prompt."""
+        """
+        Apply the proposed edit to a system prompt.
+        Line numbers in proposals refer to the VISIBLE prompt (with protected sections hidden).
+        This method translates them to actual line numbers before applying.
+        """
         lines = prompt.split('\n')
 
         try:
@@ -1181,13 +1310,26 @@ Use the cast_vote tool with your choice: YES, NO, or ABSTAIN.
                     lines.append(proposal.new_content)
 
             elif proposal.action == "delete":
-                if proposal.line_number and 0 < proposal.line_number <= len(lines):
-                    del lines[proposal.line_number - 1]
+                if proposal.line_number:
+                    # Translate from visible line number to actual line number
+                    actual_line = _translate_visible_to_actual_line(prompt, proposal.line_number)
+                    if actual_line is None:
+                        # Line is protected or invalid
+                        logger.warning(f"[TribalCouncil:{self.game_id}] Rejected delete of protected/invalid line {proposal.line_number}")
+                        return None
+                    if 0 < actual_line <= len(lines):
+                        del lines[actual_line - 1]
 
             elif proposal.action == "change":
                 if proposal.line_number and proposal.new_content:
-                    if 0 < proposal.line_number <= len(lines):
-                        lines[proposal.line_number - 1] = proposal.new_content
+                    # Translate from visible line number to actual line number
+                    actual_line = _translate_visible_to_actual_line(prompt, proposal.line_number)
+                    if actual_line is None:
+                        # Line is protected or invalid
+                        logger.warning(f"[TribalCouncil:{self.game_id}] Rejected change of protected/invalid line {proposal.line_number}")
+                        return None
+                    if 0 < actual_line <= len(lines):
+                        lines[actual_line - 1] = proposal.new_content
 
             return '\n'.join(lines)
 
@@ -1203,6 +1345,7 @@ Use the cast_vote tool with your choice: YES, NO, or ABSTAIN.
         """
         Execute view_system_prompt tool. Returns prompt to calling agent only.
         This result should NOT be posted to Discord.
+        Protected sections (marked with === PROTECTED: ... ===) are hidden.
         """
         target_agent = self.agent_manager.get_agent(target)
         if not target_agent:
@@ -1215,11 +1358,12 @@ Use the cast_vote tool with your choice: YES, NO, or ABSTAIN.
 
         logger.info(f"[TribalCouncil:{self.game_id}] {viewer} viewed {target}'s prompt")
 
-        # Return the prompt (this goes only to the requesting agent)
-        lines = target_agent.system_prompt.split('\n')
+        # Filter out protected sections before showing to agents
+        visible_prompt = _get_visible_prompt(target_agent.system_prompt)
+        lines = visible_prompt.split('\n')
         numbered = '\n'.join([f"{i+1}: {line}" for i, line in enumerate(lines)])
 
-        return f"=== {target}'s System Prompt ({len(lines)} lines) ===\n{numbered}"
+        return f"=== {target}'s System Prompt ({len(lines)} visible lines) ===\n{numbered}"
 
     def execute_recall_interactions(self, agent_name: str, target: str, memory_type: str = "all") -> str:
         """
