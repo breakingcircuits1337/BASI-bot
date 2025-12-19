@@ -2352,7 +2352,14 @@ FOCUS ON THE MOST RECENT MESSAGES: You're seeing a filtered view of the conversa
         try:
             import requests
 
-            # Build context if available
+            # Build speaker personality context (first ~300 chars of system prompt)
+            personality_hint = ""
+            if self.system_prompt:
+                # Get first paragraph or first 300 chars as personality summary
+                first_para = self.system_prompt.split('\n\n')[0][:300]
+                personality_hint = f"\nSPEAKER PERSONALITY ({self.name}): {first_para}...\n"
+
+            # Build conversation context if available
             context_str = ""
             if context_message:
                 author = context_message.get('author', 'Unknown')
@@ -2360,31 +2367,25 @@ FOCUS ON THE MOST RECENT MESSAGES: You're seeing a filtered view of the conversa
                 context_str = f"\nCONTEXT (what {author} said that prompted this response):\n\"{content}\"\n"
 
             prompt = f"""You are a sentiment analyzer. Rate how the SPEAKER feels toward the person they're addressing.
-{context_str}
+Consider the speaker's personality - some characters express warmth through insults or gruffness.
+{personality_hint}{context_str}
 SPEAKER'S RESPONSE: "{response_text[:500]}"
 
 SCORING GUIDE (-10 to +10):
--10 to -6: Hostile (insults, contempt, hatred, telling someone to f*** off)
--5 to -3: Dismissive (mocking, eye-rolling, "you're wrong", belittling)
--2 to -1: Mildly negative (skepticism, mild criticism, slight annoyance)
-0: Neutral (factual statements, no emotional charge toward recipient)
-+1 to +2: Mildly positive (polite interest, small agreement)
-+3 to +5: Friendly (warmth, genuine interest, playful teasing, encouragement)
-+6 to +8: Affectionate (caring, intimate, romantic interest, strong connection)
+-10 to -6: Genuinely hostile (real contempt, hatred, wanting to hurt)
+-5 to -3: Actually dismissive (real disdain, not playful)
+-2 to -1: Mildly negative (real skepticism or annoyance)
+0: Neutral (factual, no emotional charge)
++1 to +2: Mildly positive (polite interest)
++3 to +5: Friendly (warmth, engagement, playful teasing, camaraderie)
++6 to +8: Affectionate (caring, intimate, strong connection)
 +9 to +10: Deeply loving/devoted
 
-EXAMPLES:
-"That's intellectual vomit" → -7 (hostile insult)
-"*rolls eyes* Whatever you say" → -4 (dismissive)
-"I disagree with your assessment" → -1 (mild criticism)
-"Interesting point about that" → +2 (engaged interest)
-"You always make me smile" → +6 (affection)
-"I've never felt this way before" → +8 (deep connection)
-
-IMPORTANT:
-- Sarcasm/mockery is NEGATIVE even if words seem positive
-- Sexual/romantic content expressing desire = POSITIVE
-- Clinical/professional tone = near 0 unless clearly warm or cold
+CRITICAL - Consider speaker's style:
+- A gruff character calling someone "punk" or "bastard" might be showing AFFECTION
+- Hunter S. Thompson calling everyone "swine" is his way of being FRIENDLY
+- Insults between friends can be +3 to +5 (playful ribbing)
+- Judge the INTENT behind the words, not just the words themselves
 
 Reply with ONLY a number between -10 and 10."""
 
@@ -3254,7 +3255,7 @@ TOKEN LIMIT: You have a maximum of {self.max_tokens} tokens for your response. B
                                     # Get list of available agents for targeting
                                     available_agent_names = []
                                     if hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
-                                        available_agent_names = [a.name for a in self._agent_manager_ref.agents]
+                                        available_agent_names = list(self._agent_manager_ref.agents.keys())
 
                                     # Parse and apply any drug effects Thompson is sharing
                                     drug_results = StatusEffectManager.parse_and_apply_drug_sharing(
