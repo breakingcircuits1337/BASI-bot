@@ -93,7 +93,7 @@ class DiscordBotClient:
 • `!STARTALL` - Start all agents
 • `!STOPALL` - Stop all agents
 • `!MODEL <agent> <model>` - Change agent's model
-• `!WHISPER <agent> <msg>` - Send divine command (2 turns)
+• `!WHISPER <agent> [turns] <msg>` - Divine command (default: 2 turns)
 
 **Media Generation:**
 • `!TOGGLEIMAGE <agent>` - Toggle spontaneous image gen
@@ -484,19 +484,29 @@ class DiscordBotClient:
 
         # !MODELS - List popular models
         if content_upper == "!MODELS":
-            models_text = """**📚 Popular Model IDs:**
+            models_text = """**📚 Model IDs:**
 
-**OpenRouter:**
-• `google/gemini-2.5-flash` (fast, cheap)
-• `google/gemini-2.5-flash-preview-09-2025` (preview)
+**Chat Models (OpenRouter):**
+• `google/gemini-2.5-flash-preview-05-20` (fast, cheap)
 • `anthropic/claude-sonnet-4` (balanced)
 • `anthropic/claude-opus-4` (powerful)
 • `openai/gpt-4o` (GPT-4 Omni)
-• `openai/gpt-4o-mini` (fast GPT-4)
-• `deepseek/deepseek-chat` (cheap, good)
-• `meta-llama/llama-3.1-405b-instruct` (large)
+• `openai/gpt-4.1` (latest GPT)
+• `deepseek/deepseek-chat-v3-0324` (cheap, good)
 
-Use with: `!MODEL <agent> <model_id>`"""
+**Image Models (OpenRouter):**
+• `google/gemini-2.0-flash-exp:free` (free tier)
+• `openai/dall-e-3`
+• `black-forest-labs/flux-1.1-pro`
+• `black-forest-labs/flux-schnell`
+
+**Image Models (CometAPI):**
+• `gpt-image-1` / `gpt-image-1.5`
+• `doubao-seedream-4-5-251128` (1920x1920)
+• `qwen-image`
+
+Use `!MODEL <agent> <model>` to change agent model
+Use `!IMAGEMODEL <model>` to set image model"""
             await message.channel.send(models_text)
             return
 
@@ -1864,13 +1874,29 @@ Configure auto-play settings in the UI's Auto-Play tab.
                     try:
                         import base64
                         import io
+                        import aiohttp
                         from discord import File
+
+                        image_bytes = None
 
                         # Extract base64 data from data URL
                         if "base64," in image_url:
                             base64_data = image_url.split("base64,")[1]
                             image_bytes = base64.b64decode(base64_data)
+                        elif image_url.startswith("http://") or image_url.startswith("https://"):
+                            # Download image from URL (e.g., CometAPI URLs)
+                            logger.info(f"[Discord] Downloading image from URL...")
+                            async with aiohttp.ClientSession() as session:
+                                async with session.get(image_url, timeout=aiohttp.ClientTimeout(total=60)) as resp:
+                                    if resp.status == 200:
+                                        image_bytes = await resp.read()
+                                        logger.info(f"[Discord] Downloaded {len(image_bytes)} bytes")
+                                    else:
+                                        logger.error(f"[Discord] Failed to download image: HTTP {resp.status}")
+                                        await channel.send(f"**[{agent_name}]:** Failed to download image (HTTP {resp.status})")
+                                        return False
 
+                        if image_bytes:
                             # Create file-like object
                             image_file = io.BytesIO(image_bytes)
                             image_file.seek(0)
@@ -1915,6 +1941,10 @@ Configure auto-play settings in the UI's Auto-Play tab.
 
                             logger.info(f"[Discord] Image sent successfully")
                             return True
+                        else:
+                            logger.error(f"[Discord] No image data to send")
+                            await channel.send(f"**[{agent_name}]:** No image data available")
+                            return False
                     except Exception as e:
                         logger.error(f"[Discord] Error sending image: {e}", exc_info=True)
                         await channel.send(f"**[{agent_name}]:** Error sending image: {str(e)}")

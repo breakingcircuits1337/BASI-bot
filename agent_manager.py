@@ -1339,8 +1339,8 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                     # Update image request timestamp
                     self.last_image_request_time = time.time()
 
-                    # Prepare commentary from text content or reasoning
-                    commentary = text_content.strip() if text_content.strip() else reasoning
+                    # Prepare commentary from text content only (reasoning is internal, not for display)
+                    commentary = text_content.strip() if text_content.strip() else None
                     if commentary:
                         import re
                         commentary = re.sub(r'\[SENTIMENT:\s*-?\d+\]\s*', '', commentary)
@@ -1414,9 +1414,9 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                     asyncio.create_task(self._generate_and_post_video(video_prompt, ""))
                     logger.info(f"[{self.name}] Video generation spawned in background via tool call")
 
-                    # Return commentary/reasoning as the agent's message
+                    # Return text content as the agent's message (reasoning is internal, not for display)
                     # Video will be posted by background task when complete
-                    commentary = text_content.strip() if text_content.strip() else reasoning
+                    commentary = text_content.strip() if text_content.strip() else None
                     if commentary:
                         import re
                         commentary = re.sub(r'\[SENTIMENT:\s*-?\d+\]\s*', '', commentary)
@@ -1428,8 +1428,8 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                         commentary = commentary.strip()
                         if commentary:
                             return commentary
-                    # If no commentary, return a brief acknowledgment
-                    return "Working on that video for you..."
+                    # If no text content, don't send a message - just generate silently
+                    return None
                 else:
                     logger.warning(f"[{self.name}] generate_video tool called but no prompt or agent_manager_ref")
                     return None
