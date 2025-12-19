@@ -393,10 +393,13 @@ NOT prestige TV. NOT serious drama. Think 3am cable access fever dream.
 • Any character that would fit in a Netflix drama (this is CHAOTIC CABLE ACCESS)
 • Baby products / paranoid conspiracy guys / memory devices (overdone)
 
-⛔ **ABSOLUTE BAN - WILL FAIL VIDEO GENERATION:**
-• NO children in sexual or harmful situations - EVER
-• HORNY/GROSS bits must NOT involve minors in any way
-• Parodying kids' shows is fine, but the TWIST cannot sexualize or harm children
+⛔ **ABSOLUTE BAN - WILL CAUSE VIDEO GENERATION TO FAIL:**
+• 🚨 NO CHILDREN/MINORS IN ANY SCENE - PERIOD. Not as background, not as main character, not even mentioned.
+  - "Child", "kid", "boy", "girl", "teen", "minor", "young person" = INSTANT REJECTION
+  - If parodying a kids' show, the CHARACTER must be an ADULT or NON-HUMAN (robot, alien, monster, anthropomorphic object)
+  - There is NO exception. Video AI will reject ANY prompt with minors regardless of context.
+• NO real celebrity names - Describe their APPEARANCE instead (e.g., "a man with spiky blue-gray hair in a lab coat" not "Rick")
+• HORNY/GROSS bits must use ADULTS ONLY - preferably middle-aged or elderly for comedic effect
 
 ⚠️ **DO NOT INSERT YOURSELF:** Create an ORIGINAL character, not a version of your own persona.
 
