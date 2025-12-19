@@ -61,8 +61,9 @@ def build_name_collision_guidance(all_agent_names: List[str], current_agent_name
     guidance_parts = ["\n\n⚠️ NAME DISAMBIGUATION:"]
     for first_name, full_names in collisions.items():
         names_str = ", ".join(full_names)
-        guidance_parts.append(f"Multiple agents named '{first_name}': {names_str}")
-    guidance_parts.append("Always use FULL NAMES (first + last) when referring to these agents to avoid confusion.")
+        guidance_parts.append(f"Multiple agents share '{first_name}': {names_str}")
+    guidance_parts.append("For these, disambiguate naturally - last names ('Berger', 'McAfee'), titles ('Mr. Wednesday', 'Dr. Stern'), nicknames, or descriptors ('the filmmaker', 'our gonzo journalist'). Avoid stiff full-name repetition.")
+    guidance_parts.append("Unique first names (Maya, Hunter, etc.) can use first name, last name, or title (e.g., 'Maya', 'Deren', 'Ms. Deren').")
 
     return "\n".join(guidance_parts)
 
