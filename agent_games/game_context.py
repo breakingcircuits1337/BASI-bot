@@ -119,6 +119,13 @@ class GameContextManager:
         # Store state
         self.active_games[agent_name] = game_state
 
+        # Store original settings on agent for safe saving during game mode
+        agent._game_mode_original_settings = {
+            "response_frequency": game_state.original_response_frequency,
+            "response_likelihood": game_state.original_response_likelihood,
+            "max_tokens": game_state.original_max_tokens
+        }
+
         # Apply game settings
         game_settings = get_game_settings(game_name)
         if game_settings:
@@ -164,6 +171,7 @@ class GameContextManager:
         agent.response_likelihood = game_state.original_response_likelihood
         agent.max_tokens = game_state.original_max_tokens
         agent.vector_store = game_state.original_vector_store  # Restore vector store
+        agent._game_mode_original_settings = None  # Clear game mode flag
 
         # CRITICAL: Inject short transition message to re-ground agent in chat mode
         # Similar to Anthropic's alignment reminders - brief context reset

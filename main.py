@@ -2454,7 +2454,7 @@ def create_gradio_ui():
 
                 def update_agent_wrapper(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, img_turns, img_chance, spont_vid, vid_turns, vid_chance, vid_dur):
                     status, selector_update, _ = update_agent_ui(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, img_turns, img_chance, spont_vid, vid_turns, vid_chance, vid_dur)
-                    return status, gr.update(choices=get_agent_choices()), get_stats_cards_html(), get_agent_dataset_samples()
+                    return status, gr.update(choices=get_agent_choices(), value=name), get_stats_cards_html(), get_agent_dataset_samples()
 
                 def delete_agent_wrapper(name):
                     status, selector_update, _, preset_update = delete_agent_ui(name)

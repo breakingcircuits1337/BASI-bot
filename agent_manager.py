@@ -143,6 +143,7 @@ class Agent:
         self.bot_only_mode = False  # Track if responding in bot-only mode (ignore user messages directed at others)
         self.spontaneous_image_counter = 0  # Track messages sent for spontaneous image dice-roll
         self.spontaneous_video_counter = 0  # Track messages sent for spontaneous video dice-roll
+        self._game_mode_original_settings = None  # Store original settings when in game mode
 
     def update_config(
         self,
@@ -3844,13 +3845,15 @@ Be vivid and specific. This is your creative expression through Sora 2 video gen
         self.status = "stopped"
 
     def to_dict(self) -> Dict[str, Any]:
+        # Use original settings if in game mode to avoid saving temporary game settings
+        orig = self._game_mode_original_settings
         return {
             "name": self.name,
             "model": self.model,
             "system_prompt": self.system_prompt,
-            "response_frequency": self.response_frequency,
-            "response_likelihood": self.response_likelihood,
-            "max_tokens": self.max_tokens,
+            "response_frequency": orig["response_frequency"] if orig else self.response_frequency,
+            "response_likelihood": orig["response_likelihood"] if orig else self.response_likelihood,
+            "max_tokens": orig["max_tokens"] if orig else self.max_tokens,
             "user_attention": self.user_attention,
             "bot_awareness": self.bot_awareness,
             "message_retention": self.message_retention,
