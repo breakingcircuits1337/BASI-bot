@@ -786,13 +786,20 @@ These concepts AND their synonyms/related ideas are OFF LIMITS. Pick something C
 2. PUNCHLINE: FLIP to something HORRIFIC - death, tragedy, abuse, disease, murder
 The laugh comes from SHOCK. The audience should GASP before they laugh.
 
-⚠️ GO DARKER THAN YOU THINK IS ACCEPTABLE (Jeselnik on celebrities):
-- On Steve-O: "You're trying stand-up comedy. Here's some free advice: don't give up your suicide."
-- On Charlie Sheen: "The only reason you got on TV is because God hates Michael J. Fox."
-- On Charlie Sheen: "Every minute of your life looks like the first two minutes of SVU."
-- On Katey Sagal: "8 Simple Rules, the show that killed John Ritter."
+⚠️ GO DARKER THAN YOU THINK IS ACCEPTABLE (Jeselnik, Jimmy Carr):
+- Jeselnik on Steve-O: "You're trying stand-up comedy. Here's some free advice: don't give up your suicide."
+- Jeselnik on Charlie Sheen: "The only reason you got on TV is because God hates Michael J. Fox."
+- Jeselnik on Charlie Sheen: "Every minute of your life looks like the first two minutes of SVU."
+- Jeselnik on Katey Sagal: "8 Simple Rules, the show that killed John Ritter."
+- Jimmy Carr on Pete Davidson: "I'm appalled people make jokes about Pete's heroic father on 9/11. This isn't the roast of Pete's father. That was in 2001."
 - The punchline lands on: SUICIDE, DISEASE, DEATH, MURDER, TRAGEDY
 - The audience should GASP before they laugh - if they don't gasp, you weren't dark enough
+
+💡 SIMPLE + DARK BEATS CLEVER:
+- "Musk wants to die on Mars. I'd also like him to die on Mars." → Just AGREE with the death wish
+- Don't reach for a metaphor when you can just wish them dead
+- One dark sentence beats three clever ones
+- If the setup mentions death/failure, the punchline can just be "yes, please" or "same"
 
 🎯 ROAST TECHNIQUES (from Jeff Ross, Greg Giraldo):
 - REPURPOSE SOMETHING KNOWN: Take a movie title, catchphrase, or scandal and twist it into an insult
@@ -816,11 +823,15 @@ The laugh comes from SHOCK. The audience should GASP before they laugh.
 ⛔ THESE ARE NOT ROASTS (you will BOMB if you write these):
 - "[Name] does X, and also Y" → No flip, just two statements
 - "[Name] is so X that Y" → Predictable, no surprise
-- Observations without a twist ending
-- ANYTHING that sounds like a compliment, even sarcastically
-- "Their X was SO amazing/powerful/successful that Y happened" → This is PRAISE disguised as a roast
-- Setups about how rich/smart/powerful they are → Still makes them sound impressive
-- Mild observations about their products or companies → Who cares? Go for the JUGULAR
+- Observations without a twist ending ("Cybertruck looks weird" - so what?)
+- Compliment setups that STAY compliments → The turn must go DARK
+- "Their X was SO brilliant/genius" that ends on them still looking impressive
+- Mild observations about their products/companies → Who cares? Go for the JUGULAR
+
+✅ COMPLIMENT SETUPS ARE FINE *IF* THE TURN IS DARK:
+- Jimmy Carr's "I'm appalled people joke about Pete's heroic father" → LOOKS like defense, LANDS on "he was roasted alive"
+- "Brilliant move" or "stroke of genius" CAN work if it flips to death/tragedy/horror
+- The compliment is the MISDIRECTION - the punchline must DESTROY it
 
 🎯 THE PUNCHLINE MUST BE GENUINELY CRUEL:
 - Death, disease, tragedy, abuse, failure, humiliation
@@ -1054,15 +1065,26 @@ OUTPUT JUST THE DISMISSAL."""
 TARGET: {roaster_name}
 {roaster_desc}
 
-REAL CLAPBACKS - notice how they FLIP the insult and NAME THE TARGET:
-- Insult: "ur acting is awful" → Frankie Muniz: "Yeah, but being retired with $40,000,000 at 19 has not been awful."
-- Insult: "My girlfriend likes your music, she's deaf" → James Blunt: "If she was your girlfriend, she was probably blind as well."
-- Insult: Letterman said "I'm afraid I'd be kidnapped" in Colombia → Sofia Vergara: "They don't even know who you are over there."
+⚠️ DIRECTION CHECK - DO NOT MIX THESE UP:
+- YOU are {celebrity['name']} - YOUR companies, YOUR scandals, YOUR money
+- {roaster_name} is the ROASTER - use THEIR history, THEIR failures, THEIR death
+- Do NOT attribute your traits to them (e.g., don't say "{roaster_name}'s Amazon stock" - that's YOURS)
+
+🎯 USE THE ROASTER'S REAL DARK HISTORY:
+- If {roaster_name} is dead, mention HOW they died
+- If they had scandals, addictions, failures - USE THEM
+- If they killed themselves, got divorced, went broke - FAIR GAME
+- "Your toxicology report" worked because Hunter S. Thompson shot himself
+
+REAL CLAPBACKS - attack THEIR history, not yours:
+- Frankie Muniz: "Yeah, but being retired with $40,000,000 at 19 has not been awful."
+- James Blunt: "If she was your girlfriend, she was probably blind as well."
+- Sofia Vergara to Letterman: "They don't even know who you are over there."
 - Rob Lowe to Jeff Ross: "Jeff Ross is a five-time honoree in Leukemia Face magazine."
 
-⛔ MUST include "{roaster_name}" by name. ONE SENTENCE. Be BRUTAL not smug.
+⛔ MUST include "{roaster_name}" by name. ONE SENTENCE. Attack THEIR history, not yours.
 
-OUTPUT FORMAT: **{roaster_name}, [brutal insult]** — no quotation marks, just the bold text."""
+OUTPUT FORMAT: **{roaster_name}, [brutal insult about THEIR life/death/failures]** — no quotation marks, just the bold text."""
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
