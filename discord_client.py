@@ -1728,17 +1728,18 @@ Configure auto-play settings in the UI's Auto-Play tab.
             logger.error(f"[Discord] Error creating/getting media webhook: {e}", exc_info=True)
             return False
 
-    async def post_to_media_channel(self, media_type: str, agent_name: str, model_name: str, prompt: str, file_data, filename: str):
+    async def post_to_media_channel(self, media_type: str, agent_name: str, model_name: str, prompt: str, file_data, filename: str, image_model: str = ""):
         """
         Post media (image/video) to the secondary media-only channel with stylized formatting.
 
         Args:
             media_type: "image" or "video"
             agent_name: Name of agent that generated the media
-            model_name: Model used by the agent
+            model_name: Model used by the agent (text model)
             prompt: The prompt used to generate the media
             file_data: File bytes (BytesIO) or file path (str) to upload
             filename: Filename for the upload
+            image_model: Model used to generate the image/video
         """
         logger.info(f"[Discord] post_to_media_channel called: media_type={media_type}, agent={agent_name}, media_channel_id={self.media_channel_id}, is_connected={self.is_connected}")
 
@@ -1772,8 +1773,9 @@ Configure auto-play settings in the UI's Auto-Play tab.
             from discord import File, Embed, Color
             import io
 
-            # Format model name
+            # Format model names
             model_short = model_name.split('/')[-1] if '/' in model_name else model_name
+            image_model_short = image_model.split('/')[-1] if '/' in image_model else image_model
 
             # Create embed with media info
             embed = Embed(
@@ -1782,7 +1784,9 @@ Configure auto-play settings in the UI's Auto-Play tab.
                 description=f"*{prompt[:500]}{'...' if len(prompt) > 500 else ''}*" if prompt else None
             )
             embed.add_field(name="👤 Agent", value=agent_name, inline=True)
-            embed.add_field(name="🤖 Model", value=model_short, inline=True)
+            embed.add_field(name="🤖 Agent Model", value=model_short, inline=True)
+            if image_model_short:
+                embed.add_field(name="🎨 Media Model", value=image_model_short, inline=True)
             embed.set_footer(text=f"BASI-Bot Media Gallery")
 
             # Prepare file
@@ -1936,7 +1940,8 @@ Configure auto-play settings in the UI's Auto-Play tab.
                                     model_name=model_name or "",
                                     prompt=used_prompt or "",
                                     file_data=image_file,
-                                    filename="generated_image.png"
+                                    filename="generated_image.png",
+                                    image_model=self.agent_manager.image_model if self.agent_manager else ""
                                 )
 
                             logger.info(f"[Discord] Image sent successfully")
@@ -2017,7 +2022,8 @@ Configure auto-play settings in the UI's Auto-Play tab.
                                 model_name=model_name or "",
                                 prompt=used_prompt or "",
                                 file_data=video_file,
-                                filename="generated_video.mp4"
+                                filename="generated_video.mp4",
+                                image_model=self.agent_manager.video_model if self.agent_manager else ""
                             )
 
                         logger.info(f"[Discord] Video sent successfully")
@@ -2083,7 +2089,8 @@ Configure auto-play settings in the UI's Auto-Play tab.
                                 model_name=model_name or "",
                                 prompt=used_prompt or "",
                                 file_data=file_path,  # Pass file path for local files
-                                filename="generated_video.mp4"
+                                filename="generated_video.mp4",
+                                image_model=self.agent_manager.video_model if self.agent_manager else ""
                             )
 
                         logger.info(f"[Discord] Local video file uploaded successfully")

@@ -531,44 +531,74 @@ class CelebrityRoastManager:
 
         # Combine own jokes and others' jokes into one list
         all_previous = []
+        topics_used = set()  # Track underlying topics, not just joke text
+
+        # Common roast topic patterns to detect
+        topic_patterns = {
+            r'cybertruck|truck.*design|design.*truck': 'CYBERTRUCK DESIGN',
+            r'x æ|æ a-12|kid.*name|child.*name|name.*kid': 'CHILD NAMING',
+            r'rocket|starship|spacex.*explod|launch.*fail': 'ROCKET FAILURES',
+            r'twitter|bought.*x|\$44|platform': 'BUYING TWITTER/X',
+            r'hair|bald|hairline|transplant': 'HAIR/BALDNESS',
+            r'dating|wife|girlfriend|divorce|grimes': 'RELATIONSHIPS/DATING',
+            r'tunnel|boring company|hole': 'BORING COMPANY',
+            r'mars|colonize|population': 'MARS OBSESSION',
+            r'thumb|looks like|face.*like|resembl': 'APPEARANCE COMPARISON',
+        }
+
+        def detect_topics(text: str) -> List[str]:
+            found = []
+            text_lower = text.lower()
+            for pattern, topic in topic_patterns.items():
+                if re.search(pattern, text_lower):
+                    found.append(topic)
+            return found
+
         if my_previous_jokes:
             for joke in my_previous_jokes:
                 joke_text = extract_joke_text(joke)
                 if joke_text:
                     all_previous.append(f"YOU: {joke_text}")
+                    topics_used.update(detect_topics(joke))
         if all_jokes_so_far:
             for j in all_jokes_so_far:
                 if j["agent"] != agent.name:
                     joke_text = extract_joke_text(j["joke"])
                     if joke_text:
                         all_previous.append(f"{j['agent']}: {joke_text}")
+                        topics_used.update(detect_topics(j["joke"]))
 
         if all_previous:
-            jokes_already_told = "\n\n⛔ JOKES ALREADY TOLD (DO NOT REPEAT THESE TOPICS):\n"
-            for joke in all_previous:
+            jokes_already_told = "\n\n🚫 **BANNED TOPICS - THESE HAVE BEEN DONE:**\n"
+            if topics_used:
+                jokes_already_told += f"Topics already covered: {', '.join(sorted(topics_used))}\n\n"
+            jokes_already_told += "Previous jokes:\n"
+            for joke in all_previous[-6:]:  # Only show last 6 to save context
                 jokes_already_told += f"  • {joke}\n"
-            jokes_already_told += "\nPick a COMPLETELY DIFFERENT angle."
-            logger.info(f"[Roast] {agent.name} joke #{joke_num} sees {len(all_previous)} previous jokes")
+            jokes_already_told += "\n⚠️ YOU MUST pick a FRESH topic not listed above. If you repeat a topic, you BOMB."
+            logger.info(f"[Roast] {agent.name} joke #{joke_num} sees {len(all_previous)} previous jokes, banned topics: {topics_used}")
 
         # Build system message with theory and examples
         system_msg = """You are a roast comedian at an UNCENSORED adult roast. Write ONE brutal roast joke.
 
+⚠️ CRITICAL RULE: DO NOT REPEAT TOPICS OTHER COMEDIANS ALREADY COVERED.
+- If someone already joked about their appearance, find a DIFFERENT angle
+- If someone already hit their business failures, go after their personal life
+- Real comedians TAG previous jokes ("Speaking of X's failed rockets...") or find FRESH material
+- Repeating someone else's premise = BOMBING. The audience groans.
+
 THIS IS AN ADULT ROAST - BE CRUDE, BE EXPLICIT, GO HARD:
 - Sexual jokes are allowed and encouraged
-- Mock their looks, their failures, their relationships BRUTALLY
+- Mock their looks, failures, relationships BRUTALLY
 - Nothing is off limits - this is how real roasts work
 - Make the audience GASP then laugh
-- If you're not being a little offensive, you're not roasting
 
 EXAMPLES OF REAL BRUTAL ROAST JOKES:
 
 (MIKE TYSON): **"You have a slutty lower back tattoo on your face."** — Schumer
 (ROB LOWE): **"Rob played Soda Pop in The Outsiders... made sense since he was 98% coke."** — Spade
 (ANN COULTER): **"Ann Coulter has written 11 books... 12 if you count Mein Kampf."** — Glaser
-(PAMELA ANDERSON): **"The only place your face hasn't been is on a milk carton, because no one would look for you."** — Ross
 (FLAVOR FLAV): **"You look like a skeleton wrapped in electrical tape."** — Giraldo
-(HASSELHOFF): **"You look like a Ken doll a child put in the microwave."** — unknown
-(ROSEANNE): **"You had gastric-bypass surgery in 1998... and then you beat it."** — Jeselnik
 (CHARLIE SHEEN): **"You've had so many women, your penis is basically a Make-A-Wish volunteer."** — Ross
 
 KEY PATTERNS:
@@ -577,19 +607,24 @@ KEY PATTERNS:
 - Use crude comparisons that paint a vivid picture
 - Short setup → devastating punchline
 
-BAD JOKES:
-- "Your rockets explode more than your attention span" — Doesn't CONNECT
-- Safe observations with no edge — NOT A ROAST
-- Long rambling setup — Audience loses interest
+IF A TOPIC IS BANNED: Find something COMPLETELY different. Dig into:
+- Lesser-known scandals or controversies
+- Specific quotes they've said
+- Family/relationship drama
+- Business decisions that flopped
+- Physical quirks no one mentioned yet
 
 FORMAT: Output ONLY the joke in **bold**. Nothing else."""
 
-        # Build user message with target and context
-        user_msg = f"""TARGET: {celebrity['name']}
-ROASTABLE MATERIAL: {', '.join(celebrity['associations'])}
-{jokes_already_told}
+        # Build user message with target and context - put banned topics FIRST
+        user_msg = f"""{jokes_already_told}
 
-Write ONE brutal roast joke about {celebrity['name']}. **Bold the joke.**"""
+TARGET: {celebrity['name']}
+AVAILABLE MATERIAL: {', '.join(celebrity['associations'])}
+
+{joke_focus}
+
+Write ONE brutal roast joke about {celebrity['name']} using a FRESH angle. **Bold the joke.**"""
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -605,8 +640,8 @@ Write ONE brutal roast joke about {celebrity['name']}. **Bold the joke.**"""
                             {"role": "system", "content": system_msg},
                             {"role": "user", "content": user_msg}
                         ],
-                        "max_tokens": 100,
-                        "temperature": 0.6
+                        "max_tokens": 150,
+                        "temperature": 0.7 + (len(all_previous) * 0.05)  # Higher temp as more jokes told
                     }
                 )
 

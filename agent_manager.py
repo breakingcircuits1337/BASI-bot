@@ -26,13 +26,15 @@ try:
         save_media_prompt,
         save_base64_image,
         MEDIA_VIDEOS_DIR,
-        MEDIA_IMAGES_DIR
+        MEDIA_IMAGES_DIR,
+        MEDIA_AGENT_VIDEOS_DIR
     )
     MEDIA_UTILS_AVAILABLE = True
 except ImportError:
     MEDIA_UTILS_AVAILABLE = False
     MEDIA_VIDEOS_DIR = None
     MEDIA_IMAGES_DIR = None
+    MEDIA_AGENT_VIDEOS_DIR = None
     save_base64_image = None
 
 # Context-aware prompt components
@@ -4614,6 +4616,24 @@ Variant #{variant}: {'Try completely different synonym choices than previous att
                             if video_url:
                                 logger.info(f"[VideoGen] Video completed: {video_url}")
                                 self.last_global_video_time = time.time()
+
+                                # Download and save locally to AgentVideos directory
+                                if MEDIA_UTILS_AVAILABLE and MEDIA_AGENT_VIDEOS_DIR:
+                                    try:
+                                        from pathlib import Path
+                                        ensure_media_dirs()
+                                        async with session.get(video_url, timeout=aiohttp.ClientTimeout(total=120)) as dl_resp:
+                                            if dl_resp.status == 200:
+                                                video_data = await dl_resp.read()
+                                                video_path = str(MEDIA_AGENT_VIDEOS_DIR / f"{task_id}.mp4")
+                                                with open(video_path, 'wb') as f:
+                                                    f.write(video_data)
+                                                logger.info(f"[VideoGen] Saved agent video to: {video_path}")
+                                                save_media_prompt(Path(video_path), prompt, media_type="video")
+                                                return f"FILE:{video_path}"
+                                    except Exception as save_err:
+                                        logger.warning(f"[VideoGen] Could not save locally, returning URL: {save_err}")
+
                                 return video_url
                             else:
                                 # No URL in status response - download from /content endpoint

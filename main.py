@@ -2637,7 +2637,8 @@ def create_gradio_ui():
                             model_name="IDCC Game",
                             prompt=prompt,
                             file_data=str(path),
-                            filename="interdimensional_cable.mp4"
+                            filename="interdimensional_cable.mp4",
+                            image_model=agent_manager.video_model if agent_manager else ""
                         )
                         return result
 

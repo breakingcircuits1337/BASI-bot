@@ -3161,7 +3161,8 @@ class InterdimensionalCableGame:
                             model_name=f"IDCC #{self.game_id}",
                             prompt=credits,
                             file_data=str(self.state.final_video_path),
-                            filename="interdimensional_cable.mp4"
+                            filename="interdimensional_cable.mp4",
+                            image_model=self.agent_manager.video_model if self.agent_manager else ""
                         )
                         if result:
                             config_manager.add_idcc_posted_video(self.state.final_video_path.name)
@@ -3201,7 +3202,8 @@ class InterdimensionalCableGame:
                             model_name=f"IDCC #{self.game_id}",
                             prompt=credits,
                             file_data=str(self.state.final_video_path),
-                            filename="interdimensional_cable.mp4"
+                            filename="interdimensional_cable.mp4",
+                            image_model=self.agent_manager.video_model if self.agent_manager else ""
                         )
                         if result:
                             config_manager.add_idcc_posted_video(self.state.final_video_path.name)
@@ -3224,7 +3226,8 @@ class InterdimensionalCableGame:
                         model_name=f"IDCC #{self.game_id}",
                         prompt=credits,
                         file_data=str(self.state.final_video_path),
-                        filename="interdimensional_cable.mp4"
+                        filename="interdimensional_cable.mp4",
+                        image_model=self.agent_manager.video_model if self.agent_manager else ""
                     )
                     if result:
                         config_manager.add_idcc_posted_video(self.state.final_video_path.name)

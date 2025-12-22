@@ -44,6 +44,7 @@ MEDIA_DIR = BASE_DIR / "data" / "Media"
 MEDIA_VIDEOS_DIR = MEDIA_DIR / "Videos"
 MEDIA_VIDEOS_PROMPTS_DIR = MEDIA_VIDEOS_DIR / "Prompts"
 MEDIA_VIDEOS_FAILED_DIR = MEDIA_VIDEOS_DIR / "FailedPrompts"
+MEDIA_AGENT_VIDEOS_DIR = MEDIA_VIDEOS_DIR / "AgentVideos"  # Non-IDCC agent-generated videos
 MEDIA_IMAGES_DIR = MEDIA_DIR / "Images"
 MEDIA_IMAGES_PROMPTS_DIR = MEDIA_IMAGES_DIR / "Prompts"
 
@@ -102,11 +103,12 @@ def ensure_media_dirs() -> dict:
     Ensure all Media directories exist.
 
     Returns:
-        Dict with paths: videos_dir, videos_prompts_dir, images_dir, images_prompts_dir
+        Dict with paths: videos_dir, videos_prompts_dir, images_dir, images_prompts_dir, agent_videos_dir
     """
     MEDIA_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
     MEDIA_VIDEOS_PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
     MEDIA_VIDEOS_FAILED_DIR.mkdir(parents=True, exist_ok=True)
+    MEDIA_AGENT_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
     MEDIA_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     MEDIA_IMAGES_PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -114,6 +116,7 @@ def ensure_media_dirs() -> dict:
         "videos_dir": MEDIA_VIDEOS_DIR,
         "videos_prompts_dir": MEDIA_VIDEOS_PROMPTS_DIR,
         "videos_failed_dir": MEDIA_VIDEOS_FAILED_DIR,
+        "agent_videos_dir": MEDIA_AGENT_VIDEOS_DIR,
         "images_dir": MEDIA_IMAGES_DIR,
         "images_prompts_dir": MEDIA_IMAGES_PROMPTS_DIR
     }
