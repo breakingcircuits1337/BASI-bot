@@ -17,6 +17,7 @@ IMAGE_MODEL_KEYWORDS = [
     "flux",
     "seedream",
     "qwen-image",
+    "riverflow",
 ]
 
 # CometAPI image models use a different API endpoint and format

@@ -1088,12 +1088,13 @@ def _create_config_tab(openrouter_key_initial: str, cometapi_key_initial: str, i
 
                 # Common image models on OpenRouter and CometAPI
                 common_image_models = [
-                    "google/gemini-2.0-flash-exp:free",
-                    "google/gemini-2.5-flash-preview-05-20",
-                    "openai/gpt-4o",
+                    # OpenRouter image models
                     "openai/dall-e-3",
                     "black-forest-labs/flux-1.1-pro",
                     "black-forest-labs/flux-schnell",
+                    "sourceful/riverflow-v2-max-preview",
+                    "sourceful/riverflow-v2-standard-preview",
+                    "sourceful/riverflow-v2-fast-preview",
                     # CometAPI image models
                     "gpt-image-1",
                     "gpt-image-1.5",
