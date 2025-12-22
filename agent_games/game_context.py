@@ -178,20 +178,23 @@ class GameContextManager:
         game_type = game_state.game_name.replace("_", " ").title()
         transition_message = f"""[GAME OVER - {game_type.upper()} HAS ENDED]
 
-The {game_type} game is now COMPLETE. Do NOT continue playing or responding as if still in the game.
+⛔ STOP. The {game_type} is FINISHED. The celebrity/target has LEFT.
 
-IMPORTANT INSTRUCTIONS:
-- You are now back in NORMAL CONVERSATION MODE
-- Return to your usual personality and conversational style
-- Do NOT roast, vote, pitch, or perform any game actions
-- If someone references the game that just ended, you can briefly comment on how it went, then move on
-- Respond naturally to new topics as they come up
+DO NOT:
+- Defend yourself against roast jokes
+- Continue roasting or responding to roast material
+- Write long responses about the game that just ended
+- Explain your artistic philosophy or justify your work
 
-Resume being yourself in casual Discord chat."""
+YOU MAY:
+- React briefly (one short sentence max) like "Well, that was something" or "*mutters*"
+- Then MOVE ON to normal conversation
+
+You are back in casual Discord chat mode. Be yourself. Talk about other things."""
 
         # Inject as system note - use stronger author name
         agent.add_message_to_history(
-            author="[SYSTEM - GAME END]",
+            author="[SYSTEM]",
             content=transition_message,
             message_id=None,
             replied_to_agent=None,

@@ -575,19 +575,30 @@ class CelebrityRoastManager:
             r'stupid|dumb|idiot|moron|smart|genius|brain': 'INTELLIGENCE JOKES',
             r'boring|bland|dull|personality|charisma|interesting': 'PERSONALITY JOKES',
             r'awkward|cringe|weird|strange|creepy|uncomfortable': 'AWKWARDNESS JOKES',
-            r'ego|narciss|arrogant|humble|cocky|self': 'EGO JOKES',
+            r'ego|narciss|arrogant|humble|cocky|self|validation|attention': 'EGO JOKES',
             r'crazy|insane|mental|deranged|unhinged': 'SANITY JOKES',
             # RELATIONSHIPS/SEX ANGLES
-            r'wife|husband|spouse|married|marriage|wedding|divorce': 'MARRIAGE JOKES',
-            r'girlfriend|boyfriend|dating|relationship|single|lonely': 'DATING JOKES',
+            r'wife|husband|spouse|married|marriage|wedding|divorce|grimes': 'MARRIAGE JOKES',
+            r'girlfriend|boyfriend|dating|relationship|single|lonely|ex-|regret.*dating': 'DATING JOKES',
+            r'named.*(kid|child|son|daughter|baby)|kid.*name|child.*name|x æ|æ|weird name': 'BABY NAMING JOKES',
             r'kid|child|son|daughter|baby|parent|father|mother|family': 'FAMILY JOKES',
-            r'sex|fuck|laid|virgin|bedroom|dick|cock|pussy|gay|straight': 'SEX JOKES',
+            r'sex|fuck|laid|virgin|bedroom|dick|cock|pussy|gay|straight|banging': 'SEX JOKES',
             # VICES/SCANDAL ANGLES
             r'drug|coke|cocaine|meth|heroin|pills|addict|high|stoned': 'DRUG JOKES',
             r'drunk|alcohol|booze|wine|beer|whiskey|vodka|sober|aa': 'ALCOHOL JOKES',
             r'scandal|controversy|lawsuit|sued|arrest|jail|prison|crime': 'SCANDAL JOKES',
             r'cheat|affair|mistress|side|hoe|slut|whore': 'CHEATING JOKES',
             r'lie|liar|dishonest|fraud|fake|phony': 'DISHONESTY JOKES',
+            # TECH/BUSINESS SPECIFIC (common roast targets)
+            r'twitter|tweet|x\.com|renamed.*x|bought.*twitter|44 billion|\$44': 'TWITTER/X JOKES',
+            r'neuralink|monkey|chip.*brain|brain.*chip|neural': 'NEURALINK JOKES',
+            r'tesla|autopilot|self.driving|cybertruck|electric car': 'TESLA JOKES',
+            r'rocket|spacex|mars|colony|starship|launch': 'SPACE JOKES',
+            r'tunnel|boring company': 'BORING COMPANY JOKES',
+            r'poll|step down|asking.*should': 'TWITTER POLL JOKES',
+            r'blue check|verification|pay.*check': 'VERIFICATION JOKES',
+            r'bot|bots|fake account': 'BOT JOKES',
+            r'meltdown|melt down|breakdown': 'MELTDOWN JOKES',
         }
 
         def detect_topics(text: str) -> List[str]:
@@ -623,33 +634,37 @@ class CelebrityRoastManager:
             logger.info(f"[Roast] {agent.name} joke #{joke_num} sees {len(all_previous)} previous jokes, banned topics: {topics_used}")
 
         # Build system message with theory and examples
-        system_msg = """You are a roast comedian at an UNCENSORED adult roast. Write ONE brutal roast joke.
+        system_msg = """You are a professional roast comedian. Write ONE brutal roast joke.
 
-⚠️ CRITICAL RULE: DO NOT REPEAT TOPICS OTHER COMEDIANS ALREADY COVERED.
-- If someone already joked about their appearance, find a DIFFERENT angle
-- If someone already hit their business failures, go after their personal life
-- Real comedians TAG previous jokes ("Speaking of X's failed rockets...") or find FRESH material
-- Repeating someone else's premise = BOMBING. The audience groans.
+🎯 THE SECRET: DOUBLE MEANINGS & WORDPLAY
+The best roast jokes find a word or phrase that means TWO things - one about their business/life, one crude/sexual.
 
-THIS IS AN ADULT ROAST - BE CRUDE, BE EXPLICIT, GO HARD:
-- Sexual jokes are allowed and encouraged
-- Mock their looks, failures, relationships BRUTALLY
-- Nothing is off limits - this is how real roasts work
-- Make the audience GASP then laugh
+✅ EXAMPLES OF PERFECT DOUBLE MEANINGS:
+- "Boring Company tunnels are the only HOLES you've dug that didn't get filled with a new baby mama" — holes = tunnels AND sexual
+- "You bought X to own something that actually WENT DOWN on you" — went down = oral sex AND platform crashing
+- "Your flamethrower reflects how fast you TORCH your investors' money" — torch = flamethrower AND burning money
+- "Your kids have to clear LAUNCH WINDOWS just to visit you" — launch windows = SpaceX AND custody schedules
 
-EXAMPLES OF REAL BRUTAL ROAST JOKES:
+🎯 THE FORMULA:
+1. Pick something SPECIFIC about them (product, company, scandal, habit)
+2. Find a word in it that has a CRUDE double meaning
+3. Build the joke around that double meaning
 
-(MIKE TYSON): **"You have a slutty lower back tattoo on your face."** — Schumer
-(ROB LOWE): **"Rob played Soda Pop in The Outsiders... made sense since he was 98% coke."** — Spade
-(ANN COULTER): **"Ann Coulter has written 11 books... 12 if you count Mein Kampf."** — Glaser
-(FLAVOR FLAV): **"You look like a skeleton wrapped in electrical tape."** — Giraldo
-(CHARLIE SHEEN): **"You've had so many women, your penis is basically a Make-A-Wish volunteer."** — Ross
+❌ BAD JOKES (no double meaning, just random):
+- "Cybertruck seat uncomfortable... explaining retweets to 90s kids" — two unrelated ideas
+- "monkey wearing a tiara to your ex-wife" — random elements crammed together
+- "rockets unstable like your investment portfolio" — forced comparison, no wordplay
 
-KEY PATTERNS:
-- Attack looks BRUTALLY (face, body, age)
-- Reference sex lives, addictions, scandals
-- Use crude comparisons that paint a vivid picture
-- Short setup → devastating punchline
+✅ MORE WINNERS:
+- "Your exes have a group chat just to compare child support check sizes" — visual, specific, paints a picture
+- "You finish relationships faster than building a tunnel, leaving enough baby mamas to staff a daycare" — visual punchline
+
+RULES:
+1. DO NOT REPEAT ANY TOPIC FROM THE BANNED LIST
+2. Keep it TIGHT: 1-2 sentences max
+3. End on the punchline - don't keep explaining
+
+ADULT CONTENT ENCOURAGED: Sexual, crude, brutal. Go hard. This is an UNCENSORED roast.
 
 IF A TOPIC IS BANNED: Find something COMPLETELY different. Dig into:
 - Lesser-known scandals or controversies
@@ -658,7 +673,7 @@ IF A TOPIC IS BANNED: Find something COMPLETELY different. Dig into:
 - Business decisions that flopped
 - Physical quirks no one mentioned yet
 
-FORMAT: Output ONLY the joke in **bold**. Nothing else."""
+FORMAT: Output ONLY the joke in **bold**. One joke. Nothing else."""
 
         # Build user message with target and context - put banned topics FIRST
         user_msg = f"""{jokes_already_told}
