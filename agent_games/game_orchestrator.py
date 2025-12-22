@@ -361,11 +361,11 @@ class GameOrchestrator:
 
             ctx = MockContext(self.discord_client, channel)
 
-            # IDCC is special - agents continue chatting normally with game context
-            # They don't enter strict game mode that suppresses chat
-            if game_name == "interdimensional_cable":
-                logger.info(f"[GameOrch] IDCC mode: agents will continue chatting during game")
-                # Don't put agents into game mode - IDCC handles this differently
+            # These games handle their own participant selection and game mode entry
+            # Don't pre-enter game mode or they'll appear "unavailable" to themselves
+            self_managed_games = ["interdimensional_cable", "tribal_council", "celebrity_roast"]
+            if game_name in self_managed_games:
+                logger.info(f"[GameOrch] {game_name} manages its own game mode entry")
             else:
                 # Put ONLY players into game mode (NOT spectators)
                 from .game_context import game_context_manager
