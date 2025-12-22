@@ -228,9 +228,9 @@ class WritersRoomSystem:
             parody_info = bit.parody_target or bit.format
             twist_info = bit.twist or bit.comedic_hook or bit.premise
             lines.append(f"{emoji} **{parody_info.upper()}** by {bit.pitched_by}")
-            lines.append(f"   TWIST: {twist_info[:100]}{'...' if len(twist_info) > 100 else ''}")
+            lines.append(f"   TWIST: {twist_info[:250]}{'...' if len(twist_info) > 250 else ''}")
             if bit.punchline:
-                lines.append(f"   PUNCHLINE: {bit.punchline[:80]}{'...' if len(bit.punchline) > 80 else ''}\n")
+                lines.append(f"   PUNCHLINE: {bit.punchline[:300]}{'...' if len(bit.punchline) > 300 else ''}\n")
             else:
                 lines.append("")
 
@@ -324,9 +324,9 @@ class WritersRoomSystem:
             f"**PARODY:** {bit.parody_target or bit.format}",
             f"**TWIST:** {bit.twist or bit.comedic_hook}",
             f"**FORMAT:** {bit.format}",
-            f"**CHARACTER:** {bit.character_description[:150]}{'...' if len(bit.character_description) > 150 else ''}",
+            f"**CHARACTER:** {bit.character_description[:500]}{'...' if len(bit.character_description) > 500 else ''}",
             f"**VOICE:** {bit.vocal_specs}",
-            f"**DIALOGUE:** {bit.sample_dialogue[:150]}{'...' if len(bit.sample_dialogue) > 150 else ''}",
+            f"**DIALOGUE:** {bit.sample_dialogue[:400]}{'...' if len(bit.sample_dialogue) > 400 else ''}",
             f"**PUNCHLINE:** {bit.punchline}",
             f"*Pitched by: {bit.pitched_by}*"
         ]
@@ -387,9 +387,9 @@ class WritersRoomSystem:
 
         lines = []
         for i, pu in enumerate(punch_ups, 1):
-            lines.append(f"**{i}.** {pu['suggestion'][:200]}")
+            lines.append(f"**{i}.** {pu['suggestion'][:500]}")
             if pu.get('reason'):
-                lines.append(f"   *({pu['reason'][:100]})*")
+                lines.append(f"   *({pu['reason'][:300]})*")
             lines.append(f"   — {pu['responder']}\n")
 
         return "\n".join(lines)
@@ -2098,7 +2098,7 @@ class InterdimensionalCableGame:
         punched_up_bits = []
 
         for bit_idx, bit in enumerate(winning_bits):
-            bit_title = f"{bit.parody_target or bit.format}: {bit.twist[:50] if bit.twist else bit.comedic_hook[:50]}..."
+            bit_title = f"{bit.parody_target or bit.format}: {bit.twist[:150] if bit.twist else bit.comedic_hook[:150]}..."
 
             # Display the bit
             bit_display = writers_room.format_bit_for_punch_up(bit)
@@ -2135,7 +2135,7 @@ class InterdimensionalCableGame:
                         writers_room_log.append(f"{agent.name} on bit {bit_idx+1}: {parsed['verdict']}")
 
                         # Show abbreviated response
-                        display_response = response[:300] + "..." if len(response) > 300 else response
+                        display_response = response[:600] + "..." if len(response) > 600 else response
                         await self.discord_client.send_message(
                             content=display_response,
                             agent_name=agent.name,
@@ -2189,7 +2189,7 @@ class InterdimensionalCableGame:
                             writers_room_log.append(f"{agent.name} punch-up vote: {votes if votes else 'NONE'}")
 
                             await self.discord_client.send_message(
-                                content=response[:200],
+                                content=response[:500],
                                 agent_name=agent.name,
                                 model_name=agent.model
                             )
@@ -2254,7 +2254,7 @@ class InterdimensionalCableGame:
             parody_info = bit.parody_target or bit.format
             twist_info = bit.twist or bit.comedic_hook or bit.premise
             lineup_display += f"**Bit {i+1}:** {parody_info.upper()} by {bit.pitched_by}\n"
-            lineup_display += f"   *{twist_info[:80]}{'...' if len(twist_info) > 80 else ''}*"
+            lineup_display += f"   *{twist_info[:200]}{'...' if len(twist_info) > 200 else ''}*"
             if bit.punched_up and bit.punch_ups_applied:
                 lineup_display += " ✏️"
             lineup_display += "\n\n"
