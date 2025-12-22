@@ -783,8 +783,16 @@ These concepts AND their synonyms/related ideas are OFF LIMITS. Pick something C
 
 🎯 MISDIRECTION IS EVERYTHING:
 1. SETUP: Lead the audience to expect something (praise, normal statement, one meaning)
-2. PUNCHLINE: FLIP to something brutal, dark, or a second meaning they didn't see coming
-The laugh comes from SURPRISE. If they can predict it, it's not funny.
+2. PUNCHLINE: FLIP to something HORRIFIC - death, tragedy, abuse, disease, murder
+The laugh comes from SHOCK. The audience should GASP before they laugh.
+
+⚠️ GO DARKER THAN YOU THINK IS ACCEPTABLE (Jeselnik on celebrities):
+- On Steve-O: "You're trying stand-up comedy. Here's some free advice: don't give up your suicide."
+- On Charlie Sheen: "The only reason you got on TV is because God hates Michael J. Fox."
+- On Charlie Sheen: "Every minute of your life looks like the first two minutes of SVU."
+- On Katey Sagal: "8 Simple Rules, the show that killed John Ritter."
+- The punchline lands on: SUICIDE, DISEASE, DEATH, MURDER, TRAGEDY
+- The audience should GASP before they laugh - if they don't gasp, you weren't dark enough
 
 🎯 ROAST TECHNIQUES (from Jeff Ross, Greg Giraldo):
 - REPURPOSE SOMETHING KNOWN: Take a movie title, catchphrase, or scandal and twist it into an insult
@@ -805,17 +813,20 @@ The laugh comes from SURPRISE. If they can predict it, it's not funny.
 - Betty White on Shatner: "You were supposed to explore the galaxy, not fill it." → "explore" heroic, "fill it" (with fat) flips
 - Amy Schumer on Sheen: His wives were like "soldiers in Vietnam—constantly afraid of being killed by Charlie." → Vietnam + name double meaning
 
-⛔ NOT A JOKE (these FAIL - do NOT write these):
+⛔ THESE ARE NOT ROASTS (you will BOMB if you write these):
 - "[Name] does X, and also Y" → No flip, just two statements
 - "[Name] is so X that Y" → Predictable, no surprise
 - Observations without a twist ending
-- BACKHANDED COMPLIMENTS: "Their idea was SO good it scared everyone" → This PRAISES them! NOT a roast!
-- "They're so powerful/smart/successful that [bad thing happened]" → Still sounds impressive, NOT an insult
+- ANYTHING that sounds like a compliment, even sarcastically
+- "Their X was SO amazing/powerful/successful that Y happened" → This is PRAISE disguised as a roast
+- Setups about how rich/smart/powerful they are → Still makes them sound impressive
+- Mild observations about their products or companies → Who cares? Go for the JUGULAR
 
-🎯 THE PUNCHLINE MUST LAND ON SOMETHING NEGATIVE:
-- Incompetence, failure, embarrassment, scandal, ugliness, stupidity
-- NOT "they were so amazing that..." - that's praise!
-- Link a NEUTRAL thing to a NEGATIVE thing (scandal, failure, flaw)
+🎯 THE PUNCHLINE MUST BE GENUINELY CRUEL:
+- Death, disease, tragedy, abuse, failure, humiliation
+- Attack them PERSONALLY - their looks, their relationships, their failures
+- Make them look pathetic, not impressive
+- The target should feel HURT, not flattered
 
 RULES:
 - MAXIMUM 25 WORDS.
