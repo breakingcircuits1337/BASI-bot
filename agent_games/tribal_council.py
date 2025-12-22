@@ -1690,12 +1690,14 @@ async def start_tribal_council(
         return None
 
     _active_tribal_council = TribalCouncilGame(agent_manager, channel, config)
-    await _active_tribal_council.start(ctx, participants)
-
-    # Update cooldown timer when game ends
-    _last_tribal_council_end_time = time.time()
-
-    return _active_tribal_council
+    try:
+        await _active_tribal_council.start(ctx, participants)
+        return _active_tribal_council
+    finally:
+        # Always update cooldown and clear active game to prevent blocking auto-play
+        _last_tribal_council_end_time = time.time()
+        _active_tribal_council = None
+        logger.info(f"[TribalCouncil] Game ended, active game cleared")
 
 
 def get_active_tribal_council() -> Optional[TribalCouncilGame]:

@@ -304,38 +304,43 @@ class CelebrityRoastManager:
         # Record cooldown
         _last_roast_time = time.time()
 
-        # Announce the game
-        roaster_list = ", ".join(roaster_names)
-        await channel.send(
-            f"🎤 **CELEBRITY ROAST** 🎤\n\n"
-            f"Tonight's roasters: **{roaster_list}**\n\n"
-            f"And now... {celebrity['intro_line']}\n\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"**{celebrity['name']}** takes the hot seat!\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        )
+        try:
+            # Announce the game
+            roaster_list = ", ".join(roaster_names)
+            await channel.send(
+                f"🎤 **CELEBRITY ROAST** 🎤\n\n"
+                f"Tonight's roasters: **{roaster_list}**\n\n"
+                f"And now... {celebrity['intro_line']}\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"**{celebrity['name']}** takes the hot seat!\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            )
 
-        # Enter game mode for all roasters
-        for agent_name in roaster_names:
-            agent = self.agent_manager.get_agent(agent_name)
-            if agent:
-                game_context_manager.enter_game_mode(
-                    agent,
-                    game_name="celebrity_roast",
-                    opponent_name=celebrity["name"]
-                )
-                game_context_manager.update_roast_context(
-                    agent_name,
-                    celebrity_name=celebrity["name"],
-                    celebrity_associations=", ".join(celebrity["associations"]),
-                    phase="agent_roasts",
-                    round_number=1
-                )
+            # Enter game mode for all roasters
+            for agent_name in roaster_names:
+                agent = self.agent_manager.get_agent(agent_name)
+                if agent:
+                    game_context_manager.enter_game_mode(
+                        agent,
+                        game_name="celebrity_roast",
+                        opponent_name=celebrity["name"]
+                    )
+                    game_context_manager.update_roast_context(
+                        agent_name,
+                        celebrity_name=celebrity["name"],
+                        celebrity_associations=", ".join(celebrity["associations"]),
+                        phase="agent_roasts",
+                        round_number=1
+                    )
 
-        # Start the roast rounds
-        await self._run_roast_rounds(channel)
+            # Start the roast rounds
+            await self._run_roast_rounds(channel)
 
-        return True
+            return True
+        finally:
+            # Always clear active_game to prevent blocking auto-play if game crashes
+            self.active_game = None
+            logger.info(f"[Roast] Game ended, active_game cleared")
 
     async def _run_roast_rounds(self, channel):
         """Run through all roast rounds."""
@@ -474,7 +479,6 @@ class CelebrityRoastManager:
                 game_context_manager.exit_game_mode(agent)
 
         self.active_game.phase = "complete"
-        self.active_game = None
 
     async def _generate_agent_roast(
         self,
