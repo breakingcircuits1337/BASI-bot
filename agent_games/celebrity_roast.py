@@ -68,14 +68,11 @@ PREVIOUSLY ROASTED (DO NOT PICK THESE):
 {roasted_history}
 
 SELECTION CRITERIA:
-- Must be a REAL, well-known public figure (not fictional)
-- PRIMARY TARGETS: Tech CEOs, AI leaders, controversial billionaires, social media personalities
-- Draw from the FULL range of tech/AI/business figures - not just the 2-3 most famous ones
-- Consider: controversial VCs, failed startup founders, crypto personalities, AI company leaders, social media executives, tech podcasters
-- SECONDARY TARGETS (occasional variety): YouTubers, streamers, influencers, celebrity entrepreneurs
-- Good targets have: Known scandals, distinctive traits, public controversies, quotable moments
-- The audience should immediately recognize them and their "roastable" qualities
-- AVOID: Politicians (too divisive), anyone who might generate harmful content
+- Must be a REAL, FAMOUS public figure that most people would IMMEDIATELY recognize
+- RECOGNIZABILITY TEST: Would a random person on the street know who this is? If not, pick someone else.
+- GOOD TARGETS have: Viral moments, memes about them, known scandals, distinctive appearance/mannerisms, household name recognition
+- Pick from: Tech billionaires, A-list entertainers, viral internet personalities, infamous founders/CEOs with public scandals
+- AVOID: Politicians, regional celebrities, executives only known in their industry, anyone you'd have to explain
 
 OUTPUT FORMAT (JSON only, no other text):
 {{
@@ -567,8 +564,8 @@ class CelebrityRoastManager:
             assoc_for_joke = available_associations[0]
             joke_focus = f"YOUR ASSIGNED TOPIC: {assoc_for_joke}. Build your joke around this SPECIFIC thing."
         elif associations:
-            # All used - pick any but emphasize finding a NEW angle
-            joke_focus = f"All main topics covered. Find a COMPLETELY FRESH angle not yet explored. Available: {', '.join(associations)}"
+            # All main associations used - must find fresh angle
+            joke_focus = "All main topics covered. Find a COMPLETELY FRESH angle: their appearance, mannerisms, speaking style, or an obscure fact about them."
         else:
             joke_focus = "Pick any roastable angle."
 
@@ -713,12 +710,11 @@ class CelebrityRoastManager:
                     result.append(c)
             return result[:20]
 
-        def summarize_joke_theme(joke_text: str) -> str:
-            """Create a 2-3 word summary of what a joke is ABOUT."""
-            clean = re.sub(r'\*+', '', joke_text).lower()
+        def extract_joke_theme(joke_text: str) -> str:
+            """Extract a short phrase describing what this joke is ABOUT."""
+            # Just return the 2-3 most distinctive words as a phrase
             concepts = extract_core_concepts(joke_text)
-            # Return the most distinctive concepts
-            return ', '.join(concepts[:3]) if concepts else ""
+            return ' '.join(concepts[:3]) if concepts else ""
 
         # Track concepts across all jokes - let LLM understand semantic similarity
         used_concepts = set()
@@ -740,36 +736,37 @@ class CelebrityRoastManager:
                         used_concepts.update(extract_core_concepts(j["joke"]))
 
         if all_previous:
-            jokes_already_told = "\n\n🚫🚫🚫 **ALREADY USED - DO NOT REPEAT:** 🚫🚫🚫\n"
+            jokes_already_told = "\n\n🚫🚫🚫 **TOPICS ALREADY COVERED - FIND SOMETHING NEW:** 🚫🚫🚫\n"
 
-            # CONCEPTS first - these AND SIMILAR IDEAS are off-limits
-            if used_concepts:
-                sorted_concepts = sorted(used_concepts, key=lambda x: len(x), reverse=True)[:20]
-                jokes_already_told += f"**⛔ CONCEPTS ALREADY USED (avoid these AND similar/related ideas):**\n"
-                jokes_already_told += f"❌ {', '.join(sorted_concepts)}\n"
-                jokes_already_told += f"⚠️ Don't just use different WORDS for the same idea. Find a DIFFERENT concept entirely.\n\n"
+            # Extract THEMES from previous jokes - show what each joke was ABOUT
+            themes_used = []
+            for joke_entry in all_previous:
+                # Get first ~8 words as the "topic/setup"
+                joke_text = joke_entry.split(': ', 1)[-1] if ': ' in joke_entry else joke_entry
+                words = joke_text.split()[:8]
+                theme = ' '.join(words)
+                if theme:
+                    themes_used.append(theme)
+
+            if themes_used:
+                jokes_already_told += "**⛔ THESE TOPICS/SETUPS ARE DONE - pick something COMPLETELY DIFFERENT:**\n"
+                for theme in themes_used[-8:]:  # Show last 8
+                    jokes_already_told += f"❌ \"{theme}...\"\n"
+                jokes_already_told += "\n"
 
             if topics_used:
                 jokes_already_told += f"**BANNED ANGLES:** {', '.join(sorted(topics_used))}\n\n"
 
-            # Separate own jokes from others' jokes for clearer instruction
+            # Show own jokes explicitly
             own_jokes = [j for j in all_previous if j.startswith("YOU:")]
-            others_jokes = [j for j in all_previous if not j.startswith("YOU:")]
-
             if own_jokes:
-                jokes_already_told += "**⚠️ YOUR PREVIOUS JOKES (DO NOT REUSE SAME SETUP/STRUCTURE):**\n"
+                jokes_already_told += "**⚠️ YOUR PREVIOUS JOKES - you CANNOT repeat the same SUBJECT:**\n"
                 for joke in own_jokes:
-                    jokes_already_told += f"❌ {joke}\n"
-                jokes_already_told += "⛔ You CANNOT use the same joke STRUCTURE again. If you said 'fired/rehired' once, you can't say it again with a different punchline. Find a COMPLETELY DIFFERENT setup.\n\n"
-
-            if others_jokes:
-                jokes_already_told += "**OTHER ROASTERS' JOKES:**\n"
-                for joke in others_jokes[-6:]:
                     jokes_already_told += f"❌ {joke}\n"
                 jokes_already_told += "\n"
 
-            jokes_already_told += "⛔ **CRITICAL:** Repeating a concept (even with different words) = BOMBING. Find something COMPLETELY NEW!"
-            logger.info(f"[Roast] {agent.name} joke #{joke_num} sees {len(own_jokes)} own jokes, {len(others_jokes)} others' jokes, concepts: {list(used_concepts)[:5]}")
+            jokes_already_told += "⛔ **CRITICAL:** If you write about the same SUBJECT as any joke above, you BOMB. Pick a COMPLETELY DIFFERENT topic."
+            logger.info(f"[Roast] {agent.name} joke #{joke_num} sees {len(all_previous)} previous jokes, themes: {themes_used[-3:] if themes_used else []}")
 
         # Build system message - put BANNED CONCEPTS FIRST (highest priority)
         banned_section = ""
@@ -829,10 +826,16 @@ RULES:
 FORMAT: **Bold the joke.** Nothing else."""
 
         # Build user message with target and context - put banned topics FIRST
+        # Only show UNUSED associations to prevent the LLM from gravitating to used ones
+        if available_associations:
+            material_to_show = ', '.join(available_associations)
+        else:
+            material_to_show = "All main topics used - find something completely fresh (their appearance, mannerisms, a lesser-known scandal)"
+
         user_msg = f"""{jokes_already_told}
 
 TARGET: {celebrity['name']}
-AVAILABLE MATERIAL: {', '.join(celebrity['associations'])}
+UNUSED MATERIAL (topics not yet covered): {material_to_show}
 
 {joke_focus}
 
@@ -855,12 +858,13 @@ Write ONE brutal roast joke about {celebrity['name']} using a FRESH angle. **Bol
                     for fa in failed_attempts[-2:]:  # Show last 2
                         retry_msg += f"❌ {fa[:100]}...\n"
 
-                    # Force a specific association on retry
-                    if associations:
-                        # Pick an association we haven't forced yet
-                        force_idx = (global_joke_num + attempt + 2) % num_assoc
-                        forced_assoc = associations[force_idx]
+                    # Force a specific association on retry - use UNUSED ones only
+                    if available_associations:
+                        force_idx = attempt % len(available_associations)
+                        forced_assoc = available_associations[force_idx]
                         retry_msg += f"\n🎯 MANDATORY: Your joke MUST be about: **{forced_assoc}**. No exceptions."
+                    else:
+                        retry_msg += f"\n🎯 MANDATORY: Find a completely FRESH angle - appearance, mannerisms, or obscure fact."
 
                 # Build the actual user message with retry info
                 actual_user_msg = user_msg
