@@ -517,17 +517,35 @@ class CelebrityRoastManager:
         # Build context of ALL previous jokes in the roast
         jokes_already_told = ""
 
-        def extract_joke_text(text: str) -> str:
+        def extract_joke_text(text: str, max_len: int = 300) -> str:
             """Extract the joke text, stripping emotes/actions."""
             # First try to find **bolded** text
             bold_matches = re.findall(r'\*\*([^*]+)\*\*', text)
             if bold_matches:
-                return ' '.join(bold_matches)[:150]
+                return ' '.join(bold_matches)[:max_len]
             # Otherwise strip out *italic* emotes and use what's left
             clean = re.sub(r'\*[^*]+\*', '', text).strip()
             # Also strip common action prefixes
             clean = re.sub(r'^(leans|steps|walks|adjusts|smirks|grins)[^.]*\.?\s*', '', clean, flags=re.IGNORECASE)
-            return clean[:150] if clean else text[:150]
+            return clean[:max_len] if clean else text[:max_len]
+
+        def is_duplicate_joke(new_joke: str, previous_jokes: List[Dict[str, str]]) -> bool:
+            """Check if this joke is a duplicate (or near-duplicate) of a previous joke."""
+            new_clean = extract_joke_text(new_joke).lower().strip()
+            if len(new_clean) < 20:
+                return False
+            for prev in previous_jokes:
+                prev_clean = extract_joke_text(prev["joke"]).lower().strip()
+                # Check for exact match or high overlap
+                if new_clean == prev_clean:
+                    return True
+                # Check if first 50 chars match (catches slight variations)
+                if new_clean[:50] == prev_clean[:50]:
+                    return True
+                # Check if one contains the other
+                if new_clean in prev_clean or prev_clean in new_clean:
+                    return True
+            return False
 
         # Combine own jokes and others' jokes into one list
         all_previous = []
@@ -595,13 +613,13 @@ class CelebrityRoastManager:
                         topics_used.update(detect_topics(j["joke"]))
 
         if all_previous:
-            jokes_already_told = "\n\n🚫 **BANNED TOPICS - THESE HAVE BEEN DONE:**\n"
+            jokes_already_told = "\n\n🚫🚫🚫 **ALREADY USED - DO NOT REPEAT THESE JOKES:** 🚫🚫🚫\n"
             if topics_used:
-                jokes_already_told += f"Topics already covered: {', '.join(sorted(topics_used))}\n\n"
-            jokes_already_told += "Previous jokes:\n"
-            for joke in all_previous[-6:]:  # Only show last 6 to save context
-                jokes_already_told += f"  • {joke}\n"
-            jokes_already_told += "\n⚠️ YOU MUST pick a FRESH topic not listed above. If you repeat a topic, you BOMB."
+                jokes_already_told += f"**BANNED ANGLES:** {', '.join(sorted(topics_used))}\n\n"
+            jokes_already_told += "**JOKES ALREADY TOLD (DO NOT COPY OR REPHRASE THESE):**\n"
+            for joke in all_previous[-9:]:  # Show last 9 jokes with full text
+                jokes_already_told += f"❌ {joke}\n\n"
+            jokes_already_told += "\n⛔ **CRITICAL:** If you repeat ANY joke above (even rephrased), you BOMB and get booed off stage. Find COMPLETELY NEW material!"
             logger.info(f"[Roast] {agent.name} joke #{joke_num} sees {len(all_previous)} previous jokes, banned topics: {topics_used}")
 
         # Build system message with theory and examples
@@ -652,36 +670,59 @@ AVAILABLE MATERIAL: {', '.join(celebrity['associations'])}
 
 Write ONE brutal roast joke about {celebrity['name']} using a FRESH angle. **Bold the joke.**"""
 
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {openrouter_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": agent.model,
-                        "messages": [
-                            {"role": "system", "content": system_msg},
-                            {"role": "user", "content": user_msg}
-                        ],
-                        "max_tokens": 150,
-                        "temperature": 0.7 + (len(all_previous) * 0.05)  # Higher temp as more jokes told
-                    }
-                )
+        # Retry loop to catch duplicates
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            try:
+                # Increase temperature on retries to get more varied output
+                temp = 0.7 + (len(all_previous) * 0.05) + (attempt * 0.15)
 
-                if response.status_code != 200:
-                    logger.error(f"[Roast] Agent roast failed: {response.status_code}")
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {openrouter_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": agent.model,
+                            "messages": [
+                                {"role": "system", "content": system_msg},
+                                {"role": "user", "content": user_msg}
+                            ],
+                            "max_tokens": 200,
+                            "temperature": min(temp, 1.2)  # Cap at 1.2
+                        }
+                    )
+
+                    if response.status_code != 200:
+                        logger.error(f"[Roast] Agent roast failed: {response.status_code}")
+                        return None
+
+                    data = response.json()
+                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    joke = content.strip() if content else None
+
+                    if not joke:
+                        return None
+
+                    # Check for duplicates
+                    if all_jokes_so_far and is_duplicate_joke(joke, all_jokes_so_far):
+                        logger.warning(f"[Roast] {agent.name} produced duplicate joke (attempt {attempt+1}/{max_attempts}), retrying...")
+                        if attempt < max_attempts - 1:
+                            continue  # Retry with higher temperature
+                        else:
+                            logger.error(f"[Roast] {agent.name} kept producing duplicates, giving up")
+                            return None
+
+                    return joke
+
+            except Exception as e:
+                logger.error(f"[Roast] Agent roast error (attempt {attempt+1}): {e}")
+                if attempt == max_attempts - 1:
                     return None
 
-                data = response.json()
-                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                return content.strip() if content else None
-
-        except Exception as e:
-            logger.error(f"[Roast] Agent roast error: {e}")
-            return None
+        return None
 
     async def _generate_agent_dismissal(self, agent, celebrity: Dict[str, Any]) -> Optional[str]:
         """
