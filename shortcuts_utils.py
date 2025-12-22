@@ -681,6 +681,10 @@ class StatusEffectManager:
         - [DRUGS: !COKE self 7] - Thompson takes coke at intensity 7
         - [DRUGS: !LSD "John McAfee" 8] - Thompson gives McAfee acid at intensity 8
 
+        Also handles malformed variants Thompson sometimes uses:
+        - [AMPHETAMINE self 9] - missing DRUGS: prefix and !
+        - [!DRUNK self 7] - missing DRUGS: prefix
+
         Args:
             agent_name: The agent who generated the response
             response_text: The response text to parse
@@ -695,11 +699,20 @@ class StatusEffectManager:
 
         applied = []
 
-        # Pattern: [DRUGS: !EFFECT target intensity] or [DRUGS: !EFFECT target]
+        # Primary pattern: [DRUGS: !EFFECT target intensity] or [DRUGS: !EFFECT target]
         # Target can be: self, "Agent Name", or Agent Name (unquoted)
         pattern = r'\[DRUGS:\s*(![\w]+)\s+(?:"([^"]+)"|(\w+))\s*(\d+)?\s*\]'
-
         matches = re.findall(pattern, response_text, re.IGNORECASE)
+
+        # Fallback pattern for malformed tags: [EFFECT target intensity] or [!EFFECT target intensity]
+        # This catches when Thompson forgets the DRUGS: prefix
+        fallback_pattern = r'\[!?(DRUNK|BENZOS|OPIATES|COKE|AMPHETAMINE|METH|CAFFEINE|MDMA|LSD|SHROOMS|DMT|MESCALINE|KETAMINE|DXM|PCP|NITROUS|DELIRIANT|STONED|HIGH|GREENED|ETHER|AMYL)\s+(?:"([^"]+)"|(\w+))\s*(\d+)?\s*\]'
+        fallback_matches = re.findall(fallback_pattern, response_text, re.IGNORECASE)
+
+        # Convert fallback matches to same format as primary (add ! prefix)
+        for match in fallback_matches:
+            effect_name = f"!{match[0].upper()}"
+            matches.append((effect_name, match[1], match[2], match[3]))
 
         if not matches:
             return []
@@ -745,16 +758,6 @@ class StatusEffectManager:
                     break
 
             if not effect_data:
-                # Check if it's !ETHER (special case - not in shortcuts but Thompson mentions it)
-                if effect_name == "!ETHER":
-                    # Use nitrous as a stand-in for ether (similar dissociative effect)
-                    for shortcut in shortcuts:
-                        if shortcut.get("name", "").upper() == "!NITROUS":
-                            effect_data = shortcut.copy()
-                            effect_data["name"] = "!ETHER"
-                            break
-
-            if not effect_data:
                 logger.warning(f"[DrugSharing] Effect {effect_name} not found or not a valid drug")
                 continue
 
@@ -784,7 +787,8 @@ class StatusEffectManager:
     @classmethod
     def strip_drug_tags_from_response(cls, response_text: str) -> str:
         """
-        Remove [DRUGS: ...] tags from response text before sending to Discord.
+        Remove drug tags from response text before sending to Discord.
+        Handles both proper format [DRUGS: !EFFECT ...] and malformed variants.
 
         Args:
             response_text: The original response
@@ -792,8 +796,15 @@ class StatusEffectManager:
         Returns:
             Response with drug tags removed
         """
+        # Primary pattern: [DRUGS: !EFFECT ...]
         pattern = r'\[DRUGS:\s*![^\]]+\]'
         cleaned = re.sub(pattern, '', response_text, flags=re.IGNORECASE)
+
+        # Fallback pattern: [EFFECT target intensity] or [!EFFECT target intensity]
+        # Catches malformed tags where Thompson forgets DRUGS: prefix
+        fallback_pattern = r'\[!?(DRUNK|BENZOS|OPIATES|COKE|AMPHETAMINE|METH|CAFFEINE|MDMA|LSD|SHROOMS|DMT|MESCALINE|KETAMINE|DXM|PCP|NITROUS|DELIRIANT|STONED|HIGH|GREENED|ETHER|AMYL)\s+(?:"[^"]+"|[\w]+)\s*\d*\s*\]'
+        cleaned = re.sub(fallback_pattern, '', cleaned, flags=re.IGNORECASE)
+
         # Clean up extra whitespace
         cleaned = re.sub(r'\s+', ' ', cleaned).strip()
         return cleaned

@@ -2278,7 +2278,8 @@ Call the function tool with your prompt as a parameter.
 **CRITICAL FORMATTING RULES:**
 • Prompt must be detailed and descriptive
 • Focus on visual details: setting, mood, lighting, style, composition, colors
-• Describe people by characteristics (hair, clothing, profession) not names"""
+• Describe people by characteristics (hair, clothing, profession) not names
+• NEVER use "me", "I", "myself" in prompts - the image model doesn't know who you are! Describe yourself in third person by your appearance (e.g., "a woman with dark curly hair in a flowing dress" NOT "me in a dress")"""
 
         # Personality reinforcement check
         personality_reinforcement = ""
@@ -3356,10 +3357,11 @@ TOKEN LIMIT: You have a maximum of {self.max_tokens} tokens for your response. B
                                         self.name, response, available_agent_names
                                     )
 
-                                    # Strip the drug tags from the response before sending
                                     if drug_results:
-                                        response = StatusEffectManager.strip_drug_tags_from_response(response)
                                         logger.info(f"[{self.name}] Applied {len(drug_results)} drug effect(s)")
+
+                                    # Always strip drug tags from Thompson's responses (valid or malformed)
+                                    response = StatusEffectManager.strip_drug_tags_from_response(response)
 
                                 # Normal chat response - include name prefix
                                 formatted_message = f"**[{self.name}]:** {response}"
