@@ -804,7 +804,7 @@ Use the nominate_agent tool with one of these names: {', '.join(other_agents)}
                     return Nomination(
                         target_agent=valid,
                         nominated_by=nominator,
-                        reason=reason[:200] if reason else "No reason given"
+                        reason=reason[:500] if reason else "No reason given"
                     )
 
         # Try to find a valid target name in the response
@@ -818,7 +818,7 @@ Use the nominate_agent tool with one of these names: {', '.join(other_agents)}
                 return Nomination(
                     target_agent=target,
                     nominated_by=nominator,
-                    reason=clean_reason[:200]
+                    reason=clean_reason[:500]
                 )
 
         # Fallback: random selection
@@ -1225,11 +1225,11 @@ Use the cast_vote tool with your choice: YES, NO, or ABSTAIN.
             reason = reason.split("|", 1)[1].strip()
 
         if "yes" in response_lower or "approve" in response_lower or "aye" in response_lower:
-            return "yes", reason[:200]
+            return "yes", reason[:300]
         elif "no" in response_lower or "reject" in response_lower or "nay" in response_lower:
-            return "no", reason[:200]
+            return "no", reason[:300]
         else:
-            return "abstain", reason[:200]
+            return "abstain", reason[:300]
 
     async def _run_implementation_phase(self):
         """Phase 6: Execute the winning proposal."""
