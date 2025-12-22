@@ -510,12 +510,24 @@ class CelebrityRoastManager:
         if not openrouter_key:
             return None
 
-        # Vary the prompt based on joke number for variety
-        joke_focus = {
-            1: "Focus on their CAREER or BUSINESS failures/controversies.",
-            2: "Focus on their PERSONALITY, quirks, or public image.",
-            3: "Focus on their RELATIONSHIPS, personal life, or social media presence."
-        }.get(joke_num, "Pick any roastable angle.")
+        # Assign SPECIFIC associations to each joke to force variety
+        # Use GLOBAL joke count (not just this agent's joke number) to spread associations
+        associations = celebrity.get('associations', [])
+        num_assoc = len(associations)
+        global_joke_num = len(all_jokes_so_far) if all_jokes_so_far else 0
+
+        if num_assoc > 0:
+            # Rotate through associations based on global joke count
+            # Each joke gets 1-2 different associations
+            idx = global_joke_num % num_assoc
+            idx2 = (global_joke_num + 1) % num_assoc
+            if idx != idx2:
+                assoc_for_joke = [associations[idx], associations[idx2]]
+            else:
+                assoc_for_joke = [associations[idx]]
+            joke_focus = f"YOUR ASSIGNED TOPIC FOR THIS JOKE: {', '.join(assoc_for_joke)}. You MUST build your joke around one of these specific things."
+        else:
+            joke_focus = "Pick any roastable angle."
 
         # Build context of ALL previous jokes in the roast
         jokes_already_told = ""
@@ -602,40 +614,59 @@ class CelebrityRoastManager:
                     found.append(topic)
             return found
 
-        def extract_key_phrases(text: str) -> List[str]:
-            """Extract specific phrases/terms that shouldn't be reused."""
-            phrases = []
-            # Remove markdown formatting for analysis
+        def extract_banned_words(text: str) -> List[str]:
+            """Extract words/phrases that shouldn't be reused - focus on punchline words."""
+            words = []
+            # Remove markdown formatting
             clean = re.sub(r'\*+', '', text)
             clean = re.sub(r'["""]', '"', clean)
 
-            # Extract capitalized multi-word phrases (2-4 words) - proper nouns, titles, concepts
-            cap_phrases = re.findall(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\b', clean)
-            phrases.extend(cap_phrases)
+            # 1. ALL CAPS words (punchline emphasis) - these are DEFINITELY being reused
+            caps_words = re.findall(r'\b([A-Z]{3,})\b', clean)
+            words.extend([w.lower() for w in caps_words])
 
-            # Extract quoted phrases
+            # 2. Quoted phrases
             quoted = re.findall(r'"([^"]{3,40})"', clean)
-            phrases.extend(quoted)
+            words.extend(quoted)
 
-            # Extract compound terms with common patterns
-            compound_patterns = [
-                r'\b(\w+\s+(?:altruism|foundation|company|coin|token|movement|scheme|scam|fraud))\b',
-                r'\b((?:effective|crypto|block\s*chain|ponzi|pyramid)\s+\w+)\b',
-            ]
-            for pattern in compound_patterns:
-                matches = re.findall(pattern, clean, re.IGNORECASE)
-                phrases.extend(matches)
+            # 3. Multi-word proper nouns (Title Case phrases)
+            title_phrases = re.findall(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b', clean)
+            words.extend(title_phrases)
 
-            # Dedupe and filter short/common words
+            # 4. Key punchline nouns - words at end of sentences (often the punchline)
+            sentences = re.split(r'[.!?]', clean)
+            for sent in sentences:
+                sent_words = sent.strip().split()
+                if len(sent_words) >= 3:
+                    last_word = re.sub(r'[^\w]', '', sent_words[-1].lower())
+                    if len(last_word) >= 4:
+                        words.append(last_word)
+
+            # 5. Significant nouns (5+ chars, not common words)
+            stop_words = {
+                'the', 'and', 'but', 'for', 'are', 'was', 'were', 'been', 'have', 'has',
+                'had', 'your', 'you', 'they', 'them', 'this', 'that', 'with', 'from',
+                'about', 'would', 'could', 'should', 'being', 'their', 'there', 'where',
+                'which', 'while', 'these', 'those', 'other', 'only', 'just', 'like',
+                'more', 'most', 'some', 'such', 'than', 'then', 'into', 'over', 'after',
+                'before', 'between', 'under', 'again', 'because', 'going', 'make', 'made',
+                'know', 'know', 'even', 'still', 'well', 'also', 'back', 'much', 'when'
+            }
+            all_words = re.findall(r'\b([a-zA-Z]{5,})\b', clean)
+            for w in all_words:
+                w_lower = w.lower()
+                if w_lower not in stop_words:
+                    words.append(w_lower)
+
+            # Dedupe
             seen = set()
             result = []
-            stop_words = {'the', 'and', 'but', 'for', 'are', 'was', 'were', 'been', 'have', 'has', 'had', 'your', 'you', 'they', 'them', 'this', 'that', 'with', 'from'}
-            for phrase in phrases:
-                phrase_lower = phrase.lower().strip()
-                if phrase_lower not in seen and len(phrase_lower) > 4 and phrase_lower not in stop_words:
-                    seen.add(phrase_lower)
-                    result.append(phrase)
-            return result[:10]
+            for word in words:
+                word_lower = word.lower().strip()
+                if word_lower not in seen and len(word_lower) >= 4:
+                    seen.add(word_lower)
+                    result.append(word_lower)
+            return result[:20]
 
         # Track banned phrases across all jokes
         banned_phrases = set()
@@ -646,7 +677,7 @@ class CelebrityRoastManager:
                 if joke_text:
                     all_previous.append(f"YOU: {joke_text}")
                     topics_used.update(detect_topics(joke))
-                    banned_phrases.update(extract_key_phrases(joke))
+                    banned_phrases.update(extract_banned_words(joke))
         if all_jokes_so_far:
             for j in all_jokes_so_far:
                 if j["agent"] != agent.name:
@@ -654,7 +685,7 @@ class CelebrityRoastManager:
                     if joke_text:
                         all_previous.append(f"{j['agent']}: {joke_text}")
                         topics_used.update(detect_topics(j["joke"]))
-                        banned_phrases.update(extract_key_phrases(j["joke"]))
+                        banned_phrases.update(extract_banned_words(j["joke"]))
 
         if all_previous:
             jokes_already_told = "\n\n🚫🚫🚫 **ALREADY USED - DO NOT REPEAT:** 🚫🚫🚫\n"
@@ -687,50 +718,48 @@ class CelebrityRoastManager:
             jokes_already_told += "⛔ **CRITICAL:** Using ANY banned phrase or angle = BOMBING. Find something COMPLETELY NEW!"
             logger.info(f"[Roast] {agent.name} joke #{joke_num} sees {len(own_jokes)} own jokes, {len(others_jokes)} others' jokes, banned phrases: {list(banned_phrases)[:5]}")
 
-        # Build system message with theory and examples
-        system_msg = """You are a professional roast comedian. Write ONE brutal roast joke.
+        # Build system message - put BANNED WORDS FIRST (highest priority)
+        banned_section = ""
+        if banned_phrases:
+            sorted_banned = sorted(banned_phrases, key=lambda x: len(x), reverse=True)[:20]
+            banned_section = f"""⛔⛔⛔ BANNED WORDS - DO NOT USE ANY OF THESE: ⛔⛔⛔
+{', '.join(sorted_banned)}
 
-🎯 THE SECRET: DOUBLE MEANINGS & WORDPLAY
-The best roast jokes find a word or phrase that means TWO things - one about their business/life, one crude/sexual.
+If your joke contains ANY word from that list, you FAIL. Pick COMPLETELY DIFFERENT words.
 
-✅ EXAMPLES OF PERFECT DOUBLE MEANINGS:
-- "Boring Company tunnels are the only HOLES you've dug that didn't get filled with a new baby mama" — holes = tunnels AND sexual
-- "You bought X to own something that actually WENT DOWN on you" — went down = oral sex AND platform crashing
-- "Your flamethrower reflects how fast you TORCH your investors' money" — torch = flamethrower AND burning money
-- "Your kids have to clear LAUNCH WINDOWS just to visit you" — launch windows = SpaceX AND custody schedules
+"""
 
-🎯 THE FORMULA:
-1. Pick something SPECIFIC about them (product, company, scandal, habit)
-2. Find a word in it that has a CRUDE double meaning
-3. Build the joke around that double meaning
+        system_msg = f"""{banned_section}You are a roast comedian. Write ONE brutal joke using professional technique.
 
-❌ BAD JOKES (no double meaning, just random):
-- "Cybertruck seat uncomfortable... explaining retweets to 90s kids" — two unrelated ideas
-- "monkey wearing a tiara to your ex-wife" — random elements crammed together
-- "rockets unstable like your investment portfolio" — forced comparison, no wordplay
+🎯 MISDIRECTION IS EVERYTHING:
+1. SETUP: Lead the audience to expect something (praise, normal statement, one meaning)
+2. PUNCHLINE: FLIP to something brutal, dark, or a second meaning they didn't see coming
+The laugh comes from SURPRISE. If they can predict it, it's not funny.
 
-✅ MORE WINNERS:
-- "Your exes have a group chat just to compare child support check sizes" — visual, specific, paints a picture
-- "You finish relationships faster than building a tunnel, leaving enough baby mamas to staff a daycare" — visual punchline
+🎯 PUNCH LINE MAKERS (from comedy writer Joe Toplyn):
+- LINK TWO ASSOCIATIONS: Connect two things about the target in an unexpected way
+- PLAY ON WORDS: Exploit a double meaning - one meaning sounds like praise, the other is an insult
+- The PUNCH WORD goes at the END. That's what triggers the laugh.
+
+🎯 EXAMPLES - Notice how each MISDIRECTS then FLIPS:
+- Betty White on William Shatner: "You were supposed to explore the galaxy, not fill it." → "explore" sounds heroic, "fill it" (with fat) is the brutal flip
+- Jimmy Carr on Peyton Manning: "One of the top three quarterbacks in his family." → "top three" sounds impressive, "in his family" (tiny pool) is the insult
+- Snoop Dogg on Trump: "It wouldn't be the first time he pushed a black family out of their home." → Sounds like racism accusation, actually means Obama
+- Jeff Ross on Courtney Love: "How is it that Courtney Love looks worse than Kurt Cobain right now?" → Cobain is dead, so this is DARK
+- Amy Schumer on Charlie Sheen: His wives were like "soldiers in Vietnam — constantly afraid of being killed by Charlie." → Vietnam + Charlie Sheen's name = double meaning
+
+⛔ NOT A JOKE (these fail):
+- "Sam does X, and also Y" → No flip, just two statements
+- "Sam is so X that Y" → Predictable, no surprise
+- Observations without a twist ending
 
 RULES:
-1. DO NOT REPEAT ANY TOPIC FROM THE BANNED LIST - including your OWN previous jokes
-2. MAXIMUM 25 WORDS. If your joke is longer, cut it down.
-3. End on the punchline - NEVER add "which means" or "probably because" or keep explaining
+- MAXIMUM 25 WORDS.
+- Be SPECIFIC - name real products, companies, scandals, people.
+- ADULT/EXPLICIT content encouraged. Go hard.
+- End on the punchline. Don't keep talking after.
 
-❌ TOO LONG: "Your Metaverse is the only place you can get people to enter a virtual world where you can't get your legs to work, which explains why your relationships end up on the chopping block."
-✅ TIGHT: "Your Metaverse legs don't work - just like your dick after the third divorce."
-
-ADULT CONTENT ENCOURAGED: Sexual, crude, brutal. Go hard. This is an UNCENSORED roast.
-
-IF A TOPIC IS BANNED: Find something COMPLETELY different. Dig into:
-- Lesser-known scandals or controversies
-- Specific quotes they've said
-- Family/relationship drama
-- Business decisions that flopped
-- Physical quirks no one mentioned yet
-
-FORMAT: Output ONLY the joke in **bold**. One joke. Nothing else."""
+FORMAT: **Bold the joke.** Nothing else."""
 
         # Build user message with target and context - put banned topics FIRST
         user_msg = f"""{jokes_already_told}
@@ -763,7 +792,9 @@ Write ONE brutal roast joke about {celebrity['name']} using a FRESH angle. **Bol
                                 {"role": "user", "content": user_msg}
                             ],
                             "max_tokens": 200,
-                            "temperature": min(temp, 1.2)  # Cap at 1.2
+                            "temperature": min(temp, 1.2),
+                            "frequency_penalty": 0.7,
+                            "presence_penalty": 0.5
                         }
                     )
 
