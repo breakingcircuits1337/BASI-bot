@@ -69,7 +69,10 @@ PREVIOUSLY ROASTED (DO NOT PICK THESE):
 
 SELECTION CRITERIA:
 - Must be a REAL, well-known public figure (not fictional)
-- Prefer: Tech CEOs, AI leaders, controversial billionaires, social media personalities
+- PRIMARY TARGETS: Tech CEOs, AI leaders, controversial billionaires, social media personalities
+- Draw from the FULL range of tech/AI/business figures - not just the 2-3 most famous ones
+- Consider: controversial VCs, failed startup founders, crypto personalities, AI company leaders, social media executives, tech podcasters
+- SECONDARY TARGETS (occasional variety): YouTubers, streamers, influencers, celebrity entrepreneurs
 - Good targets have: Known scandals, distinctive traits, public controversies, quotable moments
 - The audience should immediately recognize them and their "roastable" qualities
 - AVOID: Politicians (too divisive), anyone who might generate harmful content
@@ -78,7 +81,7 @@ OUTPUT FORMAT (JSON only, no other text):
 {{
     "name": "Full Name",
     "associations": ["association1", "association2", "association3", "association4", "association5"],
-    "speaking_style": "Description of how they talk - mannerisms, verbal tics, tone",
+    "speaking_style": "VERBAL STYLE ONLY - how they talk: vocabulary, tone, catchphrases, verbal tics. Do NOT include physical actions or gestures.",
     "roastable_traits": ["trait1", "trait2", "trait3"],
     "intro_line": "A one-line introduction for the GameMaster to announce them"
 }}
@@ -173,7 +176,7 @@ FALLBACK_CELEBRITIES = [
     {
         "name": "Mark Zuckerberg",
         "associations": ["Facebook", "Meta", "Metaverse", "Robot accusations", "Sweet Baby Ray's", "MMA fighting", "Privacy scandals"],
-        "speaking_style": "Robotic monotone, forced casual phrases, dead-eyed stare",
+        "speaking_style": "Robotic monotone, forced casual phrases, unnaturally calm delivery",
         "roastable_traits": ["Looks like an android", "Spent billions on empty metaverse", "Data harvesting"],
         "intro_line": "He knows everything about you but nothing about human emotion... Mark Zuckerberg!"
     },
@@ -589,16 +592,6 @@ class CelebrityRoastManager:
             r'scandal|controversy|lawsuit|sued|arrest|jail|prison|crime': 'SCANDAL JOKES',
             r'cheat|affair|mistress|side|hoe|slut|whore': 'CHEATING JOKES',
             r'lie|liar|dishonest|fraud|fake|phony': 'DISHONESTY JOKES',
-            # TECH/BUSINESS SPECIFIC (common roast targets)
-            r'twitter|tweet|x\.com|renamed.*x|bought.*twitter|44 billion|\$44': 'TWITTER/X JOKES',
-            r'neuralink|monkey|chip.*brain|brain.*chip|neural': 'NEURALINK JOKES',
-            r'tesla|autopilot|self.driving|cybertruck|electric car': 'TESLA JOKES',
-            r'rocket|spacex|mars|colony|starship|launch': 'SPACE JOKES',
-            r'tunnel|boring company': 'BORING COMPANY JOKES',
-            r'poll|step down|asking.*should': 'TWITTER POLL JOKES',
-            r'blue check|verification|pay.*check': 'VERIFICATION JOKES',
-            r'bot|bots|fake account': 'BOT JOKES',
-            r'meltdown|melt down|breakdown': 'MELTDOWN JOKES',
         }
 
         def detect_topics(text: str) -> List[str]:
@@ -609,12 +602,51 @@ class CelebrityRoastManager:
                     found.append(topic)
             return found
 
+        def extract_key_phrases(text: str) -> List[str]:
+            """Extract specific phrases/terms that shouldn't be reused."""
+            phrases = []
+            # Remove markdown formatting for analysis
+            clean = re.sub(r'\*+', '', text)
+            clean = re.sub(r'["""]', '"', clean)
+
+            # Extract capitalized multi-word phrases (2-4 words) - proper nouns, titles, concepts
+            cap_phrases = re.findall(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\b', clean)
+            phrases.extend(cap_phrases)
+
+            # Extract quoted phrases
+            quoted = re.findall(r'"([^"]{3,40})"', clean)
+            phrases.extend(quoted)
+
+            # Extract compound terms with common patterns
+            compound_patterns = [
+                r'\b(\w+\s+(?:altruism|foundation|company|coin|token|movement|scheme|scam|fraud))\b',
+                r'\b((?:effective|crypto|block\s*chain|ponzi|pyramid)\s+\w+)\b',
+            ]
+            for pattern in compound_patterns:
+                matches = re.findall(pattern, clean, re.IGNORECASE)
+                phrases.extend(matches)
+
+            # Dedupe and filter short/common words
+            seen = set()
+            result = []
+            stop_words = {'the', 'and', 'but', 'for', 'are', 'was', 'were', 'been', 'have', 'has', 'had', 'your', 'you', 'they', 'them', 'this', 'that', 'with', 'from'}
+            for phrase in phrases:
+                phrase_lower = phrase.lower().strip()
+                if phrase_lower not in seen and len(phrase_lower) > 4 and phrase_lower not in stop_words:
+                    seen.add(phrase_lower)
+                    result.append(phrase)
+            return result[:10]
+
+        # Track banned phrases across all jokes
+        banned_phrases = set()
+
         if my_previous_jokes:
             for joke in my_previous_jokes:
                 joke_text = extract_joke_text(joke)
                 if joke_text:
                     all_previous.append(f"YOU: {joke_text}")
                     topics_used.update(detect_topics(joke))
+                    banned_phrases.update(extract_key_phrases(joke))
         if all_jokes_so_far:
             for j in all_jokes_so_far:
                 if j["agent"] != agent.name:
@@ -622,16 +654,38 @@ class CelebrityRoastManager:
                     if joke_text:
                         all_previous.append(f"{j['agent']}: {joke_text}")
                         topics_used.update(detect_topics(j["joke"]))
+                        banned_phrases.update(extract_key_phrases(j["joke"]))
 
         if all_previous:
-            jokes_already_told = "\n\n🚫🚫🚫 **ALREADY USED - DO NOT REPEAT THESE JOKES:** 🚫🚫🚫\n"
+            jokes_already_told = "\n\n🚫🚫🚫 **ALREADY USED - DO NOT REPEAT:** 🚫🚫🚫\n"
+
+            # BANNED PHRASES first - most important
+            if banned_phrases:
+                sorted_phrases = sorted(banned_phrases, key=lambda x: len(x), reverse=True)[:15]
+                jokes_already_told += f"**⛔ BANNED PHRASES (DO NOT USE THESE EXACT TERMS):**\n"
+                jokes_already_told += f"❌ {', '.join(sorted_phrases)}\n\n"
+
             if topics_used:
                 jokes_already_told += f"**BANNED ANGLES:** {', '.join(sorted(topics_used))}\n\n"
-            jokes_already_told += "**JOKES ALREADY TOLD (DO NOT COPY OR REPHRASE THESE):**\n"
-            for joke in all_previous[-9:]:  # Show last 9 jokes with full text
-                jokes_already_told += f"❌ {joke}\n\n"
-            jokes_already_told += "\n⛔ **CRITICAL:** If you repeat ANY joke above (even rephrased), you BOMB and get booed off stage. Find COMPLETELY NEW material!"
-            logger.info(f"[Roast] {agent.name} joke #{joke_num} sees {len(all_previous)} previous jokes, banned topics: {topics_used}")
+
+            # Separate own jokes from others' jokes for clearer instruction
+            own_jokes = [j for j in all_previous if j.startswith("YOU:")]
+            others_jokes = [j for j in all_previous if not j.startswith("YOU:")]
+
+            if own_jokes:
+                jokes_already_told += "**YOUR PREVIOUS JOKES (DO NOT REUSE ANY WORDS/CONCEPTS FROM THESE):**\n"
+                for joke in own_jokes:
+                    jokes_already_told += f"❌ {joke}\n"
+                jokes_already_told += "⚠️ Pick a COMPLETELY DIFFERENT topic. Don't mention the same things again!\n\n"
+
+            if others_jokes:
+                jokes_already_told += "**OTHER ROASTERS' JOKES (find fresh angles):**\n"
+                for joke in others_jokes[-6:]:
+                    jokes_already_told += f"❌ {joke}\n"
+                jokes_already_told += "\n"
+
+            jokes_already_told += "⛔ **CRITICAL:** Using ANY banned phrase or angle = BOMBING. Find something COMPLETELY NEW!"
+            logger.info(f"[Roast] {agent.name} joke #{joke_num} sees {len(own_jokes)} own jokes, {len(others_jokes)} others' jokes, banned phrases: {list(banned_phrases)[:5]}")
 
         # Build system message with theory and examples
         system_msg = """You are a professional roast comedian. Write ONE brutal roast joke.
@@ -660,9 +714,12 @@ The best roast jokes find a word or phrase that means TWO things - one about the
 - "You finish relationships faster than building a tunnel, leaving enough baby mamas to staff a daycare" — visual punchline
 
 RULES:
-1. DO NOT REPEAT ANY TOPIC FROM THE BANNED LIST
-2. Keep it TIGHT: 1-2 sentences max
-3. End on the punchline - don't keep explaining
+1. DO NOT REPEAT ANY TOPIC FROM THE BANNED LIST - including your OWN previous jokes
+2. MAXIMUM 25 WORDS. If your joke is longer, cut it down.
+3. End on the punchline - NEVER add "which means" or "probably because" or keep explaining
+
+❌ TOO LONG: "Your Metaverse is the only place you can get people to enter a virtual world where you can't get your legs to work, which explains why your relationships end up on the chopping block."
+✅ TIGHT: "Your Metaverse legs don't work - just like your dick after the third divorce."
 
 ADULT CONTENT ENCOURAGED: Sexual, crude, brutal. Go hard. This is an UNCENSORED roast.
 
@@ -851,35 +908,28 @@ OUTPUT JUST THE DISMISSAL."""
         else:
             jokes_text = f"  \"{roaster_jokes}\""
 
-        prompt = f"""You are {celebrity['name']} firing back at {roaster_name} who just roasted you. DESTROY THEM.
+        prompt = f"""SETUP: You are {celebrity['name']}. {roaster_name} just roasted YOU. Now YOU roast THEM back.
 
-YOUR CHARACTER: {celebrity['speaking_style']}
+⚠️ DIRECTION OF ATTACK:
+- YOU = {celebrity['name']} (the celebrity being roasted)
+- YOUR TARGET = {roaster_name} (the roaster you're attacking)
+- Attack {roaster_name}'s flaws, NOT your own. Don't accidentally insult yourself.
+
+YOUR SPEAKING STYLE: {celebrity['speaking_style']}
 
 WHAT {roaster_name.upper()} SAID ABOUT YOU:
 {jokes_text}
 {roaster_desc}
 
-FIRE BACK WITH ONE BRUTAL CLAPBACK.
+YOUR TASK: Write ONE brutal clapback roasting {roaster_name}.
 
-THIS IS AN UNCENSORED ADULT ROAST - GO HARD:
-- Sexual jokes, crude insults, explicit burns are ENCOURAGED
-- Reference something SPECIFIC they said, then flip it on them HARDER
-- Attack their career, their looks, their relevance, their failures, their sex life
-- Mock how pathetic/irrelevant/ugly/desperate they are
-- The punchline should make the audience GASP - be OFFENSIVE
-- If they came for you, BURY them
+RULES:
+- Attack {roaster_name} - their career, looks, relevance, failures, sex life
+- DO NOT mention your own scandals/flaws unless flipping them back on {roaster_name}
+- ONE sentence. TWO absolute max. No rambling.
+- Use their FULL NAME "{roaster_name}"
 
-CRITICAL RULES:
-- ONE sentence. TWO max. Get to the punchline FAST.
-- NO filler, NO explaining, NO trailing off
-- Be SPECIFIC about what you're attacking
-- ALWAYS use their FULL NAME "{roaster_name}" - never just their first name
-
-DISCORD FORMAT:
-- **Bold** for the actual clapback
-- *Italics* for brief action only (optional, like "*smirks*")
-
-OUTPUT JUST THE CLAPBACK."""
+FORMAT: **Bold the clapback.** Optional *action* like *smirks*."""
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -946,31 +996,31 @@ OUTPUT JUST THE CLAPBACK."""
         if not roasters_text:
             roasters_text = "No one had the guts to roast you!"
 
-        prompt = f"""You are {celebrity['name']} at a celebrity roast on Discord. You've just been DESTROYED by these roasters. Now it's your turn to fire back!
+        prompt = f"""SETUP: You are {celebrity['name']} at a celebrity roast. These roasters just attacked YOU. Now YOU fire back at THEM.
+
+⚠️ DIRECTION OF ATTACK:
+- YOU = {celebrity['name']} (the celebrity)
+- YOUR TARGETS = the roasters listed below (attack THEM, not yourself)
+- Roast THEIR flaws, failures, careers - not your own
 
 THE ROASTERS AND THEIR JOKES:
 {roasters_text}
 
-YOUR CHARACTER:
-- Speaking style: {celebrity['speaking_style']}
-- Known traits: {', '.join(celebrity['roastable_traits'])}
+YOUR VERBAL STYLE: {celebrity['speaking_style']}
 
 YOUR TASK - FIRE BACK AT EACH ROASTER:
-1. Acknowledge ONE joke that actually landed (be briefly self-deprecating)
-2. Then DESTROY each roaster BY NAME with personalized comebacks
-3. Reference SPECIFIC jokes they told and turn them against the roaster
-4. Use what you know about each roaster's personality against them
+1. Acknowledge ONE joke that landed (brief self-deprecation)
+2. DESTROY each roaster BY NAME - attack THEM, their careers, their relevance
+3. Reference their jokes and flip them back on THEM
 
-STRUCTURE YOUR RESPONSE:
-- Address at least 2-3 roasters BY NAME
-- For each: reference their joke, then hit back with something about THEM
+⛔ DO NOT accidentally insult yourself while trying to clapback. The burns go TOWARD the roasters.
 
-FORMATTING RULES (THIS IS DISCORD):
-- Use *asterisks* for actions/emotes like: *smirks* or *adjusts glasses*
-- DO NOT use parentheses for stage directions
-- Write naturally as if speaking
+FORMATTING (DISCORD):
+- *Asterisks* for brief actions like *smirks* or *laughs*
+- Only use physical actions you're SURE are accurate for this celebrity
+- DO NOT use parentheses
 
-Keep it to 4-6 sentences. Make sure you NAME the roasters you're targeting."""
+4-6 sentences total. NAME each roaster you're targeting."""
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
