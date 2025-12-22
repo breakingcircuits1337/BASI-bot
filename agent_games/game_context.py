@@ -173,13 +173,25 @@ class GameContextManager:
         agent.vector_store = game_state.original_vector_store  # Restore vector store
         agent._game_mode_original_settings = None  # Clear game mode flag
 
-        # CRITICAL: Inject short transition message to re-ground agent in chat mode
-        # Similar to Anthropic's alignment reminders - brief context reset
-        transition_message = f"[The {game_state.game_name} game has ended. You are now back in normal conversation mode. Return to your usual personality and conversational style.]"
+        # CRITICAL: Inject strong transition message to re-ground agent in chat mode
+        # Similar to Anthropic's alignment reminders - explicit context reset
+        game_type = game_state.game_name.replace("_", " ").title()
+        transition_message = f"""[GAME OVER - {game_type.upper()} HAS ENDED]
 
-        # Inject as brief system note
+The {game_type} game is now COMPLETE. Do NOT continue playing or responding as if still in the game.
+
+IMPORTANT INSTRUCTIONS:
+- You are now back in NORMAL CONVERSATION MODE
+- Return to your usual personality and conversational style
+- Do NOT roast, vote, pitch, or perform any game actions
+- If someone references the game that just ended, you can briefly comment on how it went, then move on
+- Respond naturally to new topics as they come up
+
+Resume being yourself in casual Discord chat."""
+
+        # Inject as system note - use stronger author name
         agent.add_message_to_history(
-            author="System",
+            author="[SYSTEM - GAME END]",
             content=transition_message,
             message_id=None,
             replied_to_agent=None,

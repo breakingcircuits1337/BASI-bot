@@ -533,17 +533,43 @@ class CelebrityRoastManager:
         all_previous = []
         topics_used = set()  # Track underlying topics, not just joke text
 
-        # Common roast topic patterns to detect
+        # UNIVERSAL roast ANGLE patterns - detect the TYPE of joke, not celebrity-specific content
+        # These categories represent common roast angles that apply to ANY target
         topic_patterns = {
-            r'cybertruck|truck.*design|design.*truck': 'CYBERTRUCK DESIGN',
-            r'x æ|æ a-12|kid.*name|child.*name|name.*kid': 'CHILD NAMING',
-            r'rocket|starship|spacex.*explod|launch.*fail': 'ROCKET FAILURES',
-            r'twitter|bought.*x|\$44|platform': 'BUYING TWITTER/X',
-            r'hair|bald|hairline|transplant': 'HAIR/BALDNESS',
-            r'dating|wife|girlfriend|divorce|grimes': 'RELATIONSHIPS/DATING',
-            r'tunnel|boring company|hole': 'BORING COMPANY',
-            r'mars|colonize|population': 'MARS OBSESSION',
-            r'thumb|looks like|face.*like|resembl': 'APPEARANCE COMPARISON',
+            # PHYSICAL APPEARANCE ANGLES
+            r'face|smile|smiling|grin|eyes|stare|staring|blink|nose|teeth|mouth|chin|forehead': 'FACE JOKES',
+            r'hair|bald|hairline|transplant|wig|toupee|receding': 'HAIR JOKES',
+            r'clothes|shirt|suit|dress|outfit|wardrobe|dressed|wear|wearing': 'CLOTHING JOKES',
+            r'fat|thin|skinny|weight|obese|chubby|body|physique': 'BODY/WEIGHT JOKES',
+            r'old|age|aging|elderly|wrinkle|young|boomer': 'AGE JOKES',
+            r'ugly|attractive|handsome|beautiful|looks like|resembl|reminds me of': 'LOOKS COMPARISON',
+            r'robot|android|alien|lizard|reptile|uncanny|inhuman|soulless': 'INHUMAN COMPARISON',
+            r'hostage|kidnap|captive|mugshot|serial killer': 'CREEPY COMPARISON',
+            r'pale|tan|skin|complexion|sweat': 'SKIN JOKES',
+            r'short|tall|height': 'HEIGHT JOKES',
+            # CAREER/SUCCESS ANGLES
+            r'billion|million|rich|wealth|money|poor|broke|net worth': 'WEALTH JOKES',
+            r'fail|flop|disaster|bankrupt|lost|bomb|tank': 'FAILURE JOKES',
+            r'career|job|work|profession|business|company': 'CAREER JOKES',
+            r'boss|ceo|leader|run|manage|founder': 'LEADERSHIP JOKES',
+            r'famous|celebrity|star|fame|relevant|irrelevant|washed': 'FAME/RELEVANCE JOKES',
+            # INTELLIGENCE/PERSONALITY ANGLES
+            r'stupid|dumb|idiot|moron|smart|genius|brain': 'INTELLIGENCE JOKES',
+            r'boring|bland|dull|personality|charisma|interesting': 'PERSONALITY JOKES',
+            r'awkward|cringe|weird|strange|creepy|uncomfortable': 'AWKWARDNESS JOKES',
+            r'ego|narciss|arrogant|humble|cocky|self': 'EGO JOKES',
+            r'crazy|insane|mental|deranged|unhinged': 'SANITY JOKES',
+            # RELATIONSHIPS/SEX ANGLES
+            r'wife|husband|spouse|married|marriage|wedding|divorce': 'MARRIAGE JOKES',
+            r'girlfriend|boyfriend|dating|relationship|single|lonely': 'DATING JOKES',
+            r'kid|child|son|daughter|baby|parent|father|mother|family': 'FAMILY JOKES',
+            r'sex|fuck|laid|virgin|bedroom|dick|cock|pussy|gay|straight': 'SEX JOKES',
+            # VICES/SCANDAL ANGLES
+            r'drug|coke|cocaine|meth|heroin|pills|addict|high|stoned': 'DRUG JOKES',
+            r'drunk|alcohol|booze|wine|beer|whiskey|vodka|sober|aa': 'ALCOHOL JOKES',
+            r'scandal|controversy|lawsuit|sued|arrest|jail|prison|crime': 'SCANDAL JOKES',
+            r'cheat|affair|mistress|side|hoe|slut|whore': 'CHEATING JOKES',
+            r'lie|liar|dishonest|fraud|fake|phony': 'DISHONESTY JOKES',
         }
 
         def detect_topics(text: str) -> List[str]:
