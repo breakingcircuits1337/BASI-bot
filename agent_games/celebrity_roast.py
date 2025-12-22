@@ -513,14 +513,44 @@ class CelebrityRoastManager:
             return None
 
         # Track which associations have been used in previous jokes
+        # Also track ALL significant words used so we can ban related associations
         associations = celebrity.get('associations', [])
         used_associations = set()
+        all_used_words = set()  # All significant words from all jokes
+
         if all_jokes_so_far:
             for prev_joke in all_jokes_so_far:
                 joke_lower = prev_joke["joke"].lower()
+                # Extract significant words (4+ chars) from this joke
+                joke_words = set(re.findall(r'\b([a-z]{4,})\b', joke_lower))
+                all_used_words.update(joke_words)
+
+                # Mark association as used if exact match
                 for assoc in associations:
                     if assoc.lower() in joke_lower:
                         used_associations.add(assoc)
+
+        # Ban associations that share significant words with used jokes
+        # This catches related concepts (Metaverse, VR, avatars all related)
+        # Filter out common/generic words that would cause false matches
+        generic_words = {
+            'that', 'this', 'with', 'from', 'have', 'been', 'were', 'will',
+            'more', 'when', 'what', 'which', 'their', 'them', 'about', 'into',
+            'just', 'only', 'also', 'than', 'like', 'even', 'most', 'made',
+            'after', 'being', 'over', 'such', 'through', 'where', 'your',
+            'could', 'would', 'should', 'because', 'before', 'going', 'know'
+        }
+        # Also exclude celebrity's name parts
+        celeb_name_words = set(re.findall(r'\b([a-z]{4,})\b', celebrity.get('name', '').lower()))
+        generic_words.update(celeb_name_words)
+
+        filtered_used_words = all_used_words - generic_words
+
+        for assoc in associations:
+            assoc_words = set(re.findall(r'\b([a-z]{4,})\b', assoc.lower()))
+            assoc_words = assoc_words - generic_words
+            if assoc_words & filtered_used_words:  # If any significant overlap
+                used_associations.add(assoc)
 
         # Get UNUSED associations - don't repeat what's been covered
         available_associations = [a for a in associations if a not in used_associations]
