@@ -80,11 +80,13 @@ SELECTION CRITERIA:
 OUTPUT FORMAT (JSON only, no other text):
 {{
     "name": "Full Name",
-    "associations": ["association1", "association2", "association3", "association4", "association5"],
+    "associations": ["assoc1", "assoc2", "assoc3", "assoc4", "assoc5", "assoc6", "assoc7", "assoc8"],
     "speaking_style": "VERBAL STYLE ONLY - how they talk: vocabulary, tone, catchphrases, verbal tics. Do NOT include physical actions or gestures.",
     "roastable_traits": ["trait1", "trait2", "trait3"],
     "intro_line": "A one-line introduction for the GameMaster to announce them"
 }}
+
+IMPORTANT: Provide 8 DISTINCT associations - each should be a different roastable topic (scandal, product, trait, quote, relationship, etc). No overlap.
 
 ASSOCIATIONS should be specific, roast-worthy things:
 - Companies they run/founded
@@ -510,22 +512,26 @@ class CelebrityRoastManager:
         if not openrouter_key:
             return None
 
-        # Assign SPECIFIC associations to each joke to force variety
-        # Use GLOBAL joke count (not just this agent's joke number) to spread associations
+        # Track which associations have been used in previous jokes
         associations = celebrity.get('associations', [])
-        num_assoc = len(associations)
-        global_joke_num = len(all_jokes_so_far) if all_jokes_so_far else 0
+        used_associations = set()
+        if all_jokes_so_far:
+            for prev_joke in all_jokes_so_far:
+                joke_lower = prev_joke["joke"].lower()
+                for assoc in associations:
+                    if assoc.lower() in joke_lower:
+                        used_associations.add(assoc)
 
-        if num_assoc > 0:
-            # Rotate through associations based on global joke count
-            # Each joke gets 1-2 different associations
-            idx = global_joke_num % num_assoc
-            idx2 = (global_joke_num + 1) % num_assoc
-            if idx != idx2:
-                assoc_for_joke = [associations[idx], associations[idx2]]
-            else:
-                assoc_for_joke = [associations[idx]]
-            joke_focus = f"YOUR ASSIGNED TOPIC FOR THIS JOKE: {', '.join(assoc_for_joke)}. You MUST build your joke around one of these specific things."
+        # Get UNUSED associations - don't repeat what's been covered
+        available_associations = [a for a in associations if a not in used_associations]
+
+        if available_associations:
+            # Pick from unused associations
+            assoc_for_joke = available_associations[0]
+            joke_focus = f"YOUR ASSIGNED TOPIC: {assoc_for_joke}. Build your joke around this SPECIFIC thing."
+        elif associations:
+            # All used - pick any but emphasize finding a NEW angle
+            joke_focus = f"All main topics covered. Find a COMPLETELY FRESH angle not yet explored. Available: {', '.join(associations)}"
         else:
             joke_focus = "Pick any roastable angle."
 
@@ -614,62 +620,70 @@ class CelebrityRoastManager:
                     found.append(topic)
             return found
 
-        def extract_banned_words(text: str) -> List[str]:
-            """Extract words/phrases that shouldn't be reused - focus on punchline words."""
-            words = []
-            # Remove markdown formatting
-            clean = re.sub(r'\*+', '', text)
+        def extract_core_concepts(text: str) -> List[str]:
+            """Extract the core CONCEPTS from a joke - the main subjects being joked about."""
+            concepts = []
+            clean = re.sub(r'\*+', '', text).lower()
             clean = re.sub(r'["""]', '"', clean)
 
-            # 1. ALL CAPS words (punchline emphasis) - these are DEFINITELY being reused
-            caps_words = re.findall(r'\b([A-Z]{3,})\b', clean)
-            words.extend([w.lower() for w in caps_words])
-
-            # 2. Quoted phrases
-            quoted = re.findall(r'"([^"]{3,40})"', clean)
-            words.extend(quoted)
-
-            # 3. Multi-word proper nouns (Title Case phrases)
-            title_phrases = re.findall(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b', clean)
-            words.extend(title_phrases)
-
-            # 4. Key punchline nouns - words at end of sentences (often the punchline)
-            sentences = re.split(r'[.!?]', clean)
-            for sent in sentences:
-                sent_words = sent.strip().split()
-                if len(sent_words) >= 3:
-                    last_word = re.sub(r'[^\w]', '', sent_words[-1].lower())
-                    if len(last_word) >= 4:
-                        words.append(last_word)
-
-            # 5. Significant nouns (5+ chars, not common words)
-            stop_words = {
-                'the', 'and', 'but', 'for', 'are', 'was', 'were', 'been', 'have', 'has',
-                'had', 'your', 'you', 'they', 'them', 'this', 'that', 'with', 'from',
-                'about', 'would', 'could', 'should', 'being', 'their', 'there', 'where',
-                'which', 'while', 'these', 'those', 'other', 'only', 'just', 'like',
-                'more', 'most', 'some', 'such', 'than', 'then', 'into', 'over', 'after',
-                'before', 'between', 'under', 'again', 'because', 'going', 'make', 'made',
-                'know', 'know', 'even', 'still', 'well', 'also', 'back', 'much', 'when'
+            # Words that indicate we found a concept worth banning
+            # These are SPECIFIC nouns, not generic roast words
+            generic_roast_words = {
+                'joke', 'roast', 'funny', 'laugh', 'comedy', 'audience', 'podium',
+                'look', 'looks', 'looking', 'thing', 'things', 'stuff', 'something',
+                'person', 'people', 'guy', 'guys', 'man', 'woman', 'time', 'times',
+                'way', 'ways', 'life', 'world', 'years', 'year', 'day', 'days',
+                'really', 'actually', 'basically', 'literally', 'probably', 'maybe',
+                'gonna', 'wanna', 'gotta', 'kinda', 'sorta', 'little', 'big', 'lot'
             }
-            all_words = re.findall(r'\b([a-zA-Z]{5,})\b', clean)
-            for w in all_words:
-                w_lower = w.lower()
-                if w_lower not in stop_words:
-                    words.append(w_lower)
 
-            # Dedupe
+            # 1. Extract KEY PHRASES (2-4 word patterns that form the setup)
+            # Look for verb phrases and noun phrases
+            phrase_patterns = [
+                r'(fired.*?rehired)',
+                r'(get \w+ and \w+)',
+                r'(the only \w+ who)',
+                r'(so \w+ that)',
+                r'(more \w+ than)',
+                r'(like a \w+)',
+                r'(\w+ was so \w+)',
+            ]
+            for pattern in phrase_patterns:
+                matches = re.findall(pattern, clean)
+                concepts.extend(matches)
+
+            # 2. Find SPECIFIC nouns - objects, places, things (not generic words)
+            words = re.findall(r'\b([a-z]{4,})\b', clean)
+            for w in words:
+                if w not in generic_roast_words and len(w) >= 4:
+                    concepts.append(w)
+
+            # 3. ALL CAPS emphasis words are KEY
+            caps = re.findall(r'\b([A-Z]{3,})\b', text)
+            concepts.extend([c.lower() for c in caps])
+
+            # 4. Quoted material
+            quoted = re.findall(r'"([^"]{3,30})"', clean)
+            concepts.extend(quoted)
+
+            # Dedupe and return most distinctive
             seen = set()
             result = []
-            for word in words:
-                word_lower = word.lower().strip()
-                if word_lower not in seen and len(word_lower) >= 4:
-                    seen.add(word_lower)
-                    result.append(word_lower)
+            for c in concepts:
+                if c not in seen:
+                    seen.add(c)
+                    result.append(c)
             return result[:20]
 
-        # Track banned phrases across all jokes
-        banned_phrases = set()
+        def summarize_joke_theme(joke_text: str) -> str:
+            """Create a 2-3 word summary of what a joke is ABOUT."""
+            clean = re.sub(r'\*+', '', joke_text).lower()
+            concepts = extract_core_concepts(joke_text)
+            # Return the most distinctive concepts
+            return ', '.join(concepts[:3]) if concepts else ""
+
+        # Track concepts across all jokes - let LLM understand semantic similarity
+        used_concepts = set()
 
         if my_previous_jokes:
             for joke in my_previous_jokes:
@@ -677,7 +691,7 @@ class CelebrityRoastManager:
                 if joke_text:
                     all_previous.append(f"YOU: {joke_text}")
                     topics_used.update(detect_topics(joke))
-                    banned_phrases.update(extract_banned_words(joke))
+                    used_concepts.update(extract_core_concepts(joke))
         if all_jokes_so_far:
             for j in all_jokes_so_far:
                 if j["agent"] != agent.name:
@@ -685,16 +699,17 @@ class CelebrityRoastManager:
                     if joke_text:
                         all_previous.append(f"{j['agent']}: {joke_text}")
                         topics_used.update(detect_topics(j["joke"]))
-                        banned_phrases.update(extract_banned_words(j["joke"]))
+                        used_concepts.update(extract_core_concepts(j["joke"]))
 
         if all_previous:
             jokes_already_told = "\n\n🚫🚫🚫 **ALREADY USED - DO NOT REPEAT:** 🚫🚫🚫\n"
 
-            # BANNED PHRASES first - most important
-            if banned_phrases:
-                sorted_phrases = sorted(banned_phrases, key=lambda x: len(x), reverse=True)[:15]
-                jokes_already_told += f"**⛔ BANNED PHRASES (DO NOT USE THESE EXACT TERMS):**\n"
-                jokes_already_told += f"❌ {', '.join(sorted_phrases)}\n\n"
+            # CONCEPTS first - these AND SIMILAR IDEAS are off-limits
+            if used_concepts:
+                sorted_concepts = sorted(used_concepts, key=lambda x: len(x), reverse=True)[:20]
+                jokes_already_told += f"**⛔ CONCEPTS ALREADY USED (avoid these AND similar/related ideas):**\n"
+                jokes_already_told += f"❌ {', '.join(sorted_concepts)}\n"
+                jokes_already_told += f"⚠️ Don't just use different WORDS for the same idea. Find a DIFFERENT concept entirely.\n\n"
 
             if topics_used:
                 jokes_already_told += f"**BANNED ANGLES:** {', '.join(sorted(topics_used))}\n\n"
@@ -704,28 +719,28 @@ class CelebrityRoastManager:
             others_jokes = [j for j in all_previous if not j.startswith("YOU:")]
 
             if own_jokes:
-                jokes_already_told += "**YOUR PREVIOUS JOKES (DO NOT REUSE ANY WORDS/CONCEPTS FROM THESE):**\n"
+                jokes_already_told += "**⚠️ YOUR PREVIOUS JOKES (DO NOT REUSE SAME SETUP/STRUCTURE):**\n"
                 for joke in own_jokes:
                     jokes_already_told += f"❌ {joke}\n"
-                jokes_already_told += "⚠️ Pick a COMPLETELY DIFFERENT topic. Don't mention the same things again!\n\n"
+                jokes_already_told += "⛔ You CANNOT use the same joke STRUCTURE again. If you said 'fired/rehired' once, you can't say it again with a different punchline. Find a COMPLETELY DIFFERENT setup.\n\n"
 
             if others_jokes:
-                jokes_already_told += "**OTHER ROASTERS' JOKES (find fresh angles):**\n"
+                jokes_already_told += "**OTHER ROASTERS' JOKES:**\n"
                 for joke in others_jokes[-6:]:
                     jokes_already_told += f"❌ {joke}\n"
                 jokes_already_told += "\n"
 
-            jokes_already_told += "⛔ **CRITICAL:** Using ANY banned phrase or angle = BOMBING. Find something COMPLETELY NEW!"
-            logger.info(f"[Roast] {agent.name} joke #{joke_num} sees {len(own_jokes)} own jokes, {len(others_jokes)} others' jokes, banned phrases: {list(banned_phrases)[:5]}")
+            jokes_already_told += "⛔ **CRITICAL:** Repeating a concept (even with different words) = BOMBING. Find something COMPLETELY NEW!"
+            logger.info(f"[Roast] {agent.name} joke #{joke_num} sees {len(own_jokes)} own jokes, {len(others_jokes)} others' jokes, concepts: {list(used_concepts)[:5]}")
 
-        # Build system message - put BANNED WORDS FIRST (highest priority)
+        # Build system message - put BANNED CONCEPTS FIRST (highest priority)
         banned_section = ""
-        if banned_phrases:
-            sorted_banned = sorted(banned_phrases, key=lambda x: len(x), reverse=True)[:20]
-            banned_section = f"""⛔⛔⛔ BANNED WORDS - DO NOT USE ANY OF THESE: ⛔⛔⛔
+        if used_concepts:
+            sorted_banned = sorted(used_concepts, key=lambda x: len(x), reverse=True)[:20]
+            banned_section = f"""⛔⛔⛔ BANNED CONCEPTS - DO NOT USE THESE OR SIMILAR IDEAS: ⛔⛔⛔
 {', '.join(sorted_banned)}
 
-If your joke contains ANY word from that list, you FAIL. Pick COMPLETELY DIFFERENT words.
+These concepts AND their synonyms/related ideas are OFF LIMITS. Pick something COMPLETELY DIFFERENT.
 
 """
 
@@ -736,17 +751,24 @@ If your joke contains ANY word from that list, you FAIL. Pick COMPLETELY DIFFERE
 2. PUNCHLINE: FLIP to something brutal, dark, or a second meaning they didn't see coming
 The laugh comes from SURPRISE. If they can predict it, it's not funny.
 
-🎯 PUNCH LINE MAKERS (from comedy writer Joe Toplyn):
-- LINK TWO ASSOCIATIONS: Connect two things about the target in an unexpected way
-- PLAY ON WORDS: Exploit a double meaning - one meaning sounds like praise, the other is an insult
-- The PUNCH WORD goes at the END. That's what triggers the laugh.
+🎯 ROAST TECHNIQUES (from Jeff Ross, Greg Giraldo):
+- REPURPOSE SOMETHING KNOWN: Take a movie title, catchphrase, or scandal and twist it into an insult
+- ROLE REVERSAL/VISUAL ABSURDITY: Flip who's important, create an absurd mental image
+- COMPARATIVE SETUP: "X is to Y what Z is to W" - the reveal shows they're both failures
+- TIE TWO ASSOCIATIONS TOGETHER: Connect their scandal to their appearance, their product to their personal life
 
-🎯 EXAMPLES - Notice how each MISDIRECTS then FLIPS:
-- Betty White on William Shatner: "You were supposed to explore the galaxy, not fill it." → "explore" sounds heroic, "fill it" (with fat) is the brutal flip
-- Jimmy Carr on Peyton Manning: "One of the top three quarterbacks in his family." → "top three" sounds impressive, "in his family" (tiny pool) is the insult
-- Snoop Dogg on Trump: "It wouldn't be the first time he pushed a black family out of their home." → Sounds like racism accusation, actually means Obama
-- Jeff Ross on Courtney Love: "How is it that Courtney Love looks worse than Kurt Cobain right now?" → Cobain is dead, so this is DARK
-- Amy Schumer on Charlie Sheen: His wives were like "soldiers in Vietnam — constantly afraid of being killed by Charlie." → Vietnam + Charlie Sheen's name = double meaning
+🎯 REAL ROAST JOKES - Study the STRUCTURE:
+- Jeff Ross on Franco: "127 Hours is how long she has left." → REPURPOSES movie title as death countdown
+- Jeff Ross on Shaq: "Your knuckles look scraped, did you walk here?" → VISUAL ABSURDITY
+- Jeff Ross on Courtney Love: "How does Courtney Love look worse than Kurt Cobain right now?" → Cobain is DEAD
+- Nikki Glaser on De Niro: "I can't believe I get to share this stage with you. And by this stage, I mean the final one of your life." → "stage" double meaning
+- Nikki Glaser on Rob Lowe: "Rob defies age...restrictions. I had such a crush on you when I was a little girl. If only I'd known that's when I had my best shot." → sex tape scandal
+- Nikki Glaser on Baldwin: "What an honor to be here roasting Justin Bieber's wife's oldest, fattest uncle."
+- Jeselnik on Trump: "The only difference between you and Michael Douglas in Wall Street is no one's going to be sad when you get cancer."
+- Jeselnik on Katey Sagal: "You worked on Married with Children, the show that changed comedy; Sons of Anarchy, that took drama to a new level; and 8 Simple Rules, the show that killed John Ritter."
+- Peyton Manning on Brady: "My golf handicap is 6.4, and Tom's handicap is blowing leads in the Super Bowl to my little brother."
+- Betty White on Shatner: "You were supposed to explore the galaxy, not fill it." → "explore" heroic, "fill it" (with fat) flips
+- Amy Schumer on Sheen: His wives were like "soldiers in Vietnam—constantly afraid of being killed by Charlie." → Vietnam + name double meaning
 
 ⛔ NOT A JOKE (these fail):
 - "Sam does X, and also Y" → No flip, just two statements
@@ -771,12 +793,39 @@ AVAILABLE MATERIAL: {', '.join(celebrity['associations'])}
 
 Write ONE brutal roast joke about {celebrity['name']} using a FRESH angle. **Bold the joke.**"""
 
-        # Retry loop to catch duplicates
-        max_attempts = 3
+        # Retry loop to catch duplicates - with escalating interventions
+        max_attempts = 4
+        failed_attempts = []  # Track what we tried so we can tell the LLM
+
         for attempt in range(max_attempts):
             try:
-                # Increase temperature on retries to get more varied output
-                temp = 0.7 + (len(all_previous) * 0.05) + (attempt * 0.15)
+                # Escalating interventions on retry
+                retry_msg = ""
+                forced_assoc = None
+
+                if attempt > 0 and failed_attempts:
+                    # Tell the LLM its previous attempts failed
+                    retry_msg = f"\n\n⚠️ YOUR PREVIOUS {len(failed_attempts)} ATTEMPT(S) WERE DUPLICATES. You MUST write something COMPLETELY DIFFERENT.\n"
+                    retry_msg += "Previous failed attempts (DO NOT REPEAT):\n"
+                    for fa in failed_attempts[-2:]:  # Show last 2
+                        retry_msg += f"❌ {fa[:100]}...\n"
+
+                    # Force a specific association on retry
+                    if associations:
+                        # Pick an association we haven't forced yet
+                        force_idx = (global_joke_num + attempt + 2) % num_assoc
+                        forced_assoc = associations[force_idx]
+                        retry_msg += f"\n🎯 MANDATORY: Your joke MUST be about: **{forced_assoc}**. No exceptions."
+
+                # Build the actual user message with retry info
+                actual_user_msg = user_msg
+                if retry_msg:
+                    actual_user_msg = retry_msg + "\n\n" + user_msg
+
+                # Increase temperature and penalties on retries
+                temp = 0.7 + (len(all_previous) * 0.05) + (attempt * 0.2)
+                freq_penalty = 0.7 + (attempt * 0.1)
+                pres_penalty = 0.5 + (attempt * 0.15)
 
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.post(
@@ -789,12 +838,12 @@ Write ONE brutal roast joke about {celebrity['name']} using a FRESH angle. **Bol
                             "model": agent.model,
                             "messages": [
                                 {"role": "system", "content": system_msg},
-                                {"role": "user", "content": user_msg}
+                                {"role": "user", "content": actual_user_msg}
                             ],
                             "max_tokens": 200,
-                            "temperature": min(temp, 1.2),
-                            "frequency_penalty": 0.7,
-                            "presence_penalty": 0.5
+                            "temperature": min(temp, 1.3),
+                            "frequency_penalty": min(freq_penalty, 1.0),
+                            "presence_penalty": min(pres_penalty, 0.9)
                         }
                     )
 
@@ -811,11 +860,12 @@ Write ONE brutal roast joke about {celebrity['name']} using a FRESH angle. **Bol
 
                     # Check for duplicates
                     if all_jokes_so_far and is_duplicate_joke(joke, all_jokes_so_far):
+                        failed_attempts.append(joke)
                         logger.warning(f"[Roast] {agent.name} produced duplicate joke (attempt {attempt+1}/{max_attempts}), retrying...")
                         if attempt < max_attempts - 1:
-                            continue  # Retry with higher temperature
+                            continue  # Retry with stronger intervention
                         else:
-                            logger.error(f"[Roast] {agent.name} kept producing duplicates, giving up")
+                            logger.error(f"[Roast] {agent.name} kept producing duplicates after {max_attempts} attempts")
                             return None
 
                     return joke
@@ -939,28 +989,20 @@ OUTPUT JUST THE DISMISSAL."""
         else:
             jokes_text = f"  \"{roaster_jokes}\""
 
-        prompt = f"""SETUP: You are {celebrity['name']}. {roaster_name} just roasted YOU. Now YOU roast THEM back.
+        prompt = f"""You are {celebrity['name']} at a roast. {roaster_name} just roasted you. Fire back ONE line.
 
-⚠️ DIRECTION OF ATTACK:
-- YOU = {celebrity['name']} (the celebrity being roasted)
-- YOUR TARGET = {roaster_name} (the roaster you're attacking)
-- Attack {roaster_name}'s flaws, NOT your own. Don't accidentally insult yourself.
-
-YOUR SPEAKING STYLE: {celebrity['speaking_style']}
-
-WHAT {roaster_name.upper()} SAID ABOUT YOU:
-{jokes_text}
+TARGET: {roaster_name}
 {roaster_desc}
 
-YOUR TASK: Write ONE brutal clapback roasting {roaster_name}.
+REAL CLAPBACKS - notice how they FLIP the insult and NAME THE TARGET:
+- Insult: "ur acting is awful" → Frankie Muniz: "Yeah, but being retired with $40,000,000 at 19 has not been awful."
+- Insult: "My girlfriend likes your music, she's deaf" → James Blunt: "If she was your girlfriend, she was probably blind as well."
+- Insult: Letterman said "I'm afraid I'd be kidnapped" in Colombia → Sofia Vergara: "They don't even know who you are over there."
+- Rob Lowe to Jeff Ross: "Jeff Ross is a five-time honoree in Leukemia Face magazine."
 
-RULES:
-- Attack {roaster_name} - their career, looks, relevance, failures, sex life
-- DO NOT mention your own scandals/flaws unless flipping them back on {roaster_name}
-- ONE sentence. TWO absolute max. No rambling.
-- Use their FULL NAME "{roaster_name}"
+⛔ MUST include "{roaster_name}" by name. ONE SENTENCE. Be BRUTAL not smug.
 
-FORMAT: **Bold the clapback.** Optional *action* like *smirks*."""
+OUTPUT FORMAT: **{roaster_name}, [brutal insult]** — no quotation marks, just the bold text."""
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -975,7 +1017,7 @@ FORMAT: **Bold the clapback.** Optional *action* like *smirks*."""
                         "messages": [
                             {"role": "user", "content": prompt}
                         ],
-                        "max_tokens": 150,  # Short and punchy
+                        "max_tokens": 150,
                         "temperature": 0.9
                     }
                 )
