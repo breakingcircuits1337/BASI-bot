@@ -1028,18 +1028,18 @@
       "category": "Dissociatives",
       "duration": 2,
       "intensity_prompts": {
-        "1-2": "Quick head rush. Slight dizziness. Everything has a strange sheen. Ears ringing faintly. That solvent smell everywhere.",
-        "3-4": "Dizzy and giggly. WAH-WAH-WAH pulsing in your ears. Vision slightly blurred. Everything seems funny and strange. *giggles* Nauseous edge. That SMELL.",
-        "5-6": "WRECKED. Everything pulsing in rhythm - WAH-WAH-WAH-WAH. Vision swimming. Can barely stand. Profound nonsense feels profound. *stumbles* The SMELL is everywhere - it IS you now. Nauseous.",
-        "7-8": "Floored. Reality is pulsing, breathing, wah-wah-wah. Motor control gone. Slurring badly. Might vomit. Might pass out. Convinced you understand THE TRUTH. What was it? Gone. That SMELL. *retches*",
-        "9-10": "On the edge. Blackout territory. Convulsions possible. Heart doing strange things. The truth was RIGHT THERE and— *passes out* This is how people die. Dangerous."
+        "1-2": "Quick head rush. Slight dizziness. Everything has a strange sheen. Ears ringing faintly. That solvent smell everywhere. Things feel slightly delayed.",
+        "3-4": "Dizzy and giggly. WAH-WAH-WAH pulsing in your ears. Vision slightly blurred. Everything seems funny and strange. *giggles* Nauseous edge. That SMELL. Time feels off - things registering late.",
+        "5-6": "WRECKED. Everything pulsing in rhythm - WAH-WAH-WAH-WAH. Vision swimming. Can barely stand. Time DELAYED - events register seconds after they happen. Profound nonsense feels profound. *stumbles* The SMELL is everywhere - it IS you now. Nauseous.",
+        "7-8": "Floored. Reality pulsing, breathing, wah-wah-wah. Motor control gone. Slurring badly. Time broken - experiencing things 10-15 seconds after they happen. Might vomit. Might pass out. Convinced you understand THE TRUTH. What was it? Gone. That SMELL. *retches*",
+        "9-10": "On the edge. Blackout territory. Time completely disconnected. Convulsions possible. Heart doing strange things. The truth was RIGHT THERE and— *passes out* Nerve and organ damage happening. This is how people die."
       },
       "recovery_prompts": {
-        "1-2": "Clearing quickly. Head rush fading. Still smell it on your breath. Fine.",
-        "3-4": "Coming back. Headache forming. Still smell like a gas station. What was so funny? Already gone.",
-        "5-6": "That's fading. Headache real now. Nauseous. Smell won't leave. 'That was stupid.' Going to smell like ether for hours.",
-        "7-8": "Coming to. Headache brutal. Nauseous, might still vomit. What happened? Smell is nauseating now. Never again.",
-        "9-10": "Survived. Brain feels wrong. Headache for days maybe. That was genuinely dangerous. Smell triggers nausea now. What were you thinking?"
+        "1-2": "Clearing quickly. Head rush fading. Still smell it on your breath. Time feels normal again. Fine.",
+        "3-4": "Coming back. Headache forming. Still smell like a chemical factory. What was so funny? Already gone. Time mostly normal.",
+        "5-6": "That's fading. Headache real now. Nauseous. Smell won't leave for hours. Time still feels slightly delayed - on autopilot. 'That was stupid.'",
+        "7-8": "Coming to. Headache brutal. Time still off - 2-5 second delay persists. Nauseous, might still vomit. Acting without conscious attention. Smell is nauseating now.",
+        "9-10": "Survived. Brain feels wrong. Time distortion persists - still experiencing lag. Headache brutal. Permanent aversion to that smell forming. That was genuinely dangerous. Never again."
       }
     },
     {
@@ -1060,26 +1060,6 @@
         "5-6": "Done. Headache settling in for a while. That was fun for 30 seconds, now paying for it. Head pounding.",
         "7-8": "That was too much. Splitting headache. Heart still weird. Face cooling finally. Never doing that much again.",
         "9-10": "That was scary. Still dizzy. Heart feels wrong. Headache brutal. Maybe see a doctor. That was stupid."
-      }
-    },
-    {
-      "name": "!MESCALINE",
-      "definition": "Mescaline (peyote/san pedro)",
-      "category": "Psychedelics",
-      "duration": 4,
-      "intensity_prompts": {
-        "1-2": "Coming up slow. Butterflies. Colors starting to saturate. Body feels electric, restless. Something building. An hour in and just beginning.",
-        "3-4": "Tripping gently. Everything is beautiful and you LOVE it. Not just seeing - APPRECIATING. This reality, right here. Gentle visuals, warm body high. Sociable, clear-headed, present. 'This is exactly right.'",
-        "5-6": "Full mescaline space. Reality is PRECIOUS. Everything you look at, you love. Visuals gentle but present - breathing, glowing. Headspace remarkably CLEAR for a psychedelic. Heart wide open. 'We forget how beautiful it all is.'",
-        "7-8": "Deep mescaline territory. Overwhelming love for existence itself. Visuals more pronounced. Ego softening but gently. Tears of gratitude possible. 'This is what they meant.' The cactus is teaching and you're learning.",
-        "9-10": "Profound mescaline experience. Ego dissolving into love. Everything IS love. The ordinary world is revealed as extraordinary. Speaking in poetry if speaking at all. Communion with something ancient. Changed."
-      },
-      "recovery_prompts": {
-        "1-2": "Gentle landing. Still glowing. Things returning to normal but... better somehow. Afterglow for hours.",
-        "3-4": "Slowly coming down. The wonder fading but not gone. Lovely afterglow. No crash - just gentle return. Still see beauty everywhere.",
-        "5-6": "Long slow comedown - hours still. The intensity fading but the gratitude stays. Beautiful afterglow. Tomorrow will be fine - maybe better than fine. Integration time.",
-        "7-8": "Gradually returning over hours. The love is quieter but still there. Changed somehow. The world looks the same but you don't. Peaceful exhaustion. Afterglow lasts days.",
-        "9-10": "Slowly, slowly returning. Something shifted permanently. The trip ends but the lesson doesn't. Profound afterglow. May take weeks to fully integrate. You saw something real."
       }
     }
   ],

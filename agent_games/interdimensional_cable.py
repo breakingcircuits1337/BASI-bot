@@ -3280,7 +3280,7 @@ class IDCCGameManager:
             return False, "An IDCC game is already in progress!"
 
         # Check cooldown
-        config = _idcc_config_manager.get_config()
+        config = _idcc_config_manager.config
         elapsed = time.time() - _last_idcc_end_time
         if _last_idcc_end_time > 0 and elapsed < config.game_cooldown_seconds:
             remaining = int(config.game_cooldown_seconds - elapsed)
