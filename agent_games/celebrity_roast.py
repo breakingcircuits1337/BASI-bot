@@ -521,8 +521,9 @@ class CelebrityRoastManager:
         if all_jokes_so_far:
             for prev_joke in all_jokes_so_far:
                 joke_lower = prev_joke["joke"].lower()
-                # Extract significant words (4+ chars) from this joke
-                joke_words = set(re.findall(r'\b([a-z]{4,})\b', joke_lower))
+                # Extract significant words (3+ chars) from this joke
+                # Include shorter words to catch acronyms like AGI, VR, AI
+                joke_words = set(re.findall(r'\b([a-z]{3,})\b', joke_lower))
                 all_used_words.update(joke_words)
 
                 # Mark association as used if exact match
@@ -534,20 +535,26 @@ class CelebrityRoastManager:
         # This catches related concepts (Metaverse, VR, avatars all related)
         # Filter out common/generic words that would cause false matches
         generic_words = {
+            # 4+ letter common words
             'that', 'this', 'with', 'from', 'have', 'been', 'were', 'will',
             'more', 'when', 'what', 'which', 'their', 'them', 'about', 'into',
             'just', 'only', 'also', 'than', 'like', 'even', 'most', 'made',
             'after', 'being', 'over', 'such', 'through', 'where', 'your',
-            'could', 'would', 'should', 'because', 'before', 'going', 'know'
+            'could', 'would', 'should', 'because', 'before', 'going', 'know',
+            # 3 letter common words
+            'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can',
+            'had', 'her', 'was', 'one', 'our', 'out', 'has', 'his', 'how',
+            'its', 'let', 'may', 'new', 'now', 'old', 'see', 'way', 'who',
+            'did', 'get', 'got', 'him', 'own', 'say', 'she', 'too', 'use'
         }
         # Also exclude celebrity's name parts
-        celeb_name_words = set(re.findall(r'\b([a-z]{4,})\b', celebrity.get('name', '').lower()))
+        celeb_name_words = set(re.findall(r'\b([a-z]{3,})\b', celebrity.get('name', '').lower()))
         generic_words.update(celeb_name_words)
 
         filtered_used_words = all_used_words - generic_words
 
         for assoc in associations:
-            assoc_words = set(re.findall(r'\b([a-z]{4,})\b', assoc.lower()))
+            assoc_words = set(re.findall(r'\b([a-z]{3,})\b', assoc.lower()))
             assoc_words = assoc_words - generic_words
             if assoc_words & filtered_used_words:  # If any significant overlap
                 used_associations.add(assoc)
@@ -683,9 +690,10 @@ class CelebrityRoastManager:
                 concepts.extend(matches)
 
             # 2. Find SPECIFIC nouns - objects, places, things (not generic words)
-            words = re.findall(r'\b([a-z]{4,})\b', clean)
+            # Include 3+ chars to catch acronyms like AGI, VR, AI
+            words = re.findall(r'\b([a-z]{3,})\b', clean)
             for w in words:
-                if w not in generic_roast_words and len(w) >= 4:
+                if w not in generic_roast_words and len(w) >= 3:
                     concepts.append(w)
 
             # 3. ALL CAPS emphasis words are KEY
@@ -800,10 +808,17 @@ The laugh comes from SURPRISE. If they can predict it, it's not funny.
 - Betty White on Shatner: "You were supposed to explore the galaxy, not fill it." → "explore" heroic, "fill it" (with fat) flips
 - Amy Schumer on Sheen: His wives were like "soldiers in Vietnam—constantly afraid of being killed by Charlie." → Vietnam + name double meaning
 
-⛔ NOT A JOKE (these fail):
-- "Sam does X, and also Y" → No flip, just two statements
-- "Sam is so X that Y" → Predictable, no surprise
+⛔ NOT A JOKE (these FAIL - do NOT write these):
+- "[Name] does X, and also Y" → No flip, just two statements
+- "[Name] is so X that Y" → Predictable, no surprise
 - Observations without a twist ending
+- BACKHANDED COMPLIMENTS: "Their idea was SO good it scared everyone" → This PRAISES them! NOT a roast!
+- "They're so powerful/smart/successful that [bad thing happened]" → Still sounds impressive, NOT an insult
+
+🎯 THE PUNCHLINE MUST LAND ON SOMETHING NEGATIVE:
+- Incompetence, failure, embarrassment, scandal, ugliness, stupidity
+- NOT "they were so amazing that..." - that's praise!
+- Link a NEUTRAL thing to a NEGATIVE thing (scandal, failure, flaw)
 
 RULES:
 - MAXIMUM 25 WORDS.
