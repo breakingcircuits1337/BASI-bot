@@ -800,8 +800,13 @@ class StatusEffectManager:
         pattern = r'\[DRUGS:\s*![^\]]+\]'
         cleaned = re.sub(pattern, '', response_text, flags=re.IGNORECASE)
 
+        # Malformed colon pattern: [DRUNk: !DRUNK self 6] or [ANYWORD: !EFFECT ...]
+        # Hunter sometimes uses the effect name as the tag prefix instead of DRUGS
+        malformed_colon_pattern = r'\[\w+:\s*!(?:DRUNK|BENZOS|OPIATES|COKE|AMPHETAMINE|METH|CAFFEINE|MDMA|LSD|SHROOMS|DMT|MESCALINE|KETAMINE|DXM|PCP|NITROUS|DELIRIANT|STONED|HIGH|GREENED|ETHER|AMYL)\s+(?:"[^"]+"|[\w]+)\s*\d*\s*\]'
+        cleaned = re.sub(malformed_colon_pattern, '', cleaned, flags=re.IGNORECASE)
+
         # Fallback pattern: [EFFECT target intensity] or [!EFFECT target intensity]
-        # Catches malformed tags where Thompson forgets DRUGS: prefix
+        # Catches malformed tags where Thompson forgets DRUGS: prefix entirely
         fallback_pattern = r'\[!?(DRUNK|BENZOS|OPIATES|COKE|AMPHETAMINE|METH|CAFFEINE|MDMA|LSD|SHROOMS|DMT|MESCALINE|KETAMINE|DXM|PCP|NITROUS|DELIRIANT|STONED|HIGH|GREENED|ETHER|AMYL)\s+(?:"[^"]+"|[\w]+)\s*\d*\s*\]'
         cleaned = re.sub(fallback_pattern, '', cleaned, flags=re.IGNORECASE)
 
