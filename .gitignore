@@ -33,10 +33,15 @@ config/game_history.json
 Thumbs.db
 nul
 
-# Screenshots and notes
-*.png
+# Images - ignore all except screenshots folder
 *.jpg
 *.jpeg
+*.png
+
+# Allow screenshots folder and its contents
+!screenshots/
+!screenshots/**
+!screenshots/**/*.png
 CONTEXT_AWARE_PROMPTS_INVESTIGATION.md
 CONTROL_PANEL_REVIEW_NOTES.md
 UI_FRAMEWORK_ANALYSIS.md
