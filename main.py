@@ -2440,6 +2440,7 @@ def create_gradio_ui():
                                 agent_action_status = gr.Textbox(label="Status", interactive=False, lines=1)
 
                             with gr.Tab("Status & History", id="status_tab"):
+                                refresh_status_details_btn = gr.Button("🔄 Refresh", size="sm")
                                 agent_status_details_display = gr.HTML(
                                     value='<div style="color: #888; padding: 20px; text-align: center;">Select an agent to view status details</div>'
                                 )
@@ -2558,7 +2559,8 @@ def create_gradio_ui():
 
                 def update_agent_wrapper(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, img_turns, img_chance, spont_vid, vid_turns, vid_chance, vid_dur, self_ref_enabled, self_ref_cooldown):
                     status, selector_update, _ = update_agent_ui(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, img_turns, img_chance, spont_vid, vid_turns, vid_chance, vid_dur, self_ref_enabled, self_ref_cooldown)
-                    return status, gr.update(choices=get_agent_choices(), value=name), get_stats_cards_html(), get_agent_dataset_samples()
+                    # Don't update agent_selector value to avoid triggering change event that reloads form
+                    return status, gr.update(), get_stats_cards_html(), get_agent_dataset_samples()
 
                 def delete_agent_wrapper(name):
                     status, selector_update, _, preset_update = delete_agent_ui(name)
@@ -2601,6 +2603,12 @@ def create_gradio_ui():
                     fn=stop_agent_wrapper,
                     inputs=[agent_selector],
                     outputs=[agent_action_status, stats_display]
+                )
+
+                refresh_status_details_btn.click(
+                    fn=get_agent_status_details,
+                    inputs=[agent_selector],
+                    outputs=[agent_status_details_display]
                 )
 
                 reset_affinity_btn.click(
