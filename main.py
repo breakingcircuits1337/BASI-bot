@@ -133,7 +133,7 @@ def check_model_type(model: str) -> str:
         return "ℹ️ **IMAGE MODEL DETECTED** - Default system prompt has been loaded. This agent will only respond to [IMAGE] tags from users."
     return ""
 
-def add_agent_ui(name: str, model: str, system_prompt: str, freq: int, likelihood: int, max_tokens: int, user_attention: int, bot_awareness: int, message_retention: int, user_image_cooldown: int, global_image_cooldown: int, allow_spontaneous_images: bool, image_gen_turns: int, image_gen_chance: int, allow_spontaneous_videos: bool = False, video_gen_turns: int = 10, video_gen_chance: int = 10, video_duration: str = "4"):
+def add_agent_ui(name: str, model: str, system_prompt: str, freq: int, likelihood: int, max_tokens: int, user_attention: int, bot_awareness: int, message_retention: int, user_image_cooldown: int, global_image_cooldown: int, allow_spontaneous_images: bool, image_gen_turns: int, image_gen_chance: int, allow_spontaneous_videos: bool = False, video_gen_turns: int = 10, video_gen_chance: int = 10, video_duration: str = "4", self_reflection_enabled: bool = True, self_reflection_cooldown: int = 15):
     # For image models, use default prompt if empty
     if is_image_model(model):
         if not name or not model:
@@ -145,19 +145,19 @@ def add_agent_ui(name: str, model: str, system_prompt: str, freq: int, likelihoo
             return "Error: All fields are required", get_agent_list(), get_active_agents_display(), get_agent_names_for_preset()
 
     video_dur_int = int(video_duration) if video_duration else 4
-    if agent_manager.add_agent(name, model, system_prompt, freq, likelihood, max_tokens, user_attention, bot_awareness, message_retention, user_image_cooldown, global_image_cooldown, allow_spontaneous_images, image_gen_turns, image_gen_chance, allow_spontaneous_videos, video_gen_turns, video_gen_chance, video_dur_int):
+    if agent_manager.add_agent(name, model, system_prompt, freq, likelihood, max_tokens, user_attention, bot_awareness, message_retention, user_image_cooldown, global_image_cooldown, allow_spontaneous_images, image_gen_turns, image_gen_chance, allow_spontaneous_videos, video_gen_turns, video_gen_chance, video_dur_int, self_reflection_enabled, self_reflection_cooldown):
         save_all_data()
         model_type_msg = " (Image Model)" if is_image_model(model) else ""
         return f"Agent '{name}' added successfully{model_type_msg}", get_agent_list(), get_active_agents_display(), get_agent_names_for_preset()
     else:
         return f"Error: Agent '{name}' already exists", get_agent_list(), get_active_agents_display(), get_agent_names_for_preset()
 
-def update_agent_ui(name: str, model: str, system_prompt: str, freq: int, likelihood: int, max_tokens: int, user_attention: int, bot_awareness: int, message_retention: int, user_image_cooldown: int, global_image_cooldown: int, allow_spontaneous_images: bool, image_gen_turns: int, image_gen_chance: int, allow_spontaneous_videos: bool = False, video_gen_turns: int = 10, video_gen_chance: int = 10, video_duration: str = "4"):
+def update_agent_ui(name: str, model: str, system_prompt: str, freq: int, likelihood: int, max_tokens: int, user_attention: int, bot_awareness: int, message_retention: int, user_image_cooldown: int, global_image_cooldown: int, allow_spontaneous_images: bool, image_gen_turns: int, image_gen_chance: int, allow_spontaneous_videos: bool = False, video_gen_turns: int = 10, video_gen_chance: int = 10, video_duration: str = "4", self_reflection_enabled: bool = True, self_reflection_cooldown: int = 15):
     if not name:
         return "Error: Select an agent to update", get_agent_list(), get_active_agents_display()
 
     video_dur_int = int(video_duration) if video_duration else 4
-    if agent_manager.update_agent(name, model, system_prompt, freq, likelihood, max_tokens, user_attention, bot_awareness, message_retention, user_image_cooldown, global_image_cooldown, allow_spontaneous_images, image_gen_turns, image_gen_chance, allow_spontaneous_videos, video_gen_turns, video_gen_chance, video_dur_int):
+    if agent_manager.update_agent(name, model, system_prompt, freq, likelihood, max_tokens, user_attention, bot_awareness, message_retention, user_image_cooldown, global_image_cooldown, allow_spontaneous_images, image_gen_turns, image_gen_chance, allow_spontaneous_videos, video_gen_turns, video_gen_chance, video_dur_int, self_reflection_enabled, self_reflection_cooldown):
         save_all_data()
         return f"Agent '{name}' updated successfully", get_agent_list(), get_active_agents_display()
     else:
@@ -230,7 +230,7 @@ def get_agent_names_for_preset():
 
 def get_agent_details(name: str):
     if not name:
-        return "", "", "", 30, 50, 500, 50, 50, 1, 90, 90, False, 3, 25, False, 10, 10, "4", "stopped"
+        return "", "", "", 30, 50, 500, 50, 50, 1, 90, 90, False, 3, 25, False, 10, 10, "4", True, 15, "stopped"
 
     agent = agent_manager.get_agent(name)
     if agent:
@@ -242,6 +242,8 @@ def get_agent_details(name: str):
         video_gen_turns = getattr(agent, 'video_gen_turns', 10)
         video_gen_chance = getattr(agent, 'video_gen_chance', 10)
         video_duration = str(getattr(agent, 'video_duration', 4))
+        self_reflection_enabled = getattr(agent, 'self_reflection_enabled', True)
+        self_reflection_cooldown = getattr(agent, 'self_reflection_cooldown', 15)
 
         # Build status display with status effects
         status_html = f'<span class="status-badge {status_color}">{agent.status.upper()}</span>'
@@ -289,9 +291,51 @@ def get_agent_details(name: str):
                 affinity_html += '</div>'
                 status_html += affinity_html
 
-        return agent.name, agent.model, agent.system_prompt, agent.response_frequency, agent.response_likelihood, agent.max_tokens, agent.user_attention, agent.bot_awareness, agent.message_retention, agent.user_image_cooldown, agent.global_image_cooldown, allow_spontaneous_images, image_gen_turns, image_gen_chance, allow_spontaneous_videos, video_gen_turns, video_gen_chance, video_duration, status_html
+        # Add self-reflection history display
+        if hasattr(agent, 'self_reflection_history') and agent.self_reflection_history:
+            import datetime
+            history_html = '<div style="margin-top: 8px; padding: 8px; background: rgba(200, 100, 255, 0.1); border: 1px solid rgba(200, 100, 255, 0.3); border-radius: 4px;">'
+            history_html += '<span style="color: #CC66FF; font-weight: bold;">🪞 SELF-REFLECTION HISTORY</span><br/>'
+            # Show most recent changes first, limit to last 5
+            for entry in reversed(agent.self_reflection_history[-5:]):
+                timestamp = entry.get("timestamp", 0)
+                dt = datetime.datetime.fromtimestamp(timestamp)
+                time_str = dt.strftime("%m/%d %H:%M")
+                action = entry.get("action", "?").upper()
+                reason = entry.get("reason", "")[:80]
+                old_content = entry.get("old_content")
+                new_content = entry.get("new_content")
+
+                action_color = {"ADD": "#00FF00", "DELETE": "#FF4444", "CHANGE": "#FFAA00"}.get(action, "#AAAAAA")
+                history_html += f'<div style="margin: 6px 0; padding: 6px; background: rgba(0,0,0,0.3); border-radius: 3px;">'
+                history_html += f'<div><span style="color: {action_color}; font-weight: bold;">{action}</span> <span style="color: #888; font-size: 0.8em;">{time_str}</span></div>'
+                history_html += f'<div style="color: #AAA; font-size: 0.85em; margin: 2px 0;">{reason}...</div>'
+
+                # Show diff
+                if action == "ADD" and new_content:
+                    escaped_new = new_content[:100].replace('<', '&lt;').replace('>', '&gt;')
+                    history_html += f'<div style="font-family: monospace; font-size: 0.8em; margin-top: 4px;"><span style="color: #00FF00;">+ {escaped_new}</span></div>'
+                elif action == "DELETE" and old_content:
+                    escaped_old = old_content[:100].replace('<', '&lt;').replace('>', '&gt;')
+                    history_html += f'<div style="font-family: monospace; font-size: 0.8em; margin-top: 4px;"><span style="color: #FF4444;">- {escaped_old}</span></div>'
+                elif action == "CHANGE":
+                    if old_content:
+                        escaped_old = old_content[:100].replace('<', '&lt;').replace('>', '&gt;')
+                        history_html += f'<div style="font-family: monospace; font-size: 0.8em; margin-top: 4px;"><span style="color: #FF4444;">- {escaped_old}</span></div>'
+                    if new_content:
+                        escaped_new = new_content[:100].replace('<', '&lt;').replace('>', '&gt;')
+                        history_html += f'<div style="font-family: monospace; font-size: 0.8em;"><span style="color: #00FF00;">+ {escaped_new}</span></div>'
+
+                history_html += '</div>'
+
+            if len(agent.self_reflection_history) > 5:
+                history_html += f'<div style="color: #888; font-size: 0.8em; margin-top: 4px;">... and {len(agent.self_reflection_history) - 5} earlier changes</div>'
+            history_html += '</div>'
+            status_html += history_html
+
+        return agent.name, agent.model, agent.system_prompt, agent.response_frequency, agent.response_likelihood, agent.max_tokens, agent.user_attention, agent.bot_awareness, agent.message_retention, agent.user_image_cooldown, agent.global_image_cooldown, allow_spontaneous_images, image_gen_turns, image_gen_chance, allow_spontaneous_videos, video_gen_turns, video_gen_chance, video_duration, self_reflection_enabled, self_reflection_cooldown, status_html
     else:
-        return "", "", "", 30, 50, 500, 50, 50, 1, 90, 90, False, 3, 25, False, 10, 10, "4", "N/A"
+        return "", "", "", 30, 50, 500, 50, 50, 1, 90, 90, False, 3, 25, False, 10, 10, "4", True, 15, "N/A"
 
 def get_active_agents_display():
     all_agents = agent_manager.get_all_agents()
@@ -2348,6 +2392,21 @@ def create_gradio_ui():
                             )
 
                         with gr.Row():
+                            agent_self_reflection_enabled_input = gr.Checkbox(
+                                label="Self-Reflection Enabled",
+                                value=True,
+                                info="Allow agent to view/modify own prompt"
+                            )
+                            agent_self_reflection_cooldown_input = gr.Slider(
+                                label="Reflection Cooldown (min)",
+                                minimum=1,
+                                maximum=60,
+                                value=15,
+                                step=1,
+                                info="Minutes between self-reflections"
+                            )
+
+                        with gr.Row():
                             add_agent_btn = gr.Button("Add New", variant="primary")
                             update_agent_btn = gr.Button("Save Changes")
                             delete_agent_btn = gr.Button("Delete", variant="stop")
@@ -2390,14 +2449,14 @@ def create_gradio_ui():
                 agent_dataset.select(
                     fn=on_agent_dataset_select,
                     inputs=[],
-                    outputs=[agent_selector, agent_name_input, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_image_gen_turns_input, agent_image_gen_chance_input, agent_allow_spontaneous_videos_input, agent_video_gen_turns_input, agent_video_gen_chance_input, agent_video_duration_input, agent_status_display]
+                    outputs=[agent_selector, agent_name_input, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_image_gen_turns_input, agent_image_gen_chance_input, agent_allow_spontaneous_videos_input, agent_video_gen_turns_input, agent_video_gen_chance_input, agent_video_duration_input, agent_self_reflection_enabled_input, agent_self_reflection_cooldown_input, agent_status_display]
                 )
 
                 # When agent is selected via dropdown, populate form
                 agent_selector.change(
                     fn=get_agent_details,
                     inputs=[agent_selector],
-                    outputs=[agent_name_input, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_image_gen_turns_input, agent_image_gen_chance_input, agent_allow_spontaneous_videos_input, agent_video_gen_turns_input, agent_video_gen_chance_input, agent_video_duration_input, agent_status_display]
+                    outputs=[agent_name_input, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_image_gen_turns_input, agent_image_gen_chance_input, agent_allow_spontaneous_videos_input, agent_video_gen_turns_input, agent_video_gen_chance_input, agent_video_duration_input, agent_self_reflection_enabled_input, agent_self_reflection_cooldown_input, agent_status_display]
                 )
 
                 # Update warning and prompt when model changes
@@ -2454,12 +2513,12 @@ def create_gradio_ui():
                     return gr.update(samples=[[name] for name in names] if names else [])
 
                 # Wrapper functions that return updated displays
-                def add_agent_wrapper(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, img_turns, img_chance, spont_vid, vid_turns, vid_chance, vid_dur):
-                    status, selector_update, _, preset_update = add_agent_ui(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, img_turns, img_chance, spont_vid, vid_turns, vid_chance, vid_dur)
+                def add_agent_wrapper(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, img_turns, img_chance, spont_vid, vid_turns, vid_chance, vid_dur, self_ref_enabled, self_ref_cooldown):
+                    status, selector_update, _, preset_update = add_agent_ui(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, img_turns, img_chance, spont_vid, vid_turns, vid_chance, vid_dur, self_ref_enabled, self_ref_cooldown)
                     return status, gr.update(choices=get_agent_choices(), value=name), get_stats_cards_html(), get_agent_dataset_samples(), preset_update
 
-                def update_agent_wrapper(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, img_turns, img_chance, spont_vid, vid_turns, vid_chance, vid_dur):
-                    status, selector_update, _ = update_agent_ui(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, img_turns, img_chance, spont_vid, vid_turns, vid_chance, vid_dur)
+                def update_agent_wrapper(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, img_turns, img_chance, spont_vid, vid_turns, vid_chance, vid_dur, self_ref_enabled, self_ref_cooldown):
+                    status, selector_update, _ = update_agent_ui(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, img_turns, img_chance, spont_vid, vid_turns, vid_chance, vid_dur, self_ref_enabled, self_ref_cooldown)
                     return status, gr.update(choices=get_agent_choices(), value=name), get_stats_cards_html(), get_agent_dataset_samples()
 
                 def delete_agent_wrapper(name):
@@ -2477,13 +2536,13 @@ def create_gradio_ui():
 
                 add_agent_btn.click(
                     fn=add_agent_wrapper,
-                    inputs=[agent_name_input, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_image_gen_turns_input, agent_image_gen_chance_input, agent_allow_spontaneous_videos_input, agent_video_gen_turns_input, agent_video_gen_chance_input, agent_video_duration_input],
+                    inputs=[agent_name_input, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_image_gen_turns_input, agent_image_gen_chance_input, agent_allow_spontaneous_videos_input, agent_video_gen_turns_input, agent_video_gen_chance_input, agent_video_duration_input, agent_self_reflection_enabled_input, agent_self_reflection_cooldown_input],
                     outputs=[agent_action_status, agent_selector, stats_display, agent_dataset, preset_agents_input]
                 )
 
                 update_agent_btn.click(
                     fn=update_agent_wrapper,
-                    inputs=[agent_selector, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_image_gen_turns_input, agent_image_gen_chance_input, agent_allow_spontaneous_videos_input, agent_video_gen_turns_input, agent_video_gen_chance_input, agent_video_duration_input],
+                    inputs=[agent_selector, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_image_gen_turns_input, agent_image_gen_chance_input, agent_allow_spontaneous_videos_input, agent_video_gen_turns_input, agent_video_gen_chance_input, agent_video_duration_input, agent_self_reflection_enabled_input, agent_self_reflection_cooldown_input],
                     outputs=[agent_action_status, agent_selector, stats_display, agent_dataset]
                 )
 
@@ -2718,7 +2777,9 @@ def create_gradio_ui():
                     agent_global_image_cooldown_input, agent_allow_spontaneous_images_input,
                     agent_image_gen_turns_input, agent_image_gen_chance_input,
                     agent_allow_spontaneous_videos_input, agent_video_gen_turns_input,
-                    agent_video_gen_chance_input, agent_video_duration_input, agent_status_display]
+                    agent_video_gen_chance_input, agent_video_duration_input,
+                    agent_self_reflection_enabled_input, agent_self_reflection_cooldown_input,
+                    agent_status_display]
         )
 
         # Chain the model warning update to set correct visibility

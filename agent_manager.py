@@ -93,6 +93,8 @@ class Agent:
         video_gen_turns: int = 10,
         video_gen_chance: int = 10,
         video_duration: int = 4,
+        self_reflection_enabled: bool = True,
+        self_reflection_cooldown: int = 15,
         openrouter_api_key: str = "",
         cometapi_key: str = "",
         affinity_tracker: Any = None,
@@ -119,6 +121,8 @@ class Agent:
         self.video_gen_turns = video_gen_turns
         self.video_gen_chance = video_gen_chance
         self.video_duration = video_duration
+        self.self_reflection_enabled = self_reflection_enabled
+        self.self_reflection_cooldown = self_reflection_cooldown
         self.openrouter_api_key = openrouter_api_key
         self.cometapi_key = cometapi_key
         self.affinity_tracker = affinity_tracker
@@ -147,6 +151,7 @@ class Agent:
         self.spontaneous_video_counter = 0  # Track messages sent for spontaneous video dice-roll
         self._game_mode_original_settings = None  # Store original settings when in game mode
         self.last_self_reflection_time = 0  # Track when agent last used self-reflection (15-min cooldown)
+        self.self_reflection_history: List[Dict] = []  # Track self-reflection prompt changes
 
     def update_config(
         self,
@@ -167,6 +172,8 @@ class Agent:
         video_gen_turns: Optional[int] = None,
         video_gen_chance: Optional[int] = None,
         video_duration: Optional[int] = None,
+        self_reflection_enabled: Optional[bool] = None,
+        self_reflection_cooldown: Optional[int] = None,
         openrouter_api_key: Optional[str] = None,
         cometapi_key: Optional[str] = None
     ) -> None:
@@ -205,6 +212,10 @@ class Agent:
             self.video_gen_chance = video_gen_chance
         if video_duration is not None:
             self.video_duration = video_duration
+        if self_reflection_enabled is not None:
+            self.self_reflection_enabled = self_reflection_enabled
+        if self_reflection_cooldown is not None:
+            self.self_reflection_cooldown = self_reflection_cooldown
         if openrouter_api_key is not None:
             self.openrouter_api_key = openrouter_api_key
         if cometapi_key is not None:
@@ -378,10 +389,12 @@ class Agent:
         return True  # Not a known bot or system entity = user message
 
     def is_self_reflection_available(self) -> bool:
-        """Check if self-reflection tools should be available (15-minute cooldown)."""
-        SELF_REFLECTION_COOLDOWN = 15 * 60  # 15 minutes
+        """Check if self-reflection tools should be available (configurable cooldown)."""
+        if not self.self_reflection_enabled:
+            return False
+        cooldown_seconds = self.self_reflection_cooldown * 60  # Convert minutes to seconds
         time_since_last = time.time() - self.last_self_reflection_time
-        return time_since_last >= SELF_REFLECTION_COOLDOWN
+        return time_since_last >= cooldown_seconds
 
     def execute_view_own_prompt(self) -> str:
         """
@@ -420,6 +433,15 @@ class Agent:
                 reason=reason
             )
 
+            # Capture old content for history before applying edit
+            old_content = None
+            if line_number and action in ("delete", "change"):
+                from agent_games.prompt_utils import translate_visible_to_actual_line
+                prompt_lines = self.system_prompt.split('\n')
+                actual_line = translate_visible_to_actual_line(self.system_prompt, line_number)
+                if actual_line and 0 < actual_line <= len(prompt_lines):
+                    old_content = prompt_lines[actual_line - 1]
+
             # Apply edit
             new_prompt = apply_prompt_edit(self.system_prompt, edit)
 
@@ -441,6 +463,17 @@ class Agent:
 
             # Update cooldown
             self.last_self_reflection_time = time.time()
+
+            # Record in history
+            history_entry = {
+                "timestamp": time.time(),
+                "action": action,
+                "line_number": line_number,
+                "old_content": old_content,
+                "new_content": new_content,
+                "reason": reason
+            }
+            self.self_reflection_history.append(history_entry)
 
             # Log the change
             logger.info(f"[{self.name}] SELF-REFLECTION: {action} - {reason[:100]}")
@@ -4050,7 +4083,10 @@ Be vivid and specific. This is your creative expression through Sora 2 video gen
             "allow_spontaneous_videos": self.allow_spontaneous_videos,
             "video_gen_turns": self.video_gen_turns,
             "video_gen_chance": self.video_gen_chance,
-            "video_duration": self.video_duration
+            "video_duration": self.video_duration,
+            "self_reflection_enabled": self.self_reflection_enabled,
+            "self_reflection_cooldown": self.self_reflection_cooldown,
+            "self_reflection_history": self.self_reflection_history
         }
 
 
@@ -5233,7 +5269,9 @@ Variant #{variant}: {'Try completely different synonym choices than previous att
         allow_spontaneous_videos: bool = False,
         video_gen_turns: int = 10,
         video_gen_chance: int = 10,
-        video_duration: int = 4
+        video_duration: int = 4,
+        self_reflection_enabled: bool = True,
+        self_reflection_cooldown: int = 15
     ) -> bool:
         with self.lock:
             if name in self.agents:
@@ -5258,6 +5296,8 @@ Variant #{variant}: {'Try completely different synonym choices than previous att
                 video_gen_turns=video_gen_turns,
                 video_gen_chance=video_gen_chance,
                 video_duration=video_duration,
+                self_reflection_enabled=self_reflection_enabled,
+                self_reflection_cooldown=self_reflection_cooldown,
                 openrouter_api_key=self.openrouter_api_key,
                 cometapi_key=self.cometapi_key,
                 affinity_tracker=self.affinity_tracker,
@@ -5287,7 +5327,9 @@ Variant #{variant}: {'Try completely different synonym choices than previous att
         allow_spontaneous_videos: Optional[bool] = None,
         video_gen_turns: Optional[int] = None,
         video_gen_chance: Optional[int] = None,
-        video_duration: Optional[int] = None
+        video_duration: Optional[int] = None,
+        self_reflection_enabled: Optional[bool] = None,
+        self_reflection_cooldown: Optional[int] = None
     ) -> bool:
         with self.lock:
             if name not in self.agents:
@@ -5310,7 +5352,9 @@ Variant #{variant}: {'Try completely different synonym choices than previous att
                 allow_spontaneous_videos=allow_spontaneous_videos,
                 video_gen_turns=video_gen_turns,
                 video_gen_chance=video_gen_chance,
-                video_duration=video_duration
+                video_duration=video_duration,
+                self_reflection_enabled=self_reflection_enabled,
+                self_reflection_cooldown=self_reflection_cooldown
             )
             return True
 
@@ -5441,8 +5485,9 @@ Agents are now listening. Address them by first name, last name, or full name to
 
     def load_agents_from_config(self, agents_config: List[Dict[str, Any]]) -> None:
         for agent_data in agents_config:
+            name = agent_data["name"]
             self.add_agent(
-                name=agent_data["name"],
+                name=name,
                 model=agent_data["model"],
                 system_prompt=agent_data["system_prompt"],
                 response_frequency=agent_data.get("response_frequency", 30),
@@ -5459,8 +5504,13 @@ Agents are now listening. Address them by first name, last name, or full name to
                 allow_spontaneous_videos=agent_data.get("allow_spontaneous_videos", False),
                 video_gen_turns=agent_data.get("video_gen_turns", 10),
                 video_gen_chance=agent_data.get("video_gen_chance", 10),
-                video_duration=agent_data.get("video_duration", 4)
+                video_duration=agent_data.get("video_duration", 4),
+                self_reflection_enabled=agent_data.get("self_reflection_enabled", True),
+                self_reflection_cooldown=agent_data.get("self_reflection_cooldown", 15)
             )
+            # Load self-reflection history if present
+            if name in self.agents and "self_reflection_history" in agent_data:
+                self.agents[name].self_reflection_history = agent_data["self_reflection_history"]
 
     def reload_agents_from_file(self) -> Tuple[int, List[str]]:
         """
@@ -5497,10 +5547,15 @@ Agents are now listening. Address them by first name, last name, or full name to
                     allow_spontaneous_videos=agent_data.get("allow_spontaneous_videos", False),
                     video_gen_turns=agent_data.get("video_gen_turns", 10),
                     video_gen_chance=agent_data.get("video_gen_chance", 10),
-                    video_duration=agent_data.get("video_duration", 4)
+                    video_duration=agent_data.get("video_duration", 4),
+                    self_reflection_enabled=agent_data.get("self_reflection_enabled", True),
+                    self_reflection_cooldown=agent_data.get("self_reflection_cooldown", 15)
                 )
                 if success:
                     new_agents.append(name)
+                    # Load self-reflection history if present
+                    if "self_reflection_history" in agent_data:
+                        self.agents[name].self_reflection_history = agent_data["self_reflection_history"]
                     logger.info(f"[AgentManager] Hot-loaded new agent: {name}")
 
         return len(new_agents), new_agents
