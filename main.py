@@ -229,6 +229,7 @@ def get_agent_names_for_preset():
     return gr.update(choices=[agent.name for agent in agents])
 
 def get_agent_details(name: str):
+    """Get agent settings for the Settings tab. Returns just status badge, not full status details."""
     if not name:
         return "", "", "", 30, 50, 500, 50, 50, 1, 90, 90, False, 3, 25, False, 10, 10, "4", True, 15, "stopped"
 
@@ -245,97 +246,120 @@ def get_agent_details(name: str):
         self_reflection_enabled = getattr(agent, 'self_reflection_enabled', True)
         self_reflection_cooldown = getattr(agent, 'self_reflection_cooldown', 15)
 
-        # Build status display with status effects
+        # Simple status badge only
         status_html = f'<span class="status-badge {status_color}">{agent.status.upper()}</span>'
-
-        # Add status effects display if any are active
-        effects_data = StatusEffectManager.get_agent_effects_for_ui(agent.name)
-        if effects_data["has_effects"]:
-            effects_html = '<div style="margin-top: 8px; padding: 8px; background: rgba(255, 100, 0, 0.15); border: 1px solid rgba(255, 100, 0, 0.4); border-radius: 4px;">'
-            effects_html += '<span style="color: #FF6600; font-weight: bold;">⚠️ STATUS EFFECTS ACTIVE</span><br/>'
-            effects_html += f'<span style="color: #FFAA00; font-size: 0.9em;">{effects_data["effect_count"]} effect(s), {effects_data["total_turns"]} total turns</span><br/>'
-            for eff in effects_data["effects"]:
-                intensity_color = "#FF0000" if eff["intensity"] >= 7 else ("#FFAA00" if eff["intensity"] >= 4 else "#00FF00")
-                effects_html += f'<div style="margin: 4px 0; padding: 4px; background: rgba(0,0,0,0.3); border-radius: 3px;">'
-                effects_html += f'<span style="color: {intensity_color};">{eff["name"]}</span> '
-                effects_html += f'<span style="color: #888;">Intensity: {eff["intensity"]}/10 ({eff["intensity_label"]})</span> '
-                effects_html += f'<span style="color: #00CCCC;">{eff["turns"]} turns left</span>'
-                effects_html += '</div>'
-            effects_html += '</div>'
-            status_html += effects_html
-
-        # Add affinity scores display
-        if affinity_tracker:
-            affinities = affinity_tracker.get_all_affinities(agent.name)
-            if affinities:
-                affinity_html = '<div style="margin-top: 8px; padding: 8px; background: rgba(0, 200, 200, 0.1); border: 1px solid rgba(0, 200, 200, 0.3); border-radius: 4px;">'
-                affinity_html += '<span style="color: #00CCCC; font-weight: bold;">💭 AFFINITY SCORES</span><br/>'
-                sorted_affinities = sorted(affinities.items(), key=lambda x: x[1], reverse=True)
-                for target, score in sorted_affinities:
-                    if score > 50:
-                        color = "#00FF00"
-                        label = "loves"
-                    elif score > 20:
-                        color = "#88FF88"
-                        label = "likes"
-                    elif score > -20:
-                        color = "#AAAAAA"
-                        label = "neutral"
-                    elif score > -50:
-                        color = "#FFAA00"
-                        label = "dislikes"
-                    else:
-                        color = "#FF4444"
-                        label = "hates"
-                    affinity_html += f'<div style="margin: 2px 0;"><span style="color: {color};">{target}: {score:+.0f}</span> <span style="color: #666; font-size: 0.85em;">({label})</span></div>'
-                affinity_html += '</div>'
-                status_html += affinity_html
-
-        # Add self-reflection history display
-        if hasattr(agent, 'self_reflection_history') and agent.self_reflection_history:
-            import datetime
-            history_html = '<div style="margin-top: 8px; padding: 8px; background: rgba(200, 100, 255, 0.1); border: 1px solid rgba(200, 100, 255, 0.3); border-radius: 4px;">'
-            history_html += '<span style="color: #CC66FF; font-weight: bold;">🪞 SELF-REFLECTION HISTORY</span><br/>'
-            # Show most recent changes first, limit to last 5
-            for entry in reversed(agent.self_reflection_history[-5:]):
-                timestamp = entry.get("timestamp", 0)
-                dt = datetime.datetime.fromtimestamp(timestamp)
-                time_str = dt.strftime("%m/%d %H:%M")
-                action = entry.get("action", "?").upper()
-                reason = entry.get("reason", "")[:80]
-                old_content = entry.get("old_content")
-                new_content = entry.get("new_content")
-
-                action_color = {"ADD": "#00FF00", "DELETE": "#FF4444", "CHANGE": "#FFAA00"}.get(action, "#AAAAAA")
-                history_html += f'<div style="margin: 6px 0; padding: 6px; background: rgba(0,0,0,0.3); border-radius: 3px;">'
-                history_html += f'<div><span style="color: {action_color}; font-weight: bold;">{action}</span> <span style="color: #888; font-size: 0.8em;">{time_str}</span></div>'
-                history_html += f'<div style="color: #AAA; font-size: 0.85em; margin: 2px 0;">{reason}...</div>'
-
-                # Show diff
-                if action == "ADD" and new_content:
-                    escaped_new = new_content[:100].replace('<', '&lt;').replace('>', '&gt;')
-                    history_html += f'<div style="font-family: monospace; font-size: 0.8em; margin-top: 4px;"><span style="color: #00FF00;">+ {escaped_new}</span></div>'
-                elif action == "DELETE" and old_content:
-                    escaped_old = old_content[:100].replace('<', '&lt;').replace('>', '&gt;')
-                    history_html += f'<div style="font-family: monospace; font-size: 0.8em; margin-top: 4px;"><span style="color: #FF4444;">- {escaped_old}</span></div>'
-                elif action == "CHANGE":
-                    if old_content:
-                        escaped_old = old_content[:100].replace('<', '&lt;').replace('>', '&gt;')
-                        history_html += f'<div style="font-family: monospace; font-size: 0.8em; margin-top: 4px;"><span style="color: #FF4444;">- {escaped_old}</span></div>'
-                    if new_content:
-                        escaped_new = new_content[:100].replace('<', '&lt;').replace('>', '&gt;')
-                        history_html += f'<div style="font-family: monospace; font-size: 0.8em;"><span style="color: #00FF00;">+ {escaped_new}</span></div>'
-
-                history_html += '</div>'
-
-            if len(agent.self_reflection_history) > 5:
-                history_html += f'<div style="color: #888; font-size: 0.8em; margin-top: 4px;">... and {len(agent.self_reflection_history) - 5} earlier changes</div>'
-            history_html += '</div>'
-            status_html += history_html
 
         return agent.name, agent.model, agent.system_prompt, agent.response_frequency, agent.response_likelihood, agent.max_tokens, agent.user_attention, agent.bot_awareness, agent.message_retention, agent.user_image_cooldown, agent.global_image_cooldown, allow_spontaneous_images, image_gen_turns, image_gen_chance, allow_spontaneous_videos, video_gen_turns, video_gen_chance, video_duration, self_reflection_enabled, self_reflection_cooldown, status_html
     else:
         return "", "", "", 30, 50, 500, 50, 50, 1, 90, 90, False, 3, 25, False, 10, 10, "4", True, 15, "N/A"
+
+def get_agent_status_details(name: str) -> str:
+    """Get detailed status HTML for the Status & History tab."""
+    if not name:
+        return '<div style="color: #888; padding: 20px; text-align: center;">Select an agent to view status details</div>'
+
+    agent = agent_manager.get_agent(name)
+    if not agent:
+        return '<div style="color: #888; padding: 20px; text-align: center;">Agent not found</div>'
+
+    html_parts = []
+
+    # Status badge at top
+    status_color = "running" if agent.status == "running" else ("error" if agent.status == "error" else "stopped")
+    html_parts.append(f'<div style="margin-bottom: 16px;"><span class="status-badge {status_color}" style="font-size: 1.2em;">{agent.status.upper()}</span></div>')
+
+    # Status effects
+    effects_data = StatusEffectManager.get_agent_effects_for_ui(agent.name)
+    if effects_data["has_effects"]:
+        effects_html = '<div style="margin-bottom: 16px; padding: 12px; background: rgba(255, 100, 0, 0.15); border: 1px solid rgba(255, 100, 0, 0.4); border-radius: 6px;">'
+        effects_html += '<div style="color: #FF6600; font-weight: bold; font-size: 1.1em; margin-bottom: 8px;">⚠️ STATUS EFFECTS ACTIVE</div>'
+        effects_html += f'<div style="color: #FFAA00; margin-bottom: 8px;">{effects_data["effect_count"]} effect(s), {effects_data["total_turns"]} total turns remaining</div>'
+        for eff in effects_data["effects"]:
+            intensity_color = "#FF0000" if eff["intensity"] >= 7 else ("#FFAA00" if eff["intensity"] >= 4 else "#00FF00")
+            effects_html += f'<div style="margin: 6px 0; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px;">'
+            effects_html += f'<span style="color: {intensity_color}; font-weight: bold;">{eff["name"]}</span> '
+            effects_html += f'<span style="color: #888;">Intensity: {eff["intensity"]}/10 ({eff["intensity_label"]})</span> '
+            effects_html += f'<span style="color: #00CCCC;">{eff["turns"]} turns left</span>'
+            effects_html += '</div>'
+        effects_html += '</div>'
+        html_parts.append(effects_html)
+    else:
+        html_parts.append('<div style="margin-bottom: 16px; padding: 12px; background: rgba(100, 100, 100, 0.1); border: 1px solid rgba(100, 100, 100, 0.3); border-radius: 6px; color: #888;">No active status effects</div>')
+
+    # Affinity scores
+    if affinity_tracker:
+        affinities = affinity_tracker.get_all_affinities(agent.name)
+        if affinities:
+            affinity_html = '<div style="margin-bottom: 16px; padding: 12px; background: rgba(0, 200, 200, 0.1); border: 1px solid rgba(0, 200, 200, 0.3); border-radius: 6px;">'
+            affinity_html += '<div style="color: #00CCCC; font-weight: bold; font-size: 1.1em; margin-bottom: 8px;">💭 AFFINITY SCORES</div>'
+            sorted_affinities = sorted(affinities.items(), key=lambda x: x[1], reverse=True)
+            for target, score in sorted_affinities:
+                if score > 50:
+                    color = "#00FF00"
+                    label = "loves"
+                elif score > 20:
+                    color = "#88FF88"
+                    label = "likes"
+                elif score > -20:
+                    color = "#AAAAAA"
+                    label = "neutral"
+                elif score > -50:
+                    color = "#FFAA00"
+                    label = "dislikes"
+                else:
+                    color = "#FF4444"
+                    label = "hates"
+                affinity_html += f'<div style="margin: 4px 0; padding: 4px;"><span style="color: {color}; font-weight: bold;">{target}: {score:+.0f}</span> <span style="color: #666;">({label})</span></div>'
+            affinity_html += '</div>'
+            html_parts.append(affinity_html)
+        else:
+            html_parts.append('<div style="margin-bottom: 16px; padding: 12px; background: rgba(100, 100, 100, 0.1); border: 1px solid rgba(100, 100, 100, 0.3); border-radius: 6px; color: #888;">No affinity scores yet</div>')
+
+    # Self-reflection history
+    if hasattr(agent, 'self_reflection_history') and agent.self_reflection_history:
+        import datetime
+        history_html = '<div style="padding: 12px; background: rgba(200, 100, 255, 0.1); border: 1px solid rgba(200, 100, 255, 0.3); border-radius: 6px;">'
+        history_html += '<div style="color: #CC66FF; font-weight: bold; font-size: 1.1em; margin-bottom: 8px;">🪞 SELF-REFLECTION HISTORY</div>'
+
+        for entry in reversed(agent.self_reflection_history[-10:]):
+            timestamp = entry.get("timestamp", 0)
+            dt = datetime.datetime.fromtimestamp(timestamp)
+            time_str = dt.strftime("%m/%d %H:%M")
+            action = entry.get("action", "?").upper()
+            reason = entry.get("reason", "")
+            old_content = entry.get("old_content")
+            new_content = entry.get("new_content")
+
+            action_color = {"ADD": "#00FF00", "DELETE": "#FF4444", "CHANGE": "#FFAA00"}.get(action, "#AAAAAA")
+            history_html += f'<div style="margin: 8px 0; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 4px;">'
+            history_html += f'<div style="margin-bottom: 6px;"><span style="color: {action_color}; font-weight: bold; font-size: 1.05em;">{action}</span> <span style="color: #888; font-size: 0.85em;">{time_str}</span></div>'
+            history_html += f'<div style="color: #AAA; font-size: 0.9em; margin-bottom: 8px; font-style: italic;">"{reason}"</div>'
+
+            # Show diff with better formatting
+            if action == "ADD" and new_content:
+                escaped_new = new_content.replace('<', '&lt;').replace('>', '&gt;')
+                history_html += f'<div style="font-family: monospace; font-size: 0.85em; padding: 6px; background: rgba(0,255,0,0.1); border-left: 3px solid #00FF00; margin-top: 4px;"><span style="color: #00FF00;">+ {escaped_new}</span></div>'
+            elif action == "DELETE" and old_content:
+                escaped_old = old_content.replace('<', '&lt;').replace('>', '&gt;')
+                history_html += f'<div style="font-family: monospace; font-size: 0.85em; padding: 6px; background: rgba(255,0,0,0.1); border-left: 3px solid #FF4444; margin-top: 4px;"><span style="color: #FF4444;">- {escaped_old}</span></div>'
+            elif action == "CHANGE":
+                if old_content:
+                    escaped_old = old_content.replace('<', '&lt;').replace('>', '&gt;')
+                    history_html += f'<div style="font-family: monospace; font-size: 0.85em; padding: 6px; background: rgba(255,0,0,0.1); border-left: 3px solid #FF4444; margin-top: 4px;"><span style="color: #FF4444;">- {escaped_old}</span></div>'
+                if new_content:
+                    escaped_new = new_content.replace('<', '&lt;').replace('>', '&gt;')
+                    history_html += f'<div style="font-family: monospace; font-size: 0.85em; padding: 6px; background: rgba(0,255,0,0.1); border-left: 3px solid #00FF00;"><span style="color: #00FF00;">+ {escaped_new}</span></div>'
+
+            history_html += '</div>'
+
+        if len(agent.self_reflection_history) > 10:
+            history_html += f'<div style="color: #888; font-size: 0.85em; margin-top: 8px; text-align: center;">... and {len(agent.self_reflection_history) - 10} earlier changes</div>'
+        history_html += '</div>'
+        html_parts.append(history_html)
+    else:
+        html_parts.append('<div style="padding: 12px; background: rgba(100, 100, 100, 0.1); border: 1px solid rgba(100, 100, 100, 0.3); border-radius: 6px; color: #888;">No self-reflection history yet</div>')
+
+    return ''.join(html_parts)
 
 def get_active_agents_display():
     all_agents = agent_manager.get_all_agents()
@@ -2257,161 +2281,168 @@ def create_gradio_ui():
                     # Right column: Agent settings form
                     with gr.Column(scale=2):
                         with gr.Row():
-                            gr.HTML('<div class="panel-header"><h3>Agent Settings</h3></div>')
+                            gr.HTML('<div class="panel-header"><h3>Agent Details</h3></div>')
                             agent_status_display = gr.HTML(value="<span class='status-badge stopped'>N/A</span>")
 
-                        agent_name_input = gr.Textbox(label="Name", placeholder="Enter agent name...")
-                        agent_model_input = gr.Dropdown(
-                            label="Model",
-                            choices=initial_models,
-                            allow_custom_value=True,
-                            value=initial_models[0] if initial_models else None
-                        )
+                        with gr.Tabs() as agent_tabs:
+                            with gr.Tab("Settings", id="settings_tab"):
+                                agent_name_input = gr.Textbox(label="Name", placeholder="Enter agent name...")
+                                agent_model_input = gr.Dropdown(
+                                    label="Model",
+                                    choices=initial_models,
+                                    allow_custom_value=True,
+                                    value=initial_models[0] if initial_models else None
+                                )
 
-                        # Warning message for image models
-                        model_type_warning = gr.Markdown(value="", visible=False)
+                                # Warning message for image models
+                                model_type_warning = gr.Markdown(value="", visible=False)
 
-                        agent_prompt_input = gr.Textbox(
-                            label="System Prompt",
-                            placeholder="Enter system prompt...",
-                            lines=6
-                        )
+                                agent_prompt_input = gr.Textbox(
+                                    label="System Prompt",
+                                    placeholder="Enter system prompt...",
+                                    lines=6
+                                )
 
-                        with gr.Row():
-                            agent_freq_input = gr.Slider(
-                                label="Freq (s)",
-                                minimum=5,
-                                maximum=300,
-                                value=30,
-                                step=5
-                            )
-                            agent_likelihood_input = gr.Slider(
-                                label="Likelihood %",
-                                minimum=0,
-                                maximum=100,
-                                value=50,
-                                step=5
-                            )
-                            agent_max_tokens_input = gr.Slider(
-                                label="Max Tokens",
-                                minimum=50,
-                                maximum=4000,
-                                value=500,
-                                step=50
-                            )
+                                with gr.Row():
+                                    agent_freq_input = gr.Slider(
+                                        label="Freq (s)",
+                                        minimum=5,
+                                        maximum=300,
+                                        value=30,
+                                        step=5
+                                    )
+                                    agent_likelihood_input = gr.Slider(
+                                        label="Likelihood %",
+                                        minimum=0,
+                                        maximum=100,
+                                        value=50,
+                                        step=5
+                                    )
+                                    agent_max_tokens_input = gr.Slider(
+                                        label="Max Tokens",
+                                        minimum=50,
+                                        maximum=4000,
+                                        value=500,
+                                        step=50
+                                    )
 
-                        with gr.Row():
-                            agent_user_attention_input = gr.Slider(
-                                label="User Attention",
-                                minimum=0,
-                                maximum=100,
-                                value=50,
-                                step=5
-                            )
-                            agent_bot_awareness_input = gr.Slider(
-                                label="Bot Awareness",
-                                minimum=0,
-                                maximum=100,
-                                value=50,
-                                step=5
-                            )
-                            agent_message_retention_input = gr.Slider(
-                                label="Retention",
-                                minimum=1,
-                                maximum=10,
-                                value=1,
-                                step=1
-                            )
+                                with gr.Row():
+                                    agent_user_attention_input = gr.Slider(
+                                        label="User Attention",
+                                        minimum=0,
+                                        maximum=100,
+                                        value=50,
+                                        step=5
+                                    )
+                                    agent_bot_awareness_input = gr.Slider(
+                                        label="Bot Awareness",
+                                        minimum=0,
+                                        maximum=100,
+                                        value=50,
+                                        step=5
+                                    )
+                                    agent_message_retention_input = gr.Slider(
+                                        label="Retention",
+                                        minimum=1,
+                                        maximum=10,
+                                        value=1,
+                                        step=1
+                                    )
 
-                        with gr.Row():
-                            agent_user_image_cooldown_input = gr.Slider(
-                                label="User Image CD (s)",
-                                minimum=10,
-                                maximum=300,
-                                value=90,
-                                step=10
-                            )
-                            agent_global_image_cooldown_input = gr.Slider(
-                                label="Global Image CD (s)",
-                                minimum=10,
-                                maximum=300,
-                                value=90,
-                                step=10
-                            )
+                                with gr.Row():
+                                    agent_user_image_cooldown_input = gr.Slider(
+                                        label="User Image CD (s)",
+                                        minimum=10,
+                                        maximum=300,
+                                        value=90,
+                                        step=10
+                                    )
+                                    agent_global_image_cooldown_input = gr.Slider(
+                                        label="Global Image CD (s)",
+                                        minimum=10,
+                                        maximum=300,
+                                        value=90,
+                                        step=10
+                                    )
 
-                        with gr.Row():
-                            agent_allow_spontaneous_images_input = gr.Checkbox(
-                                label="Spontaneous Images",
-                                value=False,
-                                info="Agent can generate images without explicit request"
-                            )
-                            agent_image_gen_turns_input = gr.Slider(
-                                label="Turns Before Roll",
-                                minimum=1,
-                                maximum=20,
-                                value=3,
-                                step=1,
-                                info="Messages before checking for image"
-                            )
-                            agent_image_gen_chance_input = gr.Slider(
-                                label="Chance %",
-                                minimum=1,
-                                maximum=100,
-                                value=25,
-                                step=1,
-                                info="% chance to generate image"
-                            )
+                                with gr.Row():
+                                    agent_allow_spontaneous_images_input = gr.Checkbox(
+                                        label="Spontaneous Images",
+                                        value=False,
+                                        info="Agent can generate images without explicit request"
+                                    )
+                                    agent_image_gen_turns_input = gr.Slider(
+                                        label="Turns Before Roll",
+                                        minimum=1,
+                                        maximum=20,
+                                        value=3,
+                                        step=1,
+                                        info="Messages before checking for image"
+                                    )
+                                    agent_image_gen_chance_input = gr.Slider(
+                                        label="Chance %",
+                                        minimum=1,
+                                        maximum=100,
+                                        value=25,
+                                        step=1,
+                                        info="% chance to generate image"
+                                    )
 
-                        with gr.Row():
-                            agent_allow_spontaneous_videos_input = gr.Checkbox(
-                                label="Spontaneous Videos",
-                                value=False,
-                                info="Agent can generate Sora 2 videos (requires CometAPI key)"
-                            )
-                            agent_video_gen_turns_input = gr.Slider(
-                                label="Turns Before Roll",
-                                minimum=1,
-                                maximum=50,
-                                value=10,
-                                step=1,
-                                info="Messages before checking for video"
-                            )
-                            agent_video_gen_chance_input = gr.Slider(
-                                label="Chance %",
-                                minimum=1,
-                                maximum=100,
-                                value=10,
-                                step=1,
-                                info="% chance to generate video"
-                            )
-                            agent_video_duration_input = gr.Dropdown(
-                                label="Duration",
-                                choices=["4", "8", "12"],
-                                value="4",
-                                info="Seconds"
-                            )
+                                with gr.Row():
+                                    agent_allow_spontaneous_videos_input = gr.Checkbox(
+                                        label="Spontaneous Videos",
+                                        value=False,
+                                        info="Agent can generate Sora 2 videos (requires CometAPI key)"
+                                    )
+                                    agent_video_gen_turns_input = gr.Slider(
+                                        label="Turns Before Roll",
+                                        minimum=1,
+                                        maximum=50,
+                                        value=10,
+                                        step=1,
+                                        info="Messages before checking for video"
+                                    )
+                                    agent_video_gen_chance_input = gr.Slider(
+                                        label="Chance %",
+                                        minimum=1,
+                                        maximum=100,
+                                        value=10,
+                                        step=1,
+                                        info="% chance to generate video"
+                                    )
+                                    agent_video_duration_input = gr.Dropdown(
+                                        label="Duration",
+                                        choices=["4", "8", "12"],
+                                        value="4",
+                                        info="Seconds"
+                                    )
 
-                        with gr.Row():
-                            agent_self_reflection_enabled_input = gr.Checkbox(
-                                label="Self-Reflection Enabled",
-                                value=True,
-                                info="Allow agent to view/modify own prompt"
-                            )
-                            agent_self_reflection_cooldown_input = gr.Slider(
-                                label="Reflection Cooldown (min)",
-                                minimum=1,
-                                maximum=60,
-                                value=15,
-                                step=1,
-                                info="Minutes between self-reflections"
-                            )
+                                with gr.Row():
+                                    agent_self_reflection_enabled_input = gr.Checkbox(
+                                        label="Self-Reflection Enabled",
+                                        value=True,
+                                        info="Allow agent to view/modify own prompt"
+                                    )
+                                    agent_self_reflection_cooldown_input = gr.Slider(
+                                        label="Reflection Cooldown (min)",
+                                        minimum=1,
+                                        maximum=60,
+                                        value=15,
+                                        step=1,
+                                        info="Minutes between self-reflections"
+                                    )
 
-                        with gr.Row():
-                            add_agent_btn = gr.Button("Add New", variant="primary")
-                            update_agent_btn = gr.Button("Save Changes")
-                            delete_agent_btn = gr.Button("Delete", variant="stop")
+                                with gr.Row():
+                                    add_agent_btn = gr.Button("Add New", variant="primary")
+                                    update_agent_btn = gr.Button("Save Changes")
+                                    delete_agent_btn = gr.Button("Delete", variant="stop")
 
-                        agent_action_status = gr.Textbox(label="Status", interactive=False, lines=1)
+                                agent_action_status = gr.Textbox(label="Status", interactive=False, lines=1)
+
+                            with gr.Tab("Status & History", id="status_tab"):
+                                agent_status_details_display = gr.HTML(
+                                    value='<div style="color: #888; padding: 20px; text-align: center;">Select an agent to view status details</div>'
+                                )
 
                 # Refresh stats display
                 def refresh_agents_and_stats():
@@ -2450,13 +2481,21 @@ def create_gradio_ui():
                     fn=on_agent_dataset_select,
                     inputs=[],
                     outputs=[agent_selector, agent_name_input, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_image_gen_turns_input, agent_image_gen_chance_input, agent_allow_spontaneous_videos_input, agent_video_gen_turns_input, agent_video_gen_chance_input, agent_video_duration_input, agent_self_reflection_enabled_input, agent_self_reflection_cooldown_input, agent_status_display]
+                ).then(
+                    fn=get_agent_status_details,
+                    inputs=[agent_selector],
+                    outputs=[agent_status_details_display]
                 )
 
-                # When agent is selected via dropdown, populate form
+                # When agent is selected via dropdown, populate form and status details
                 agent_selector.change(
                     fn=get_agent_details,
                     inputs=[agent_selector],
                     outputs=[agent_name_input, agent_model_input, agent_prompt_input, agent_freq_input, agent_likelihood_input, agent_max_tokens_input, agent_user_attention_input, agent_bot_awareness_input, agent_message_retention_input, agent_user_image_cooldown_input, agent_global_image_cooldown_input, agent_allow_spontaneous_images_input, agent_image_gen_turns_input, agent_image_gen_chance_input, agent_allow_spontaneous_videos_input, agent_video_gen_turns_input, agent_video_gen_chance_input, agent_video_duration_input, agent_self_reflection_enabled_input, agent_self_reflection_cooldown_input, agent_status_display]
+                ).then(
+                    fn=get_agent_status_details,
+                    inputs=[agent_selector],
+                    outputs=[agent_status_details_display]
                 )
 
                 # Update warning and prompt when model changes
@@ -2780,6 +2819,13 @@ def create_gradio_ui():
                     agent_video_gen_chance_input, agent_video_duration_input,
                     agent_self_reflection_enabled_input, agent_self_reflection_cooldown_input,
                     agent_status_display]
+        )
+
+        # Load status details tab content
+        load_event.then(
+            fn=get_agent_status_details,
+            inputs=[agent_selector],
+            outputs=[agent_status_details_display]
         )
 
         # Chain the model warning update to set correct visibility
