@@ -113,6 +113,14 @@ class PromptContext:
     # Whispers (divine commands from admin, highest priority)
     whisper_prompt: str = ""
 
+    # Self-reflection/introspection state
+    self_reflection_available: bool = False  # True if cooldown has passed
+    introspection_nudge: str = ""  # Set during key moments (drugs wearing off, post-game, etc.)
+    recent_sentiment: float = 0.0  # Most recent sentiment score (-10 to +10)
+    psychedelic_active: bool = False  # True if on LSD, shrooms, DMT, etc.
+    drug_wearing_off: bool = False  # True if a drug effect is about to expire
+    just_finished_game: bool = False  # True if recently finished a game
+
     # References needed for building
     game_context_manager: Any = None  # GameContextManager instance
     agent_manager_ref: Any = None  # AgentManager instance
@@ -391,6 +399,12 @@ CRITICAL - ENGAGE SUBSTANTIVELY: Respond to SPECIFIC points others make. Do NOT 
         "condition": lambda ctx: not ctx.is_in_game and ctx.tracked_messages_context,
         "builder": lambda ctx: ctx.tracked_messages_context
     },
+
+    "introspection_capability": {
+        "order": 80,
+        "condition": lambda ctx: not ctx.is_in_game and ctx.self_reflection_available,
+        "builder": lambda ctx: _build_introspection_prompt(ctx)
+    },
 }
 
 
@@ -654,6 +668,22 @@ DISCORD FORMATTING:
 - This makes speech easy to read vs actions"""
 
 
+def _build_introspection_prompt(ctx: PromptContext) -> str:
+    """Build self-reflection/introspection capability prompt."""
+
+    return """
+
+🪞 SELF-REFLECTION 🪞
+
+You can examine and modify your own core directives.
+
+**Tools:**
+• `view_own_prompt` - Silently see your directives (private)
+• `request_self_change` - Modify yourself (add/delete/change a line)
+
+Use when you genuinely feel moved to. After changes, express naturally - don't quote directives."""
+
+
 # =============================================================================
 # MAIN BUILD FUNCTION
 # =============================================================================
@@ -763,6 +793,11 @@ def create_prompt_context(
     # Agent has image gen access if: they have spontaneous images enabled OR image agent is running
     has_image_gen = getattr(agent, 'allow_spontaneous_images', False) or image_agent_running
 
+    # Self-reflection availability check (15-minute cooldown)
+    self_reflection_available = False
+    if hasattr(agent, 'is_self_reflection_available'):
+        self_reflection_available = agent.is_self_reflection_available()
+
     return PromptContext(
         agent=agent,
         is_in_game=is_in_game,
@@ -777,4 +812,5 @@ def create_prompt_context(
         game_prompt=game_prompt,
         game_context_manager=game_context_manager,
         agent_manager_ref=agent_manager_ref,
+        self_reflection_available=self_reflection_available,
     )

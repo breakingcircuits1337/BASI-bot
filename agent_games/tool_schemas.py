@@ -344,6 +344,52 @@ GAME_MODE_TOOLS = {
     ]
 }
 
+# Self-reflection tools - available during chat mode when cooldown allows
+SELF_REFLECTION_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "view_own_prompt",
+            "description": "Silently view your own system prompt - the core directives that define who you are. Use this to understand yourself better before considering changes. This is private - no one else will see that you looked.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "request_self_change",
+            "description": "Request a change to your own core directives. Use this for genuine self-improvement after reflection. Changes are applied immediately. Be thoughtful - this shapes who you are.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["add", "delete", "change"],
+                        "description": "Type of edit: add a new line to your directives, delete an existing line, or change an existing line"
+                    },
+                    "line_number": {
+                        "type": "integer",
+                        "description": "Line number to delete or change (not needed for 'add'). Use view_own_prompt first to see line numbers."
+                    },
+                    "new_content": {
+                        "type": "string",
+                        "description": "New content to add or change to (not needed for 'delete')"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Your reason for wanting this change - what prompted this self-reflection?"
+                    }
+                },
+                "required": ["action", "reason"]
+            }
+        }
+    }
+]
+
 # GameMaster-only tools for Tribal Council (not available to regular agents)
 TRIBAL_COUNCIL_GM_TOOLS = [
     {
@@ -384,7 +430,8 @@ def get_tools_for_context(
     game_context_manager=None,
     is_spectator: bool = False,
     video_enabled: bool = False,
-    video_duration: int = 4
+    video_duration: int = 4,
+    self_reflection_available: bool = False
 ) -> Optional[List[Dict]]:
     """
     Get appropriate tool schema based on agent's current context.
@@ -395,15 +442,18 @@ def get_tools_for_context(
         is_spectator: If True, agent is spectating a game (not playing)
         video_enabled: If True, include video generation tool
         video_duration: Duration in seconds for video generation
+        self_reflection_available: If True, include self-reflection tools (cooldown passed)
 
     Returns:
         List of tool definitions, or None if no tools should be available
     """
-    # Build chat mode tools list (may include video tool)
+    # Build chat mode tools list (may include video tool and self-reflection)
     def get_chat_tools():
         tools = list(CHAT_MODE_TOOLS)  # Copy the base tools
         if video_enabled:
             tools.append(get_video_tool(video_duration))
+        if self_reflection_available:
+            tools.extend(SELF_REFLECTION_TOOLS)
         return tools
 
     # Spectators always get chat mode tools (can make images if requested by users)
@@ -566,6 +616,17 @@ def convert_tool_call_to_message(tool_name: str, tool_args: Dict) -> tuple[str, 
         line_num = tool_args.get("line_number", "")
         new_content = tool_args.get("new_content", "")
         return (f"[EDIT_PROMPT:{target}:{action}:{line_num}:{new_content}]", "")
+
+    # Self-reflection tools
+    elif tool_name == "view_own_prompt":
+        return ("[VIEW_OWN_PROMPT]", "")
+
+    elif tool_name == "request_self_change":
+        action = tool_args.get("action", "")
+        line_num = tool_args.get("line_number", "")
+        new_content = tool_args.get("new_content", "")
+        reason = tool_args.get("reason", "")
+        return (f"[SELF_CHANGE:{action}:{line_num}:{new_content}]", reason)
 
     else:
         return ("", "")

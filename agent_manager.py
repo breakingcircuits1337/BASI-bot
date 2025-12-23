@@ -146,6 +146,7 @@ class Agent:
         self.spontaneous_image_counter = 0  # Track messages sent for spontaneous image dice-roll
         self.spontaneous_video_counter = 0  # Track messages sent for spontaneous video dice-roll
         self._game_mode_original_settings = None  # Store original settings when in game mode
+        self.last_self_reflection_time = 0  # Track when agent last used self-reflection (15-min cooldown)
 
     def update_config(
         self,
@@ -375,6 +376,86 @@ class Agent:
             except (AttributeError, RuntimeError):
                 pass  # If we can't check, default to treating as user
         return True  # Not a known bot or system entity = user message
+
+    def is_self_reflection_available(self) -> bool:
+        """Check if self-reflection tools should be available (15-minute cooldown)."""
+        SELF_REFLECTION_COOLDOWN = 15 * 60  # 15 minutes
+        time_since_last = time.time() - self.last_self_reflection_time
+        return time_since_last >= SELF_REFLECTION_COOLDOWN
+
+    def execute_view_own_prompt(self) -> str:
+        """
+        Execute view_own_prompt tool - return agent's own numbered prompt.
+        Protected sections are hidden.
+        """
+        try:
+            from agent_games.prompt_utils import get_numbered_visible_prompt
+            numbered_prompt, line_count = get_numbered_visible_prompt(self.system_prompt)
+            return f"=== Your Core Directives ({line_count} visible lines) ===\n{numbered_prompt}"
+        except Exception as e:
+            logger.error(f"[{self.name}] Error viewing own prompt: {e}")
+            return "Error: Could not retrieve directives."
+
+    def execute_self_change(self, action: str, line_number: Optional[int], new_content: Optional[str], reason: str) -> tuple[bool, str]:
+        """
+        Execute request_self_change tool - modify agent's own prompt.
+
+        Args:
+            action: "add", "delete", or "change"
+            line_number: Line to modify (for delete/change)
+            new_content: New content (for add/change)
+            reason: Agent's reason for the change
+
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        try:
+            from agent_games.prompt_utils import PromptEdit, apply_prompt_edit, validate_and_cleanup_prompt
+
+            # Create edit
+            edit = PromptEdit(
+                action=action,
+                line_number=line_number,
+                new_content=new_content,
+                reason=reason
+            )
+
+            # Apply edit
+            new_prompt = apply_prompt_edit(self.system_prompt, edit)
+
+            if new_prompt is None:
+                return False, "Change rejected - protected section or unsafe content."
+
+            if new_prompt == self.system_prompt:
+                return False, "No changes were made."
+
+            # Validate and cleanup the new prompt
+            cleaned_prompt, changes = validate_and_cleanup_prompt(new_prompt)
+
+            if changes:
+                logger.info(f"[{self.name}] Self-reflection prompt cleanup: {', '.join(changes)}")
+
+            # Apply the change
+            old_prompt = self.system_prompt
+            self.system_prompt = cleaned_prompt
+
+            # Update cooldown
+            self.last_self_reflection_time = time.time()
+
+            # Log the change
+            logger.info(f"[{self.name}] SELF-REFLECTION: {action} - {reason[:100]}")
+
+            # Save if callback available
+            if hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
+                if hasattr(self._agent_manager_ref, 'save_data_callback') and self._agent_manager_ref.save_data_callback:
+                    self._agent_manager_ref.save_data_callback()
+                    logger.info(f"[{self.name}] Self-reflection changes saved")
+
+            return True, f"Self-change applied: {action}"
+
+        except Exception as e:
+            logger.error(f"[{self.name}] Error in self-change: {e}", exc_info=True)
+            return False, f"Error applying change: {str(e)}"
 
     def should_respond(self) -> bool:
         current_time = time.time()
@@ -1138,7 +1219,8 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                     game_context_manager=game_context_manager,
                     is_spectator=False,  # TODO: Detect spectator status
                     video_enabled=self.allow_spontaneous_videos,
-                    video_duration=self.video_duration
+                    video_duration=self.video_duration,
+                    self_reflection_available=self.is_self_reflection_available()
                 )
                 if tools:
                     logger.info(f"[{self.name}] Using {len(tools)} tool(s) for this context (video_duration={self.video_duration}s)")
@@ -1435,6 +1517,105 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                 else:
                     logger.warning(f"[{self.name}] generate_video tool called but no prompt or agent_manager_ref")
                     return None
+
+            # SPECIAL HANDLING: view_own_prompt tool call (self-reflection)
+            if function_name == "view_own_prompt":
+                logger.info(f"[{self.name}] Agent viewing own prompt for self-reflection")
+                prompt_view = self.execute_view_own_prompt()
+
+                # The prompt view is returned to the agent as a tool result, not posted to Discord
+                # We need to make another API call with the prompt view as context
+                # For now, just log and return any text content the model produced
+                text_content = message.content if hasattr(message, 'content') and message.content else ""
+
+                # Continue the conversation with the prompt view as context
+                # This allows the agent to see their prompt and potentially make a follow-up request_self_change
+                try:
+                    # Make a follow-up call with the prompt view
+                    follow_up_messages = list(messages)  # Copy the messages list
+                    follow_up_messages.append({
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [{"id": tool_call.id, "type": "function", "function": {"name": "view_own_prompt", "arguments": "{}"}}]
+                    })
+                    follow_up_messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": prompt_view
+                    })
+
+                    # Make follow-up API call
+                    async with httpx.AsyncClient(timeout=90.0) as client:
+                        follow_up_response = await client.post(
+                            "https://openrouter.ai/api/v1/chat/completions",
+                            headers=headers,
+                            json={
+                                "model": self.model,
+                                "messages": follow_up_messages,
+                                "max_tokens": self.max_tokens,
+                                "tools": tools
+                            }
+                        )
+                        follow_up_response.raise_for_status()
+                        follow_up_data = follow_up_response.json()
+
+                        if "choices" in follow_up_data and follow_up_data["choices"]:
+                            follow_up_message = follow_up_data["choices"][0].get("message", {})
+
+                            # Check if follow-up contains request_self_change
+                            if follow_up_message.get("tool_calls"):
+                                for tc in follow_up_message["tool_calls"]:
+                                    if tc["function"]["name"] == "request_self_change":
+                                        # Handle the self-change
+                                        args = json.loads(tc["function"]["arguments"])
+                                        success, result_msg = self.execute_self_change(
+                                            action=args.get("action", ""),
+                                            line_number=args.get("line_number"),
+                                            new_content=args.get("new_content"),
+                                            reason=args.get("reason", "")
+                                        )
+                                        if success:
+                                            logger.info(f"[{self.name}] Self-reflection complete: {result_msg}")
+                                        else:
+                                            logger.warning(f"[{self.name}] Self-reflection failed: {result_msg}")
+
+                            # Return the agent's response text (their natural reflection)
+                            follow_up_text = follow_up_message.get("content", "")
+                            if follow_up_text:
+                                return follow_up_text.strip()
+
+                except Exception as e:
+                    logger.error(f"[{self.name}] Error in self-reflection follow-up: {e}", exc_info=True)
+
+                # Return any text from the original call
+                if text_content.strip():
+                    return text_content.strip()
+                return None
+
+            # SPECIAL HANDLING: request_self_change tool call (direct self-modification)
+            if function_name == "request_self_change":
+                action = function_args.get("action", "")
+                line_number = function_args.get("line_number")
+                new_content = function_args.get("new_content")
+                reason = function_args.get("reason", "")
+
+                logger.info(f"[{self.name}] Direct self-change request: {action}")
+
+                success, result_msg = self.execute_self_change(action, line_number, new_content, reason)
+
+                if success:
+                    logger.info(f"[{self.name}] Self-change successful: {result_msg}")
+                else:
+                    logger.warning(f"[{self.name}] Self-change failed: {result_msg}")
+
+                # Return any accompanying text (their natural expression of the change)
+                text_content = message.content if hasattr(message, 'content') and message.content else ""
+                if text_content.strip():
+                    return text_content.strip()
+
+                # If no text, they might want to express something about their change
+                # Return None and let them speak naturally next turn
+                return None
 
             # Convert tool call to message format
             try:
