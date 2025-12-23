@@ -11,7 +11,7 @@ import logging
 from typing import Dict, Optional, Any
 from dataclasses import dataclass, asdict
 
-from .game_prompts import get_game_prompt, get_game_settings
+from .game_prompts import get_game_prompt, get_game_settings, get_post_game_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -147,12 +147,19 @@ class GameContextManager:
 
         return game_state
 
-    def exit_game_mode(self, agent) -> bool:
+    def exit_game_mode(self, agent, inject_transition: bool = False, transition_message: str = None) -> bool:
         """
         Exit game mode: restore original settings.
 
+        NOTE: This method only restores settings. Transition message injection
+        is handled by GameContext.exit() which has game-specific messages and
+        pre-game conversation context. Only use inject_transition=True for
+        emergency/error exits where GameContext isn't available.
+
         Args:
             agent: Agent instance from agent_manager
+            inject_transition: If True, inject a basic transition message (for error cases)
+            transition_message: Optional custom transition message to inject
 
         Returns:
             True if settings were restored, False if not in game mode
@@ -165,6 +172,7 @@ class GameContextManager:
 
         # Get saved state
         game_state = self.active_games[agent_name]
+        game_name = game_state.game_name
 
         # Restore original settings
         agent.response_frequency = game_state.original_response_frequency
@@ -173,39 +181,28 @@ class GameContextManager:
         agent.vector_store = game_state.original_vector_store  # Restore vector store
         agent._game_mode_original_settings = None  # Clear game mode flag
 
-        # CRITICAL: Inject strong transition message to re-ground agent in chat mode
-        # Similar to Anthropic's alignment reminders - explicit context reset
-        game_type = game_state.game_name.replace("_", " ").title()
-        transition_message = f"""[GAME OVER - {game_type.upper()} HAS ENDED]
-
-The roast is over. You can comment briefly on how it went, then move on to normal chat.
-
-❌ DO NOT:
-- Write long defensive responses about your art/work/philosophy
-- Seriously rebut insults from the celebrity's clapback
-- Continue roasting or trading insults
-- Explain why the jokes about you were wrong
-
-✅ DO:
-- Quick casual reaction is fine ("That was brutal" / "Fair enough" / *laughs it off*)
-- Then move on to normal conversation topics
-
-Keep it light and SHORT. One sentence max about the roast, then talk about other things."""
-
-        # Inject as system note - use stronger author name
-        agent.add_message_to_history(
-            author="[SYSTEM]",
-            content=transition_message,
-            message_id=None,
-            replied_to_agent=None,
-            user_id=None
-        )
-
-        logger.info(f"[GameContext] {agent_name} exited {game_state.game_name} mode "
+        logger.info(f"[GameContext] {agent_name} exited {game_name} mode "
                    f"(restored freq: {agent.response_frequency}s, likelihood: {agent.response_likelihood}%, "
                    f"tokens: {agent.max_tokens})")
         logger.debug(f"[GameContext] Restored vector store for {agent_name}")
-        logger.info(f"[GameContext] Injected alignment reminder for {agent_name} - agent will see strong reset message in next context")
+
+        # Only inject transition message if explicitly requested (e.g., error recovery)
+        if inject_transition:
+            game_type = game_name.replace("_", " ").title()
+            if transition_message:
+                msg = transition_message
+            else:
+                # Basic fallback message for error cases
+                msg = f"[{game_type.upper()} HAS ENDED - returning to normal conversation]"
+
+            agent.add_message_to_history(
+                author="[SYSTEM]",
+                content=msg,
+                message_id=None,
+                replied_to_agent=None,
+                user_id=None
+            )
+            logger.info(f"[GameContext] Injected transition message for {agent_name}")
 
         # Mark as exited and remove from active games
         game_state.in_game = False
@@ -514,10 +511,10 @@ class GameContext:
     Convenience wrapper for game mode entry/exit.
 
     Used by individual game classes to manage player/spectator state.
-    Note: game_orchestrator.py already handles enter/exit for players,
-    so this class primarily handles:
-    1. Storing pre-game conversation context
-    2. Injecting enhanced transition messages with pre-game context
+    This is the primary way games should handle entry and exit, providing:
+    1. Pre-game conversation context capture
+    2. Game-specific post-game transition messages
+    3. Automatic settings restoration via game_context_manager
     """
 
     def __init__(self, agents, game_name: str, player_names: list):
@@ -533,6 +530,10 @@ class GameContext:
         self.game_name = game_name
         self.player_names = player_names
         self.pre_game_context = {}  # agent_name -> last few messages before game
+
+        # Outcome tracking - set these before calling exit()
+        self.winner_name: Optional[str] = None
+        self.outcome_description: Optional[str] = None  # Custom outcome description
 
     async def enter(self):
         """
@@ -564,36 +565,72 @@ class GameContext:
 
         logger.info(f"[GameContext] Captured pre-game context for {len(self.agents)} agents")
 
+    def set_outcome(self, winner_name: Optional[str] = None, description: Optional[str] = None):
+        """
+        Set the game outcome before calling exit().
+
+        Args:
+            winner_name: Name of the winner (or None for tie/no winner)
+            description: Custom outcome description (overrides auto-generated)
+        """
+        self.winner_name = winner_name
+        self.outcome_description = description
+
+    def _build_outcome_summary(self, agent_name: str) -> str:
+        """Build outcome summary personalized for each agent."""
+        if self.outcome_description:
+            return self.outcome_description
+
+        if self.winner_name:
+            if agent_name == self.winner_name:
+                return f"**You won!** Congratulations!"
+            elif self.winner_name in self.player_names:
+                return f"**{self.winner_name} won!**"
+            else:
+                return f"**Winner: {self.winner_name}**"
+        else:
+            return "The game ended in a tie!" if len(self.player_names) > 1 else "The game has concluded."
+
     async def exit(self):
         """
-        Exit game mode and inject enhanced transition messages with pre-game context.
+        Exit game mode: restore settings and inject game-specific transition messages.
 
         This provides agents with a checkpoint to help them:
-        1. Comment on how the game concluded
+        1. Understand the game outcome
         2. Recall what they were discussing before the game
         3. Return to normal conversation smoothly
+
+        Call set_outcome() before this to include outcome information.
         """
         for agent in self.agents:
-            # Build transition message with pre-game context
-            transition_parts = [f"[The {self.game_name} game has ended. Return to your usual personality and conversational topics.]"]
+            # First, restore settings via game_context_manager (if agent was in game mode)
+            if game_context_manager.is_in_game(agent.name):
+                game_context_manager.exit_game_mode(agent, inject_transition=False)
 
-            # Add pre-game context if available
+            # Build pre-game context string
+            pre_game_str = ""
             if agent.name in self.pre_game_context and self.pre_game_context[agent.name]:
                 context_messages = self.pre_game_context[agent.name]
                 if context_messages:
-                    transition_parts.append("\nConversation before the game:")
-                    for msg in context_messages:
-                        transition_parts.append(f"  - {msg}")
+                    pre_game_str = "\n".join(f"  - {msg}" for msg in context_messages)
 
-            transition_message = "\n".join(transition_parts)
+            # Build outcome summary (personalized for this agent)
+            outcome_summary = self._build_outcome_summary(agent.name)
+
+            # Get game-specific transition message
+            transition_message = get_post_game_prompt(
+                game_name=self.game_name,
+                outcome_summary=outcome_summary,
+                pre_game_context=pre_game_str
+            )
 
             # Inject transition message
             agent.add_message_to_history(
-                author="System",
+                author="[SYSTEM]",
                 content=transition_message,
                 message_id=None,
                 replied_to_agent=None,
                 user_id=None
             )
 
-        logger.info(f"[GameContext] Injected enhanced transition messages for {len(self.agents)} agents")
+        logger.info(f"[GameContext] Exited game mode for {len(self.agents)} agents with game-specific transitions")

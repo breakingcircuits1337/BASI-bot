@@ -446,6 +446,8 @@ class AgentHangman:
                     pass
             raise
         finally:
+            # Set outcome before exiting so transition message includes result
+            game_context.set_outcome(winner_name=self.winner)
             # Clean up: Exit game mode and restore normal operation with pre-game context
             await game_context.exit()
             logger.info(f"[Hangman] Multiplayer game ended")

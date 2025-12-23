@@ -1140,6 +1140,9 @@ class InterdimensionalCableGame:
         # Game state
         self.state: Optional[IDCCGameState] = None
 
+        # GameContext for post-game transitions
+        self.game_context: Optional[GameContext] = None
+
         # Registration tracking
         self._registration_lock = asyncio.Lock()
         self._join_event = asyncio.Event()
@@ -1197,6 +1200,13 @@ class InterdimensionalCableGame:
                 self.state.phase = "failed"
                 return None
 
+            # Create GameContext for post-game transitions (capture pre-game context for bot participants)
+            bot_agents = [p["agent_obj"] for p in self.state.participants if p["type"] == "bot" and p.get("agent_obj")]
+            if bot_agents:
+                participant_names = [p["name"] for p in self.state.participants]
+                self.game_context = GameContext(bot_agents, "Interdimensional Cable", participant_names)
+                await self.game_context.enter()
+
             # Phase 3: Writers Room (Robot Chicken style - establish Channel Lineup)
             await self._run_writers_room_phase(ctx)
 
@@ -1229,6 +1239,15 @@ class InterdimensionalCableGame:
             self.state.phase = "complete"
             logger.info(f"[IDCC:{self.game_id}] Game completed successfully!")
 
+            # Exit GameContext to inject post-game transition for bot participants
+            if self.game_context:
+                successful_clips = len([c for c in self.state.clips if c.success])
+                self.game_context.set_outcome(
+                    description=f"The broadcast is complete! {successful_clips} clips were created."
+                )
+                await self.game_context.exit()
+                self.game_context = None
+
             # Reset auto-play idle timer so we don't immediately start another game
             if self.game_orchestrator:
                 self.game_orchestrator.update_human_activity()
@@ -1243,6 +1262,13 @@ class InterdimensionalCableGame:
             await self._send_gamemaster_message(
                 f"**ERROR:** Interdimensional Cable game crashed: {str(e)[:200]}"
             )
+
+            # Cleanup GameContext on failure
+            if self.game_context:
+                self.game_context.set_outcome(description="The broadcast was interrupted due to a technical error.")
+                await self.game_context.exit()
+                self.game_context = None
+
             return None
 
         finally:

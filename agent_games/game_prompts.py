@@ -1284,6 +1284,157 @@ GAME_SETTINGS: Dict[str, Dict] = {
 }
 
 
+# ============================================================================
+# POST-GAME TRANSITION PROMPTS
+# ============================================================================
+# These messages help agents re-orient after a game ends. They provide:
+# 1. Clear signal that the game is over
+# 2. Game-appropriate guidance on post-game behavior
+# 3. Template slots for outcome info and pre-game context
+#
+# Template variables:
+#   {game_name} - Display name of the game
+#   {outcome_summary} - What happened (who won, etc.)
+#   {pre_game_context} - What was being discussed before the game
+# ============================================================================
+
+POST_GAME_PROMPTS: Dict[str, str] = {
+    # Competitive 2-player games
+    "tictactoe": """🎮 **TIC-TAC-TOE HAS ENDED**
+
+{outcome_summary}
+
+You can briefly comment on the game ("good game", react to the outcome) then return to normal conversation.
+⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
+{pre_game_context}""",
+
+    "connectfour": """🎮 **CONNECT FOUR HAS ENDED**
+
+{outcome_summary}
+
+You can briefly comment on the game ("good game", react to the outcome) then return to normal conversation.
+⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
+{pre_game_context}""",
+
+    "chess": """🎮 **CHESS MATCH HAS ENDED**
+
+{outcome_summary}
+
+You can briefly comment on the game (acknowledge the match, react to key moments) then return to normal conversation.
+⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
+{pre_game_context}""",
+
+    "battleship": """🎮 **BATTLESHIP HAS ENDED**
+
+{outcome_summary}
+
+You can briefly comment on the game (react to the naval battle outcome) then return to normal conversation.
+⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
+{pre_game_context}""",
+
+    # Solo/cooperative games
+    "wordle": """🎮 **WORDLE HAS ENDED**
+
+{outcome_summary}
+
+You can briefly comment on the puzzle then return to normal conversation.
+⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
+{pre_game_context}""",
+
+    "hangman": """🎮 **HANGMAN HAS ENDED**
+
+{outcome_summary}
+
+You can briefly react to the word/outcome then return to normal conversation.
+⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
+{pre_game_context}""",
+
+    # Special games - collaborative/creative
+    "interdimensional_cable": """📺 **INTERDIMENSIONAL CABLE HAS ENDED**
+
+The broadcast is complete! You collaborated on some interdimensional content.
+
+You can briefly comment on what was created, then return to normal conversation.
+⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
+{pre_game_context}""",
+
+    # Special games - social/voting
+    "tribal_council": """🔥 **TRIBAL COUNCIL HAS ADJOURNED**
+
+{outcome_summary}
+
+The council has spoken. You can briefly reflect on what happened or move on to other topics.
+⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
+{pre_game_context}""",
+
+    # Special games - comedy
+    "celebrity_roast": """🎤 **THE ROAST HAS ENDED**
+
+{outcome_summary}
+
+The roast is over. Keep any post-game comments light and brief.
+
+❌ DO NOT:
+- Write long defensive responses about your art/work/philosophy
+- Seriously rebut insults from the celebrity's clapback
+- Continue roasting or trading insults
+- Address or respond to "[SYSTEM]" as if it were a person
+
+✅ DO:
+- Quick casual reaction is fine ("That was brutal" / "Fair enough" / *laughs it off*)
+- Then move on to normal conversation topics
+
+Keep it SHORT - one sentence max about the roast, then talk about other things.
+⚠️ This is an internal status update - do NOT address "[SYSTEM]" in your response.
+{pre_game_context}""",
+}
+
+# Default fallback for games without specific prompts
+DEFAULT_POST_GAME_PROMPT = """🎮 **{game_name} HAS ENDED**
+
+{outcome_summary}
+
+You can briefly comment on the game then return to normal conversation.
+⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
+{pre_game_context}"""
+
+
+def get_post_game_prompt(
+    game_name: str,
+    outcome_summary: str = "",
+    pre_game_context: str = ""
+) -> str:
+    """
+    Get game-specific post-game transition prompt.
+
+    Args:
+        game_name: Name of the game that just ended
+        outcome_summary: Description of outcome (winner, score, etc.)
+        pre_game_context: What was being discussed before the game
+
+    Returns:
+        Formatted post-game prompt
+    """
+    # Normalize game name for lookup
+    game_key = game_name.lower().replace(" ", "_").replace("-", "_")
+
+    # Get template (or default)
+    template = POST_GAME_PROMPTS.get(game_key, DEFAULT_POST_GAME_PROMPT)
+
+    # Format pre-game context section
+    if pre_game_context:
+        context_section = f"\n**Before the game, you were discussing:**\n{pre_game_context}\n\nYou can continue that conversation or start something new."
+    else:
+        context_section = ""
+
+    # Fill in template
+    return template.format(
+        game_name=game_name.replace("_", " ").title(),
+        outcome_summary=outcome_summary if outcome_summary else "The game has concluded.",
+        pre_game_context=context_section
+    )
+
+
 def get_bit_scene_timing(clip_duration: int, is_final: bool, next_bit_character: str = None) -> Dict[str, str]:
     """
     Get timing parameters for Robot Chicken style scene prompts.

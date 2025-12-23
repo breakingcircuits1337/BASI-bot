@@ -493,7 +493,8 @@ class GameOrchestrator:
                         logger.error(f"[GameOrch] Tribal Council background task error: {e}", exc_info=True)
                     finally:
                         self.active_session = None
-                        logger.info(f"[GameOrch] Tribal Council background task completed")
+                        self.update_human_activity()
+                        logger.info(f"[GameOrch] Tribal Council completed - reset idle timer")
 
                 asyncio.create_task(run_tribal_council_background())
                 logger.info(f"[GameOrch] Tribal Council started as background task")
@@ -519,7 +520,8 @@ class GameOrchestrator:
                         logger.error(f"[GameOrch] Celebrity Roast background task error: {e}", exc_info=True)
                     finally:
                         self.active_session = None
-                        logger.info(f"[GameOrch] Celebrity Roast background task completed")
+                        self.update_human_activity()
+                        logger.info(f"[GameOrch] Celebrity Roast completed - reset idle timer")
 
                 asyncio.create_task(run_roast_background())
                 logger.info(f"[GameOrch] Celebrity Roast started as background task")
@@ -535,24 +537,9 @@ class GameOrchestrator:
             # Game completed
             end_time = time.time()
 
-            # Exit game mode for all players (restore settings but don't inject transition - games handle that now)
-            for player in players:
-                # Restore original settings
-                game_state = game_context_manager.get_game_state(player.name)
-                if game_state:
-                    player.response_frequency = game_state.original_response_frequency
-                    player.response_likelihood = game_state.original_response_likelihood
-                    player.max_tokens = game_state.original_max_tokens
-                    player.vector_store = game_state.original_vector_store
-
-                    logger.info(f"[GameOrch] {player.name} exited {game_state.game_name} mode (restored settings)")
-
-                    # Remove from active games
-                    game_state.in_game = False
-                    del game_context_manager.active_games[player.name]
-
-            # NOTE: Transition messages for ALL participants (players + spectators) are now injected
-            # by the game's GameContext.exit() method, which includes pre-game conversation context
+            # NOTE: Game mode exit and transition messages are handled by each game's
+            # GameContext.exit() method, which restores settings and injects game-specific
+            # post-game prompts with pre-game conversation context.
 
             # Record game results
             winner_name = game_instance.winner if hasattr(game_instance, 'winner') else None
@@ -616,11 +603,15 @@ class GameOrchestrator:
 
         except Exception as e:
             logger.error(f"[GameOrch] Error starting game {game_name}: {e}", exc_info=True)
-            # Make sure to exit game mode on error
+            # Make sure to exit game mode on error with basic transition message
             try:
                 from .game_context import game_context_manager
                 for player in players:
-                    game_context_manager.exit_game_mode(player)
+                    game_context_manager.exit_game_mode(
+                        player,
+                        inject_transition=True,
+                        transition_message=f"[{game_name.upper()} ended due to an error - returning to normal conversation]"
+                    )
             except:
                 pass
             return False

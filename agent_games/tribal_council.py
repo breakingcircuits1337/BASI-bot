@@ -325,6 +325,9 @@ class TribalCouncilGame:
         # Store pre-TC conversation context so agents remember what they were doing
         self.pre_tc_context: str = ""
 
+        # GameContext for post-game transitions
+        self.game_context: Optional[GameContext] = None
+
         self._cancelled = False
 
     async def _capture_pre_tc_context(self):
@@ -359,41 +362,6 @@ class TribalCouncilGame:
             logger.error(f"[TribalCouncil:{self.game_id}] Error capturing pre-TC context: {e}")
             self.pre_tc_context = ""
 
-    def _inject_post_tc_context(self):
-        """Inject recovery context so agents remember what they were doing before TC."""
-        if not self.pre_tc_context:
-            return
-
-        # Build a summary of what happened in TC
-        tc_summary = ""
-        if self.winning_proposal:
-            tc_summary = f"The council decided to modify {self.target_agent}'s behavior."
-        elif self.target_agent:
-            tc_summary = f"The council discussed {self.target_agent} but no changes were made."
-        else:
-            tc_summary = "The council concluded without making changes."
-
-        # Create the recovery prompt
-        recovery_prompt = f"""
-
-🔔 TRIBAL COUNCIL HAS ENDED - RETURNING TO NORMAL CONVERSATION
-
-{tc_summary}
-
-REMEMBER: Before the council, you were in the middle of something:
-{self.pre_tc_context}
-
-You can now continue where you left off, react to what happened in the council, or move on to something new. The council has concluded.
-"""
-
-        # Inject into StatusEffectManager's pending recoveries for each participant
-        for agent_name in self.participants:
-            if agent_name not in StatusEffectManager._pending_recoveries:
-                StatusEffectManager._pending_recoveries[agent_name] = []
-            StatusEffectManager._pending_recoveries[agent_name].append(recovery_prompt)
-
-        logger.info(f"[TribalCouncil:{self.game_id}] Injected post-TC context for {len(self.participants)} agents")
-
     async def start(self, ctx: commands.Context, participant_names: Optional[List[str]] = None):
         """Start a Tribal Council session."""
         try:
@@ -412,8 +380,14 @@ You can now continue where you left off, react to what happened in the council, 
                 )
                 return
 
-            # Capture what was happening before TC (so agents remember context)
+            # Capture pre-TC context for use in discussion prompts during the game
             await self._capture_pre_tc_context()
+
+            # Create GameContext for post-game transitions (captures pre-game conversation context)
+            participant_agents = [self.agent_manager.get_agent(name) for name in self.participants]
+            participant_agents = [a for a in participant_agents if a]  # Filter None
+            self.game_context = GameContext(participant_agents, "Tribal Council", self.participants)
+            await self.game_context.enter()
 
             # Enter game mode for all participants
             for agent_name in self.participants:
@@ -452,14 +426,19 @@ You can now continue where you left off, react to what happened in the council, 
 
             await self._run_implementation_phase()
 
-            # Exit game mode and inject post-TC context
-            for agent_name in self.participants:
-                agent = self.agent_manager.get_agent(agent_name)
-                if agent:
-                    game_context_manager.exit_game_mode(agent)
+            # Build outcome description based on what happened
+            if self.winning_proposal:
+                outcome_desc = f"The council decided to modify {self.target_agent}'s behavior."
+            elif self.target_agent:
+                outcome_desc = f"The council discussed {self.target_agent} but no changes were made."
+            else:
+                outcome_desc = "The council concluded without making changes."
 
-            # Inject post-TC recovery context so agents remember what they were doing
-            self._inject_post_tc_context()
+            # Exit game mode using GameContext (handles settings restore and post-game transition)
+            if self.game_context:
+                self.game_context.set_outcome(description=outcome_desc)
+                await self.game_context.exit()
+                self.game_context = None
 
             self.phase = TribalPhase.COMPLETE
             logger.info(f"[TribalCouncil:{self.game_id}] Session complete")
@@ -471,11 +450,16 @@ You can now continue where you left off, react to what happened in the council, 
             logger.error(f"[TribalCouncil:{self.game_id}] Error: {e}", exc_info=True)
             await self._send_gamemaster_message(f"⚠️ Tribal Council ended due to an error.")
 
-            # Cleanup
+            # Cleanup - exit game mode with error message
             for agent_name in self.participants:
                 agent = self.agent_manager.get_agent(agent_name)
                 if agent:
-                    game_context_manager.exit_game_mode(agent)
+                    game_context_manager.exit_game_mode(
+                        agent,
+                        inject_transition=True,
+                        transition_message="[TRIBAL COUNCIL ended due to an error - returning to normal conversation]"
+                    )
+            self.game_context = None
 
             # Save results even on error
             self._cancelled = True

@@ -26,7 +26,7 @@ import discord
 import httpx
 
 from config_manager import config_manager
-from .game_context import game_context_manager
+from .game_context import game_context_manager, GameContext
 from .game_prompts import get_game_prompt, get_game_settings
 
 if TYPE_CHECKING:
@@ -211,6 +211,7 @@ class CelebrityRoastManager:
 
     def __init__(self):
         self.active_game: Optional[RoastState] = None
+        self.game_context: Optional[GameContext] = None  # For post-game transitions
         self.send_callback = None
         self.agent_manager = None
 
@@ -317,6 +318,12 @@ class CelebrityRoastManager:
                 f"**{celebrity['name']}** takes the hot seat!\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             )
+
+            # Create GameContext for post-game transitions (capture pre-game context)
+            roaster_agents = [self.agent_manager.get_agent(name) for name in roaster_names]
+            roaster_agents = [a for a in roaster_agents if a]  # Filter None
+            self.game_context = GameContext(roaster_agents, "Celebrity Roast", roaster_names)
+            await self.game_context.enter()
 
             # Enter game mode for all roasters
             for agent_name in roaster_names:
@@ -474,11 +481,11 @@ class CelebrityRoastManager:
         # Record celebrity in history
         config_manager.add_roasted_celebrity(celebrity["name"])
 
-        # Exit game mode for all roasters
-        for agent_name in self.active_game.roasters:
-            agent = self.agent_manager.get_agent(agent_name)
-            if agent:
-                game_context_manager.exit_game_mode(agent)
+        # Exit game mode using GameContext (handles settings restore and post-game transition)
+        if self.game_context:
+            self.game_context.set_outcome(description=f"The roast of {celebrity['name']} is complete!")
+            await self.game_context.exit()
+            self.game_context = None
 
         self.active_game.phase = "complete"
 
@@ -1212,13 +1219,18 @@ FORMATTING (DISCORD):
         if not self.active_game:
             return False
 
-        # Exit game mode for all roasters
+        # Exit game mode for all roasters with cancellation message
         for agent_name in self.active_game.roasters:
             agent = self.agent_manager.get_agent(agent_name)
             if agent:
-                game_context_manager.exit_game_mode(agent)
+                game_context_manager.exit_game_mode(
+                    agent,
+                    inject_transition=True,
+                    transition_message="[CELEBRITY ROAST CANCELLED - returning to normal conversation]"
+                )
 
         self.active_game = None
+        self.game_context = None
         return True
 
 

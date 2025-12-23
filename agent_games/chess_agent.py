@@ -14,6 +14,7 @@ import discord
 from discord.ext import commands
 import chess
 from .utils import DiscordColor, DEFAULT_COLOR
+from .game_context import GameContext
 
 logger = __import__('logging').getLogger(__name__)
 
@@ -522,6 +523,12 @@ Choose a move you haven't been playing. Break the pattern NOW!
 
         logger.info(f"[Chess] Game started: {self.white_name} (white) vs {self.black_name} (black)")
 
+        # Enter game mode for players and spectators
+        player_names = [self.white_name, self.black_name]
+        all_participants = list(self.player_map.values()) + (self.spectators or [])
+        game_context = GameContext(all_participants, "Chess", player_names)
+        await game_context.enter()
+
         try:
             while not ctx.bot.is_closed():
 
@@ -768,6 +775,10 @@ Choose a move you haven't been playing. Break the pattern NOW!
                     pass
             raise
         finally:
+            # Set outcome before exiting so transition message includes result
+            game_context.set_outcome(winner_name=self.winner)
+            # Clean up: Exit game mode and restore normal operation with pre-game context
+            await game_context.exit()
             logger.info(f"[Chess] Game ended")
 
         return self.message
