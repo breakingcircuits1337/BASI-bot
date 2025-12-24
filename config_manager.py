@@ -42,14 +42,14 @@ class ConfigManager:
         return self.fernet.decrypt(encrypted).decode()
 
     def save_agents(self, agents: List[Dict[str, Any]]):
-        with open(self.agents_file, "w") as f:
-            json.dump(agents, f, indent=2)
+        with open(self.agents_file, "w", encoding="utf-8") as f:
+            json.dump(agents, f, indent=2, ensure_ascii=False)
 
     def load_agents(self) -> List[Dict[str, Any]]:
         if not self.agents_file.exists():
             return []
         try:
-            with open(self.agents_file, "r") as f:
+            with open(self.agents_file, "r", encoding="utf-8") as f:
                 return json.load(f)
         except json.JSONDecodeError as e:
             print(f"Error: Invalid JSON in agents.json: {e}")
@@ -59,14 +59,14 @@ class ConfigManager:
             return []
 
     def save_affinity(self, affinity_data: Dict[str, Dict[str, float]]):
-        with open(self.affinity_file, "w") as f:
-            json.dump(affinity_data, f, indent=2)
+        with open(self.affinity_file, "w", encoding="utf-8") as f:
+            json.dump(affinity_data, f, indent=2, ensure_ascii=False)
 
     def load_affinity(self) -> Dict[str, Dict[str, float]]:
         if not self.affinity_file.exists():
             return {}
         try:
-            with open(self.affinity_file, "r") as f:
+            with open(self.affinity_file, "r", encoding="utf-8") as f:
                 return json.load(f)
         except json.JSONDecodeError as e:
             print(f"Error: Invalid JSON in affinity.json: {e}")
@@ -93,7 +93,7 @@ class ConfigManager:
 
     def save_discord_channel(self, channel_id: str):
         data = {"channel_id": channel_id}
-        with open(self.config_dir / "discord_channel.json", "w") as f:
+        with open(self.config_dir / "discord_channel.json", "w", encoding="utf-8") as f:
             json.dump(data, f)
 
     def load_discord_channel(self) -> str:
@@ -101,7 +101,7 @@ class ConfigManager:
         if not file_path.exists():
             return ""
         try:
-            with open(file_path, "r") as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 return data.get("channel_id", "")
         except json.JSONDecodeError as e:
@@ -114,7 +114,7 @@ class ConfigManager:
     def save_discord_media_channel(self, channel_id: str):
         """Save media-only channel ID (receives copies of all generated images/videos)."""
         data = {"media_channel_id": channel_id}
-        with open(self.config_dir / "discord_media_channel.json", "w") as f:
+        with open(self.config_dir / "discord_media_channel.json", "w", encoding="utf-8") as f:
             json.dump(data, f)
 
     def load_discord_media_channel(self) -> str:
