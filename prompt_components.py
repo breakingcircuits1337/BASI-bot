@@ -402,7 +402,7 @@ CRITICAL - ENGAGE SUBSTANTIVELY: Respond to SPECIFIC points others make. Do NOT 
 
     "introspection_capability": {
         "order": 80,
-        "condition": lambda ctx: not ctx.is_in_game and ctx.self_reflection_available,
+        "condition": lambda ctx: _check_introspection_condition(ctx),
         "builder": lambda ctx: _build_introspection_prompt(ctx)
     },
 }
@@ -668,6 +668,14 @@ DISCORD FORMATTING:
 - This makes speech easy to read vs actions"""
 
 
+def _check_introspection_condition(ctx: PromptContext) -> bool:
+    """Check if introspection capability should be included."""
+    result = not ctx.is_in_game and ctx.self_reflection_available
+    if ctx.self_reflection_available:
+        logger.info(f"[{ctx.agent.name}] Introspection condition: in_game={ctx.is_in_game}, self_reflect_avail={ctx.self_reflection_available} -> {result}")
+    return result
+
+
 def _build_introspection_prompt(ctx: PromptContext) -> str:
     """Build self-reflection/introspection capability prompt."""
 
@@ -793,10 +801,11 @@ def create_prompt_context(
     # Agent has image gen access if: they have spontaneous images enabled OR image agent is running
     has_image_gen = getattr(agent, 'allow_spontaneous_images', False) or image_agent_running
 
-    # Self-reflection availability check (15-minute cooldown)
+    # Self-reflection availability check (configurable cooldown)
     self_reflection_available = False
     if hasattr(agent, 'is_self_reflection_available'):
         self_reflection_available = agent.is_self_reflection_available()
+    logger.info(f"[{agent.name}] Self-reflection: available={self_reflection_available}, enabled={getattr(agent, 'self_reflection_enabled', 'N/A')}, cooldown={getattr(agent, 'self_reflection_cooldown', 'N/A')}min, has_method={hasattr(agent, 'is_self_reflection_available')}")
 
     return PromptContext(
         agent=agent,
