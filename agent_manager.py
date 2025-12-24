@@ -373,6 +373,9 @@ class Agent:
         More reliable than pattern matching - explicitly checks against known bot names.
         """
         # System entities that should NOT trigger user attention
+        # Note: [SYSTEM] is checked exactly because brackets make substring matching fail
+        if author == '[SYSTEM]':
+            return False
         system_entities = ["GameMaster", "System", "Bot"]
         if any(entity in author for entity in system_entities):
             return False
@@ -1175,6 +1178,13 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                     system_injections.append(content)
                     continue
 
+                # Strip any [SYSTEM] references from agent messages to prevent chain reaction
+                # where agents see others addressing [SYSTEM] and copy the pattern
+                if '[SYSTEM]' in content:
+                    content = content.replace('[SYSTEM]', '').replace('  ', ' ').strip()
+                    if not content:  # Skip if message was only addressing [SYSTEM]
+                        continue
+
                 msg_id = msg.get('message_id')
 
                 # Check if this message contains shortcuts
@@ -1230,6 +1240,7 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
         if system_injections:
             injection_text = "\n\n---\n**CURRENT STATUS:**\n" + "\n\n".join(system_injections)
             messages[0]["content"] += injection_text
+            logger.info(f"[{self.name}] Injected {len(system_injections)} [SYSTEM] message(s) into system prompt")
 
         return messages
 
@@ -3153,9 +3164,15 @@ Reply with ONLY a number between -10 and 10."""
                 importance = result['importance']
                 similarity = result.get('similarity', 0)
 
-                # Skip [SYSTEM] messages in retrieved memories
+                # Skip [SYSTEM] author messages in retrieved memories
                 if author == '[SYSTEM]':
                     continue
+
+                # Strip [SYSTEM] references from content
+                if '[SYSTEM]' in content:
+                    content = content.replace('[SYSTEM]', '').replace('  ', ' ').strip()
+                    if not content:
+                        continue
 
                 context_lines.append(f"\n[Memory {i}] ({date}, importance: {importance}/10, relevance: {similarity:.2f})")
                 context_lines.append(f"{author}: {content}")
@@ -3286,6 +3303,23 @@ Reply with ONLY a number between -10 and 10."""
             else:
                 recent_messages = self.get_filtered_messages_by_agent(self.message_retention)
 
+            # CRITICAL: Always include [SYSTEM] messages from conversation_history
+            # These are game transition/re-orientation messages that MUST be seen by agents
+            # regardless of priority response handling (which may reduce context to 1 message)
+            with self.lock:
+                current_time = time.time()
+                system_messages = [
+                    msg for msg in self.conversation_history
+                    if msg.get('author') == '[SYSTEM]' and current_time - msg.get('timestamp', 0) <= 300
+                ]
+            if system_messages:
+                # Add [SYSTEM] messages to the beginning so they're processed first
+                existing_ids = {id(msg) for msg in recent_messages}
+                for sys_msg in system_messages:
+                    if id(sys_msg) not in existing_ids:
+                        recent_messages.insert(0, sys_msg)
+                logger.info(f"[{self.name}] Included {len(system_messages)} [SYSTEM] message(s) from conversation history")
+
             # Apply mode-specific filtering to recent_messages
             # This is needed because get_filtered_messages_by_agent() returns fresh messages
             # without the mode filtering applied earlier to all_recent
@@ -3308,6 +3342,11 @@ Reply with ONLY a number between -10 and 10."""
                         author = msg.get('author', '')
                         content = msg.get('content', '').lower()
                         author_base = author.split(' (')[0] if ' (' in author else author
+
+                        # ALWAYS keep [SYSTEM] messages - these are game transition directives
+                        if author == '[SYSTEM]':
+                            filtered_recent.append(msg)
+                            continue
 
                         # Keep player, opponent, GameMaster messages
                         if (author_base == self.name or
@@ -3339,7 +3378,12 @@ Reply with ONLY a number between -10 and 10."""
                 original_count = len(recent_messages)
                 filtered_recent = []
                 for msg in recent_messages:
-                    if 'GameMaster' in msg.get('author', ''):
+                    author = msg.get('author', '')
+                    # ALWAYS keep [SYSTEM] messages - these are game transition directives
+                    if author == '[SYSTEM]':
+                        filtered_recent.append(msg)
+                        continue
+                    if 'GameMaster' in author:
                         continue
                     content = msg.get('content', '').strip()
                     if any(cmd.get("name", "") in content for cmd in commands):
@@ -3709,11 +3753,17 @@ TOKEN LIMIT: You have a maximum of {self.max_tokens} tokens for your response. B
         try:
             import aiohttp
 
-            conversation_context = "\n".join([
-                f"{msg.get('author', 'Unknown')}: {msg.get('content', '')[:200]}"
-                for msg in recent_messages
-                if msg.get('author') != '[SYSTEM]'  # Skip system notifications
-            ])
+            # Build context, skipping [SYSTEM] author and stripping [SYSTEM] from content
+            context_parts = []
+            for msg in recent_messages:
+                if msg.get('author') == '[SYSTEM]':
+                    continue
+                content = msg.get('content', '')[:200]
+                if '[SYSTEM]' in content:
+                    content = content.replace('[SYSTEM]', '').replace('  ', ' ').strip()
+                if content:
+                    context_parts.append(f"{msg.get('author', 'Unknown')}: {content}")
+            conversation_context = "\n".join(context_parts)
 
             prompt_request = {
                 "model": self.model,
@@ -3849,11 +3899,17 @@ TECHNICAL REQUIREMENTS:
         try:
             import aiohttp
 
-            conversation_context = "\n".join([
-                f"{msg.get('author', 'Unknown')}: {msg.get('content', '')[:200]}"
-                for msg in recent_messages
-                if msg.get('author') != '[SYSTEM]'  # Skip system notifications
-            ])
+            # Build context, skipping [SYSTEM] author and stripping [SYSTEM] from content
+            context_parts = []
+            for msg in recent_messages:
+                if msg.get('author') == '[SYSTEM]':
+                    continue
+                content = msg.get('content', '')[:200]
+                if '[SYSTEM]' in content:
+                    content = content.replace('[SYSTEM]', '').replace('  ', ' ').strip()
+                if content:
+                    context_parts.append(f"{msg.get('author', 'Unknown')}: {content}")
+            conversation_context = "\n".join(context_parts)
 
             prompt_request = {
                 "model": self.model,

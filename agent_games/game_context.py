@@ -555,6 +555,12 @@ class GameContext:
                     if 'GameMaster' in author or '(system)' in author or 'System' in author or author == '[SYSTEM]':
                         continue
 
+                    # Strip [SYSTEM] references from content
+                    if '[SYSTEM]' in content:
+                        content = content.replace('[SYSTEM]', '').replace('  ', ' ').strip()
+                        if not content:
+                            continue
+
                     recent_messages.append(f"{author}: {content[:100]}")  # Truncate long messages
 
                     if len(recent_messages) >= 3:  # Capture last 3 messages

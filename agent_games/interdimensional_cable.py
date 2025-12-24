@@ -152,29 +152,22 @@ def update_idcc_config(max_clips=None, clip_duration_seconds=None, video_resolut
 
 
 # ============================================================================
-# INTERDIMENSIONAL CABLE REFERENCE - Inspiration for original pitches
+# INTERDIMENSIONAL CABLE - COLLABORATIVE VIDEO CREATION
 # ============================================================================
-# Agents pitch ORIGINAL ideas inspired by these classic Interdimensional Cable bits:
+# Writers room format: agents pitch original parody bits, vote on lineup,
+# then perform scenes that get turned into AI-generated video clips.
 #
-# FORMATS TO USE:
-# - Infomercial (Real Fake Doors, Ants in My Eyes Johnson Electronics)
-# - Restaurant ad (Lil' Bits - tiny food, creepy whisper)
-# - Cop show (Baby Legs - detective with baby legs partnered with Regular Legs)
-# - Talk show (How Did I Get Here? - no one knows how they got there)
-# - Movie trailer (Two Brothers - keeps escalating into nonsense)
-# - Personal space show (host keeps violating his own rule about personal space)
-# - Sitcom parody (Gazorpazorpfield - Garfield but violent and abusive)
-# - Lawyer ad (personal injury lawyer with increasingly specific scenarios)
-# - Cooking show, workout video, news segment, PSA, dating show, etc.
+# FORMAT TYPES (abstract categories, not specific examples):
+# - Infomercial, commercial, PSA, talk show, cooking show, workout video
+# - Cop show, courtroom drama, news segment, movie trailer, dating show
+# - Sitcom parody, cartoon, reality TV, late-night cable access
 #
-# WHAT MAKES THEM WORK:
-# - Committed performance (play it 100% straight)
-# - One absurd premise explored fully
-# - Character has a specific visual look and voice
-# - Clear punchline or button
-# - Self-contained (doesn't need context)
-#
-# Agents should pitch ORIGINAL bits in these formats, not copies of existing ones.
+# WHAT MAKES GOOD BITS:
+# - Parody something SPECIFIC from pop culture (show, mascot, ad, franchise)
+# - One absurd premise explored fully with committed performance
+# - Character has specific visual look and vocal delivery
+# - Clear punchline that lands the joke
+# - Self-contained (doesn't need external context)
 # ============================================================================
 
 
@@ -1870,7 +1863,7 @@ class InterdimensionalCableGame:
             "• VOCAL_SPECS (how they sound)\n"
             "• COMEDIC_HOOK (what's funny)\n"
             "• PUNCHLINE (the landing line)\n\n"
-            "*Think: Real Fake Doors, Ants in My Eyes Johnson, Lil' Bits...*"
+            "*Parody something SPECIFIC from pop culture. Make it WEIRD. Play it STRAIGHT.*"
         )
 
         # Load previously used pitches for silent rejection

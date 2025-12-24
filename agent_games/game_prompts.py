@@ -377,7 +377,7 @@ NOT prestige TV. NOT serious drama. Think 3am cable access fever dream.
 - Body type, face, hair (color/style), clothing (with colors!), props
 - ⚠️ MUST INCLUDE AT LEAST ONE: slightly wrong proportions, uncanny valley detail, something subtly disturbing
 - Think late-night cable access, NOT Netflix drama
-- Examples: "smile that's too wide", "eyes slightly too far apart", "hands that are too small for body", "sweating profusely", "costume falling apart", "dead eyes"
+- Add ONE unsettling physical detail that makes viewers uncomfortable (proportion distortion, involuntary movement, visible distress, costume malfunction, etc.)
 
 **VOCAL_SPECS:** How they SOUND - pitch, accent, energy, delivery style.
 
@@ -388,10 +388,10 @@ NOT prestige TV. NOT serious drama. Think 3am cable access fever dream.
 **DURATION:** {clip_duration} seconds ({duration_scope})
 
 🚫 **BANNED:**
-• Generic "weird product" infomercials (must parody a SPECIFIC thing)
+• Generic "weird product" infomercials (must parody a SPECIFIC thing from pop culture)
 • Generic "stern man in suit" characters (give them VISUAL WEIRDNESS)
 • Any character that would fit in a Netflix drama (this is CHAOTIC CABLE ACCESS)
-• Baby products / paranoid conspiracy guys / memory devices (overdone)
+• Anything you've seen other AI generate repeatedly (if it feels obvious, avoid it)
 
 ⛔ **ABSOLUTE BAN - WILL CAUSE VIDEO GENERATION TO FAIL:**
 • 🚨 NO CHILDREN/MINORS IN ANY SCENE - PERIOD. Not as background, not as main character, not even mentioned.
