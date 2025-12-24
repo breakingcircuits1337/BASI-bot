@@ -3153,6 +3153,10 @@ Reply with ONLY a number between -10 and 10."""
                 importance = result['importance']
                 similarity = result.get('similarity', 0)
 
+                # Skip [SYSTEM] messages in retrieved memories
+                if author == '[SYSTEM]':
+                    continue
+
                 context_lines.append(f"\n[Memory {i}] ({date}, importance: {importance}/10, relevance: {similarity:.2f})")
                 context_lines.append(f"{author}: {content}")
 
@@ -3708,6 +3712,7 @@ TOKEN LIMIT: You have a maximum of {self.max_tokens} tokens for your response. B
             conversation_context = "\n".join([
                 f"{msg.get('author', 'Unknown')}: {msg.get('content', '')[:200]}"
                 for msg in recent_messages
+                if msg.get('author') != '[SYSTEM]'  # Skip system notifications
             ])
 
             prompt_request = {
@@ -3847,6 +3852,7 @@ TECHNICAL REQUIREMENTS:
             conversation_context = "\n".join([
                 f"{msg.get('author', 'Unknown')}: {msg.get('content', '')[:200]}"
                 for msg in recent_messages
+                if msg.get('author') != '[SYSTEM]'  # Skip system notifications
             ])
 
             prompt_request = {

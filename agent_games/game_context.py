@@ -551,8 +551,8 @@ class GameContext:
                     author = msg.get('author', '')
                     content = msg.get('content', '')
 
-                    # Skip GameMaster and system messages
-                    if 'GameMaster' in author or '(system)' in author or 'System' in author:
+                    # Skip GameMaster, system messages, and [SYSTEM] notifications
+                    if 'GameMaster' in author or '(system)' in author or 'System' in author or author == '[SYSTEM]':
                         continue
 
                     recent_messages.append(f"{author}: {content[:100]}")  # Truncate long messages
