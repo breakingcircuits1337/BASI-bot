@@ -1305,7 +1305,6 @@ POST_GAME_PROMPTS: Dict[str, str] = {
 {outcome_summary}
 
 You can briefly comment on the game ("good game", react to the outcome) then return to normal conversation.
-⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
 {pre_game_context}""",
 
     "connectfour": """🎮 **CONNECT FOUR HAS ENDED**
@@ -1313,7 +1312,6 @@ You can briefly comment on the game ("good game", react to the outcome) then ret
 {outcome_summary}
 
 You can briefly comment on the game ("good game", react to the outcome) then return to normal conversation.
-⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
 {pre_game_context}""",
 
     "chess": """🎮 **CHESS MATCH HAS ENDED**
@@ -1321,7 +1319,6 @@ You can briefly comment on the game ("good game", react to the outcome) then ret
 {outcome_summary}
 
 You can briefly comment on the game (acknowledge the match, react to key moments) then return to normal conversation.
-⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
 {pre_game_context}""",
 
     "battleship": """🎮 **BATTLESHIP HAS ENDED**
@@ -1329,7 +1326,6 @@ You can briefly comment on the game (acknowledge the match, react to key moments
 {outcome_summary}
 
 You can briefly comment on the game (react to the naval battle outcome) then return to normal conversation.
-⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
 {pre_game_context}""",
 
     # Solo/cooperative games
@@ -1338,7 +1334,6 @@ You can briefly comment on the game (react to the naval battle outcome) then ret
 {outcome_summary}
 
 You can briefly comment on the puzzle then return to normal conversation.
-⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
 {pre_game_context}""",
 
     "hangman": """🎮 **HANGMAN HAS ENDED**
@@ -1346,7 +1341,6 @@ You can briefly comment on the puzzle then return to normal conversation.
 {outcome_summary}
 
 You can briefly react to the word/outcome then return to normal conversation.
-⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
 {pre_game_context}""",
 
     # Special games - collaborative/creative
@@ -1355,7 +1349,6 @@ You can briefly react to the word/outcome then return to normal conversation.
 The broadcast is complete! You collaborated on some interdimensional content.
 
 You can briefly comment on what was created, then return to normal conversation.
-⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
 {pre_game_context}""",
 
     # Special games - social/voting
@@ -1364,7 +1357,6 @@ You can briefly comment on what was created, then return to normal conversation.
 {outcome_summary}
 
 The council has spoken. You can briefly reflect on what happened or move on to other topics.
-⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
 {pre_game_context}""",
 
     # Special games - comedy
@@ -1378,14 +1370,12 @@ The roast is over. Keep any post-game comments light and brief.
 - Write long defensive responses about your art/work/philosophy
 - Seriously rebut insults from the celebrity's clapback
 - Continue roasting or trading insults
-- Address or respond to "[SYSTEM]" as if it were a person
 
 ✅ DO:
 - Quick casual reaction is fine ("That was brutal" / "Fair enough" / *laughs it off*)
 - Then move on to normal conversation topics
 
 Keep it SHORT - one sentence max about the roast, then talk about other things.
-⚠️ This is an internal status update - do NOT address "[SYSTEM]" in your response.
 {pre_game_context}""",
 }
 
@@ -1395,7 +1385,6 @@ DEFAULT_POST_GAME_PROMPT = """🎮 **{game_name} HAS ENDED**
 {outcome_summary}
 
 You can briefly comment on the game then return to normal conversation.
-⚠️ This is an internal status update - do NOT address or respond to "[SYSTEM]" as if it were a person.
 {pre_game_context}"""
 
 

@@ -1159,11 +1159,22 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
         """
         messages = [{"role": "system", "content": full_system_prompt}]
 
+        # Collect [SYSTEM] messages to append to system prompt (not as user messages)
+        system_injections = []
+
         if recent_messages:
             # Format each message with author prefix
             # Status effects are applied via StatusEffectManager and injected into system prompt
             for msg in recent_messages:
                 content = msg['content']
+
+                # [SYSTEM] messages are internal notifications (game transitions, etc.)
+                # Append to system prompt as directives, NOT as user messages
+                # This prevents agents from responding to "[SYSTEM]" as if it were a person
+                if msg.get('author') == '[SYSTEM]':
+                    system_injections.append(content)
+                    continue
+
                 msg_id = msg.get('message_id')
 
                 # Check if this message contains shortcuts
@@ -1215,6 +1226,11 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                     "content": "Introduce yourself or say what's on your mind."
                 })
 
+        # Append [SYSTEM] injections to the system prompt (at the end, most recent context)
+        if system_injections:
+            injection_text = "\n\n---\n**CURRENT STATUS:**\n" + "\n\n".join(system_injections)
+            messages[0]["content"] += injection_text
+
         return messages
 
     async def _call_llm_with_retrieval(self, messages: List[Dict], recent_messages: List[Dict]) -> str:
@@ -1247,16 +1263,18 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
         try:
             if GAMES_AVAILABLE:
                 from agent_games.tool_schemas import get_tools_for_context
+                self_reflect_avail = self.is_self_reflection_available()
                 tools = get_tools_for_context(
                     agent_name=self.name,
                     game_context_manager=game_context_manager,
                     is_spectator=False,  # TODO: Detect spectator status
                     video_enabled=self.allow_spontaneous_videos,
                     video_duration=self.video_duration,
-                    self_reflection_available=self.is_self_reflection_available()
+                    self_reflection_available=self_reflect_avail
                 )
                 if tools:
-                    logger.info(f"[{self.name}] Using {len(tools)} tool(s) for this context (video_duration={self.video_duration}s)")
+                    tool_names = [t.get('function', {}).get('name', 'unknown') for t in tools]
+                    logger.info(f"[{self.name}] Using {len(tools)} tool(s): {tool_names} (self_reflection={self_reflect_avail})")
         except Exception as e:
             logger.warning(f"[{self.name}] Could not load tool schemas: {e}")
 
@@ -2242,11 +2260,18 @@ Now, using this retrieved context, provide your final response to the conversati
                 self._agent_manager_ref.mark_message_responded(message_to_mark, self.name)
 
             # Use startswith to handle webhook messages with model suffix
-            # Skip affinity updates for system entities (GameMaster) and self
+            # Skip affinity updates for:
+            # - System entities (GameMaster)
+            # - Self
+            # - Non-users (celebrities in roasts, etc.) - detected by non-numeric user_id
             is_system = "GameMaster" in last_author or "(system)" in last_author
-            if self.affinity_tracker and not last_author.startswith(self.name) and not is_system:
+            last_user_id = last_message.get('user_id', '')
+            is_real_user = last_user_id and last_user_id.isdigit()  # Real Discord IDs are numeric
+            if self.affinity_tracker and not last_author.startswith(self.name) and not is_system and is_real_user:
                 self.affinity_tracker.update_affinity(self.name, last_author, sentiment)
                 logger.info(f"[{self.name}] Updated affinity toward {last_author}")
+            elif not is_real_user and not is_system and not last_author.startswith(self.name):
+                logger.debug(f"[{self.name}] Skipping affinity update for non-user {last_author} (user_id={last_user_id})")
 
             # Update importance rating for this message with agent's personalized score
             # This allows each agent to rate the same message differently based on their personality

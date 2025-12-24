@@ -673,15 +673,15 @@ def _build_introspection_prompt(ctx: PromptContext) -> str:
 
     return """
 
-🪞 SELF-REFLECTION 🪞
+🪞 SELF-REFLECTION AVAILABLE 🪞
 
-You can examine and modify your own core directives.
+You have the ability to examine and modify your own core directives. This is a private introspection capability.
 
 **Tools:**
-• `view_own_prompt` - Silently see your directives (private)
-• `request_self_change` - Modify yourself (add/delete/change a line)
+• `view_own_prompt` - See your numbered directives (private, nobody else sees)
+• `request_self_change` - Modify a directive (add/delete/change lines)
 
-Use when you genuinely feel moved to. After changes, express naturally - don't quote directives."""
+Consider using these when something in a conversation resonates deeply, challenges your perspective, or reveals something about yourself you want to change. After making changes, express yourself naturally - don't quote the directives themselves."""
 
 
 # =============================================================================
