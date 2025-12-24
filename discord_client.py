@@ -93,7 +93,7 @@ class DiscordBotClient:
 • `!STARTALL` - Start all agents
 • `!STOPALL` - Stop all agents
 • `!MODEL <agent> <model>` - Change agent's model
-• `!WHISPER <agent> [turns] <msg>` - Divine command (default: 2 turns)
+• `!WHISPER <agent|ALL> [turns] <msg>` - Divine command (default: 2 turns)
 
 **Media Generation:**
 • `!TOGGLEIMAGE <agent>` - Toggle spontaneous image gen
@@ -105,11 +105,11 @@ class DiscordBotClient:
 • `!PRESETS` - List available presets
 • `!LOADPRESET <name>` - Load a preset (starts/stops agents)
 
-**Memory Management:**
+**Memory & History:**
 • `!CLEARVECTOR` - Clear vector memory database
-• `!CLEAREFFECTS` - Clear all status effects
-• `!CLEAREFFECTS <agent>` - Clear effects for one agent
+• `!CLEAREFFECTS [agent]` - Clear status effects
 • `!CLEARGAMES` - Clear game history
+• `!INTROSPECTION [agent]` - View self-reflection history
 
 **Info:**
 • `!COMMANDS` or `!HELP` - Show this help
@@ -310,17 +310,56 @@ class DiscordBotClient:
                 await message.channel.send(f"❌ Error loading preset: {e}")
             return
 
-        # !WHISPER <agent> [turns] <message> - Divine command to agent
+        # !WHISPER <agent|ALL> [turns] <message> - Divine command to agent(s)
         if content_upper.startswith("!WHISPER "):
             from shortcuts_utils import StatusEffectManager
             # Parse: !WHISPER Agent Name [#turns] message here
+            # Or: !WHISPER ALL [#turns] message here
             args = content[9:].strip()  # Remove "!WHISPER "
             if not args:
-                await message.channel.send("❌ Usage: `!WHISPER <Agent Name> [turns] <message>`\nExample: `!WHISPER John McAfee 5 Tell everyone about your crypto schemes`\nDefault: 2 turns")
+                await message.channel.send("❌ Usage: `!WHISPER <Agent Name|ALL> [turns] <message>`\nExamples:\n• `!WHISPER John McAfee 5 Tell everyone about your crypto schemes`\n• `!WHISPER ALL 3 Something strange is happening...`\nDefault: 2 turns")
+                return
+
+            agents = self.agent_manager.get_all_agents()
+
+            # Check for ALL keyword (whisper to all ACTIVE agents)
+            if args.upper().startswith("ALL "):
+                remaining_args = args[4:].strip()
+                if not remaining_args:
+                    await message.channel.send("❌ Please include a message to whisper.\nUsage: `!WHISPER ALL [turns] <message>`")
+                    return
+
+                # Check if first token is a number (turn count)
+                parts = remaining_args.split(None, 1)
+                duration = 2  # default
+                if parts and parts[0].isdigit():
+                    duration = int(parts[0])
+                    remaining_message = parts[1] if len(parts) > 1 else ""
+                else:
+                    remaining_message = remaining_args
+
+                if not remaining_message:
+                    await message.channel.send("❌ Please include a message to whisper.\nUsage: `!WHISPER ALL [turns] <message>`")
+                    return
+
+                # Apply to all ACTIVE agents only
+                active_agents = [a for a in agents if a.is_running]
+                if not active_agents:
+                    await message.channel.send("⚠️ No active agents to whisper to.")
+                    return
+
+                for agent in active_agents:
+                    StatusEffectManager.apply_whisper(agent.name, remaining_message, duration)
+
+                agent_names = ", ".join(a.name for a in active_agents)
+                await message.channel.send(
+                    f"👁️ **Whispered to {len(active_agents)} active agent{'s' if len(active_agents) != 1 else ''}** ({duration} turn{'s' if duration != 1 else ''}):\n"
+                    f"*\"{remaining_message[:200]}{'...' if len(remaining_message) > 200 else ''}\"*\n\n"
+                    f"Agents: {agent_names[:500]}{'...' if len(agent_names) > 500 else ''}"
+                )
                 return
 
             # Match against known agent names (sorted by length, longest first to avoid partial matches)
-            agents = self.agent_manager.get_all_agents()
             agents_sorted = sorted(agents, key=lambda a: len(a.name), reverse=True)
             matched_agent = None
             remaining_message = ""
@@ -396,6 +435,98 @@ class DiscordBotClient:
                     await message.channel.send("⚠️ Game manager not available")
             except Exception as e:
                 await message.channel.send(f"❌ Error clearing game history: {e}")
+            return
+
+        # !INTROSPECTION [agent] - View self-reflection history
+        if content_upper.startswith("!INTROSPECTION"):
+            import datetime
+            agents = self.agent_manager.get_all_agents()
+
+            # Check if specific agent or all
+            if content_upper == "!INTROSPECTION" or content_upper == "!INTROSPECTION ALL":
+                # Show all agents with introspection history
+                agents_with_history = [a for a in agents if getattr(a, 'self_reflection_history', [])]
+
+                if not agents_with_history:
+                    await message.channel.send("📜 No introspection history found for any agent.")
+                    return
+
+                # Build summary for all agents
+                messages_to_send = []
+                current_msg = "**🪞 Introspection History (All Agents)**\n\n"
+
+                for agent in agents_with_history:
+                    history = agent.self_reflection_history
+                    agent_section = f"**{agent.name}** ({len(history)} change{'s' if len(history) != 1 else ''}):\n"
+
+                    for entry in history[-3:]:  # Show last 3 per agent in summary
+                        ts = datetime.datetime.fromtimestamp(entry.get('timestamp', 0)).strftime('%m/%d %H:%M')
+                        action = entry.get('action', '?')
+                        reason = entry.get('reason', 'No reason')[:80]
+                        agent_section += f"• `{ts}` [{action}] {reason}{'...' if len(entry.get('reason', '')) > 80 else ''}\n"
+
+                    if len(history) > 3:
+                        agent_section += f"  *(+{len(history) - 3} more)*\n"
+                    agent_section += "\n"
+
+                    # Check if adding this section would exceed limit
+                    if len(current_msg) + len(agent_section) > 1900:
+                        messages_to_send.append(current_msg)
+                        current_msg = agent_section
+                    else:
+                        current_msg += agent_section
+
+                if current_msg:
+                    messages_to_send.append(current_msg)
+
+                for msg in messages_to_send:
+                    await message.channel.send(msg)
+            else:
+                # Specific agent
+                agent_name = content[14:].strip()  # Remove "!INTROSPECTION "
+                match = next((a for a in agents if a.name.lower() == agent_name.lower()), None)
+
+                if not match:
+                    await message.channel.send(f"❌ Agent not found: **{agent_name}**")
+                    return
+
+                history = getattr(match, 'self_reflection_history', [])
+                if not history:
+                    await message.channel.send(f"📜 No introspection history for **{match.name}**")
+                    return
+
+                # Show detailed history for this agent
+                messages_to_send = []
+                current_msg = f"**🪞 Introspection History: {match.name}** ({len(history)} total)\n\n"
+
+                for i, entry in enumerate(history, 1):
+                    ts = datetime.datetime.fromtimestamp(entry.get('timestamp', 0)).strftime('%Y-%m-%d %H:%M:%S')
+                    action = entry.get('action', '?')
+                    line_num = entry.get('line_number', '?')
+                    old_content = entry.get('old_content', '')
+                    new_content = entry.get('new_content', '')
+                    reason = entry.get('reason', 'No reason')
+
+                    entry_text = f"**{i}. [{action.upper()}]** (Line {line_num}) - {ts}\n"
+                    entry_text += f"**Reason:** {reason[:200]}{'...' if len(reason) > 200 else ''}\n"
+
+                    if old_content:
+                        entry_text += f"**Old:** `{old_content[:100]}{'...' if len(old_content) > 100 else ''}`\n"
+                    if new_content:
+                        entry_text += f"**New:** `{new_content[:100]}{'...' if len(new_content) > 100 else ''}`\n"
+                    entry_text += "\n"
+
+                    if len(current_msg) + len(entry_text) > 1900:
+                        messages_to_send.append(current_msg)
+                        current_msg = entry_text
+                    else:
+                        current_msg += entry_text
+
+                if current_msg:
+                    messages_to_send.append(current_msg)
+
+                for msg in messages_to_send:
+                    await message.channel.send(msg)
             return
 
         # !TOGGLEIMAGE <agent> - Toggle spontaneous image generation

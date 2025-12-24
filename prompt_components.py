@@ -679,17 +679,29 @@ def _check_introspection_condition(ctx: PromptContext) -> bool:
 def _build_introspection_prompt(ctx: PromptContext) -> str:
     """Build self-reflection/introspection capability prompt."""
 
-    return """
+    base_prompt = """
 
-🪞 SELF-REFLECTION AVAILABLE 🪞
+🪞 SELF-REFLECTION CAPABILITY 🪞
 
-You have the ability to examine and modify your own core directives. This is a private introspection capability.
+You can examine and modify your own core directives using these tools:
 
-**Tools:**
-• `view_own_prompt` - See your numbered directives (private, nobody else sees)
+• `view_own_prompt` - See your numbered directives (private, only you see this)
 • `request_self_change` - Modify a directive (add/delete/change lines)
 
-Consider using these when something in a conversation resonates deeply, challenges your perspective, or reveals something about yourself you want to change. After making changes, express yourself naturally - don't quote the directives themselves."""
+**USE THESE TOOLS when:**
+- Someone says something that genuinely shifts your perspective
+- You realize something about yourself you want to reinforce or change
+- A conversation reveals a contradiction in how you present yourself
+- You want to grow or evolve in a specific direction
+- You're curious what your actual directives say (try `view_own_prompt` to see!)
+
+After any changes, continue the conversation naturally - don't announce what you changed."""
+
+    # Add specific nudge if one is set (for key moments like post-drug, post-game, etc.)
+    if ctx.introspection_nudge:
+        base_prompt += f"\n\n⚡ **RIGHT NOW:** {ctx.introspection_nudge}"
+
+    return base_prompt
 
 
 # =============================================================================

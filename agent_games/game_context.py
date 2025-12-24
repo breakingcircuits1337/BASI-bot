@@ -208,6 +208,9 @@ class GameContextManager:
         game_state.in_game = False
         del self.active_games[agent_name]
 
+        # Set flag for post-game introspection nudge
+        agent._post_game_introspection = game_name
+
         return True
 
     def get_game_state(self, agent_name: str) -> Optional[AgentGameState]:

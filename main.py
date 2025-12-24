@@ -1756,7 +1756,7 @@ def _create_presets_tab():
         # Helper to get dataset samples
         def get_preset_dataset_samples():
             names = get_preset_list()
-            return gr.update(samples=[[name] for name in names] if names else [])
+            return gr.Dataset(samples=[[name] for name in names] if names else [])
 
         # Refresh presets list
         refresh_presets_btn.click(
@@ -2550,7 +2550,7 @@ def create_gradio_ui():
 
                 def get_agent_dataset_samples():
                     names = get_agent_choices()
-                    return gr.update(samples=[[name] for name in names] if names else [])
+                    return gr.Dataset(samples=[[name] for name in names] if names else [])
 
                 # Wrapper functions that return updated displays
                 def add_agent_wrapper(name, model, prompt, freq, likelihood, max_tokens, user_att, bot_aw, retention, user_cd, global_cd, spont_img, img_turns, img_chance, spont_vid, vid_turns, vid_chance, vid_dur, self_ref_enabled, self_ref_cooldown):

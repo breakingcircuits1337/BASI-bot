@@ -18,13 +18,20 @@ class AffinityTracker:
         with self.lock:
             return {agent: dict(scores) for agent, scores in self.affinity_scores.items()}
 
-    def update_affinity(self, agent_name: str, target_name: str, sentiment: float):
+    def update_affinity(self, agent_name: str, target_name: str, sentiment: float) -> float:
+        """
+        Update affinity score and return the delta (change amount).
+
+        Returns:
+            The delta (new_score - old_score). Large deltas indicate significant changes.
+        """
         with self.lock:
             sentiment = max(-10, min(10, sentiment))
             current = self.affinity_scores[agent_name][target_name]
             new_score = current + (sentiment * 2)
             new_score = max(-100, min(100, new_score))
             self.affinity_scores[agent_name][target_name] = new_score
+            return new_score - current
 
     def get_affinity(self, agent_name: str, target_name: str) -> float:
         with self.lock:

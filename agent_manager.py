@@ -383,12 +383,17 @@ class Agent:
         # Check if author matches any of our agent names (with or without model suffix)
         if hasattr(self, '_agent_manager_ref') and self._agent_manager_ref:
             try:
+                agent_names = [a.name for a in self._agent_manager_ref.agents.values()]
                 for agent in self._agent_manager_ref.agents.values():
                     # Check exact match or match with model suffix
                     if author == agent.name or author.startswith(f"{agent.name} ("):
                         return False  # This is a bot
-            except (AttributeError, RuntimeError):
-                pass  # If we can't check, default to treating as user
+                # Debug: if we get here, author wasn't found in agents
+                logger.debug(f"[{self.name}] is_user_message: '{author}' not in agents: {agent_names}")
+            except (AttributeError, RuntimeError) as e:
+                logger.warning(f"[{self.name}] is_user_message exception checking agents: {e}")
+        else:
+            logger.warning(f"[{self.name}] is_user_message: no _agent_manager_ref available!")
         return True  # Not a known bot or system entity = user message
 
     def is_self_reflection_available(self) -> bool:
@@ -2279,8 +2284,12 @@ Now, using this retrieved context, provide your final response to the conversati
             last_user_id = last_message.get('user_id', '')
             is_real_user = last_user_id and last_user_id.isdigit()  # Real Discord IDs are numeric
             if self.affinity_tracker and not last_author.startswith(self.name) and not is_system and is_real_user:
-                self.affinity_tracker.update_affinity(self.name, last_author, sentiment)
-                logger.info(f"[{self.name}] Updated affinity toward {last_author}")
+                delta = self.affinity_tracker.update_affinity(self.name, last_author, sentiment)
+                logger.info(f"[{self.name}] Updated affinity toward {last_author} (delta: {delta:+.1f})")
+                # Flag significant affinity changes for introspection nudge
+                if abs(delta) >= 15:
+                    self._significant_affinity_change = (last_author, delta)
+                    logger.info(f"[{self.name}] Significant affinity change detected toward {last_author}")
             elif not is_real_user and not is_system and not last_author.startswith(self.name):
                 logger.debug(f"[{self.name}] Skipping affinity update for non-user {last_author} (user_id={last_user_id})")
 
@@ -2336,6 +2345,27 @@ Now, using this retrieved context, provide your final response to the conversati
                 ctx.status_effect_prompt = effect_prompt
                 ctx.recovery_prompt = recovery_prompt
                 ctx.whisper_prompt = whisper_prompt
+
+                # Set introspection nudge for key moments (recovery = coming down, good time for reflection)
+                if recovery_prompt and self.is_self_reflection_available():
+                    ctx.introspection_nudge = "You're coming down from something. This might be a good moment to reflect on who you are and who you want to be. Try `view_own_prompt` to see your core directives."
+
+                # Post-game introspection nudge (after roasts, debates, etc.)
+                if hasattr(self, '_post_game_introspection') and self._post_game_introspection:
+                    game_name = self._post_game_introspection.replace("_", " ")
+                    if self.is_self_reflection_available():
+                        ctx.introspection_nudge = f"You just finished a {game_name}. Did anything said during the game resonate with you or change how you see yourself? Try `view_own_prompt` to reflect on your core identity."
+                        logger.info(f"[{self.name}] Set post-game introspection nudge for {game_name}")
+                    self._post_game_introspection = None  # Clear flag after use
+
+                # Significant affinity change nudge
+                if hasattr(self, '_significant_affinity_change') and self._significant_affinity_change:
+                    target, delta = self._significant_affinity_change
+                    if self.is_self_reflection_available():
+                        direction = "warming up to" if delta > 0 else "cooling off from"
+                        ctx.introspection_nudge = f"Your feelings toward {target} just shifted significantly. You're {direction} them. Does this reflect something about who you want to be? Try `view_own_prompt` to examine your values."
+                        logger.info(f"[{self.name}] Set affinity change introspection nudge for {target} (delta: {delta:+.1f})")
+                    self._significant_affinity_change = None  # Clear flag after use
 
                 full_system_prompt = build_system_prompt(ctx)
 
