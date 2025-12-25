@@ -1665,6 +1665,41 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                         if follow_up_text:
                             return follow_up_text.strip()
 
+                        # If follow-up had tool calls but no text, make a third call to get conversational response
+                        if hasattr(follow_up_message, 'tool_calls') and follow_up_message.tool_calls:
+                            logger.info(f"[{self.name}] Self-reflection produced tool call but no text, requesting verbal response")
+                            # Build messages including the tool result
+                            final_messages = list(follow_up_messages)
+                            # Add the tool call and result
+                            for tc in follow_up_message.tool_calls:
+                                final_messages.append({
+                                    "role": "assistant",
+                                    "content": None,
+                                    "tool_calls": [{"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}]
+                                })
+                                final_messages.append({
+                                    "role": "tool",
+                                    "tool_call_id": tc.id,
+                                    "content": "Change processed. Now express this moment naturally in character."
+                                })
+
+                            # Third call - no tools, just get text
+                            final_response = await asyncio.wait_for(
+                                asyncio.get_event_loop().run_in_executor(
+                                    None,
+                                    lambda: follow_up_client.chat.completions.create(
+                                        model=self.model,
+                                        messages=final_messages,
+                                        max_tokens=self.max_tokens
+                                    )
+                                ),
+                                timeout=60.0
+                            )
+                            if final_response.choices:
+                                final_text = final_response.choices[0].message.content
+                                if final_text:
+                                    return final_text.strip()
+
                 except Exception as e:
                     logger.error(f"[{self.name}] Error in self-reflection follow-up: {e}", exc_info=True)
 

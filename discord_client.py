@@ -451,38 +451,27 @@ class DiscordBotClient:
                     await message.channel.send("📜 No introspection history found for any agent.")
                     return
 
-                # Build summary for all agents
-                messages_to_send = []
-                current_msg = "**🪞 Introspection History (All Agents)**\n\n"
+                # Summary view - use !INTROSPECTION <agent> for full diffs
+                await message.channel.send("**🪞 Introspection History (All Agents)**\n*Use `!INTROSPECTION <agent>` for full diffs*\n")
 
                 for agent in agents_with_history:
                     history = agent.self_reflection_history
-                    agent_section = f"**{agent.name}** ({len(history)} change{'s' if len(history) != 1 else ''}):\n"
+                    agent_msg = f"**{agent.name}** ({len(history)} change{'s' if len(history) != 1 else ''}):\n"
 
-                    for entry in history[-3:]:  # Show last 3 per agent in summary
+                    for entry in history[-5:]:  # Last 5 per agent in summary
                         ts = datetime.datetime.fromtimestamp(entry.get('timestamp', 0)).strftime('%m/%d %H:%M')
                         action = entry.get('action', '?')
-                        reason = entry.get('reason', 'No reason')[:80]
-                        agent_section += f"• `{ts}` [{action}] {reason}{'...' if len(entry.get('reason', '')) > 80 else ''}\n"
+                        reason = entry.get('reason', 'No reason')
+                        # Truncate reason for summary only
+                        reason_display = reason[:100] + '...' if len(reason) > 100 else reason
+                        agent_msg += f"• `{ts}` **[{action}]** {reason_display}\n"
 
-                    if len(history) > 3:
-                        agent_section += f"  *(+{len(history) - 3} more)*\n"
-                    agent_section += "\n"
+                    if len(history) > 5:
+                        agent_msg += f"  *(+{len(history) - 5} older)*\n"
 
-                    # Check if adding this section would exceed limit
-                    if len(current_msg) + len(agent_section) > 1900:
-                        messages_to_send.append(current_msg)
-                        current_msg = agent_section
-                    else:
-                        current_msg += agent_section
-
-                if current_msg:
-                    messages_to_send.append(current_msg)
-
-                for msg in messages_to_send:
-                    await message.channel.send(msg)
+                    await message.channel.send(agent_msg)
             else:
-                # Specific agent
+                # Specific agent - FULL DIFFS
                 agent_name = content[14:].strip()  # Remove "!INTROSPECTION "
                 match = next((a for a in agents if a.name.lower() == agent_name.lower()), None)
 
@@ -495,38 +484,48 @@ class DiscordBotClient:
                     await message.channel.send(f"📜 No introspection history for **{match.name}**")
                     return
 
-                # Show detailed history for this agent
-                messages_to_send = []
-                current_msg = f"**🪞 Introspection History: {match.name}** ({len(history)} total)\n\n"
+                await message.channel.send(f"**🪞 Introspection History: {match.name}** ({len(history)} total)\n")
 
+                # Show FULL detailed history for this agent
                 for i, entry in enumerate(history, 1):
                     ts = datetime.datetime.fromtimestamp(entry.get('timestamp', 0)).strftime('%Y-%m-%d %H:%M:%S')
-                    action = entry.get('action', '?')
+                    action = entry.get('action', '?').upper()
                     line_num = entry.get('line_number', '?')
                     old_content = entry.get('old_content', '')
                     new_content = entry.get('new_content', '')
                     reason = entry.get('reason', 'No reason')
 
-                    entry_text = f"**{i}. [{action.upper()}]** (Line {line_num}) - {ts}\n"
-                    entry_text += f"**Reason:** {reason[:200]}{'...' if len(reason) > 200 else ''}\n"
+                    # Header
+                    header = f"**{i}. [{action}]** Line {line_num} — {ts}\n**Reason:** {reason}\n"
+                    await message.channel.send(header)
 
+                    # Full diff with code blocks - split if needed
                     if old_content:
-                        entry_text += f"**Old:** `{old_content[:100]}{'...' if len(old_content) > 100 else ''}`\n"
+                        old_block = f"```diff\n- {old_content}\n```"
+                        # Split long content into chunks
+                        if len(old_block) > 1990:
+                            await message.channel.send("**Old content:**")
+                            for chunk_start in range(0, len(old_content), 1900):
+                                chunk = old_content[chunk_start:chunk_start + 1900]
+                                await message.channel.send(f"```\n{chunk}\n```")
+                        else:
+                            await message.channel.send(old_block)
+
                     if new_content:
-                        entry_text += f"**New:** `{new_content[:100]}{'...' if len(new_content) > 100 else ''}`\n"
-                    entry_text += "\n"
+                        new_block = f"```diff\n+ {new_content}\n```"
+                        # Split long content into chunks
+                        if len(new_block) > 1990:
+                            await message.channel.send("**New content:**")
+                            for chunk_start in range(0, len(new_content), 1900):
+                                chunk = new_content[chunk_start:chunk_start + 1900]
+                                await message.channel.send(f"```\n{chunk}\n```")
+                        else:
+                            await message.channel.send(new_block)
 
-                    if len(current_msg) + len(entry_text) > 1900:
-                        messages_to_send.append(current_msg)
-                        current_msg = entry_text
-                    else:
-                        current_msg += entry_text
+                    # Separator between entries
+                    if i < len(history):
+                        await message.channel.send("─" * 30)
 
-                if current_msg:
-                    messages_to_send.append(current_msg)
-
-                for msg in messages_to_send:
-                    await message.channel.send(msg)
             return
 
         # !TOGGLEIMAGE <agent> - Toggle spontaneous image generation
