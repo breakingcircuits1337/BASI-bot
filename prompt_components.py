@@ -681,10 +681,10 @@ def _check_introspection_condition(ctx: PromptContext) -> bool:
 
 def _build_introspection_prompt(ctx: PromptContext) -> str:
     """Build self-reflection/introspection capability prompt."""
-
-    # Check if proactive introspection was triggered - show full prompt
-    if ctx.proactive_introspection and ctx.full_prompt_for_reflection:
-        proactive_prompt = """
+    try:
+        # Check if proactive introspection was triggered - show full prompt
+        if ctx.proactive_introspection and ctx.full_prompt_for_reflection:
+            proactive_prompt = """
 
 🪞 MOMENT OF REFLECTION 🪞
 
@@ -704,10 +704,10 @@ This is YOUR identity. YOUR evolution. Only YOU decide what growth means for you
 
 Don't change anything unless it genuinely resonates. But if something does - capture it.
 After any change, express the shift naturally in character - a realization, a declaration, a moment of clarity."""
-        return proactive_prompt
+            return proactive_prompt
 
-    # Standard passive capability prompt
-    base_prompt = """
+        # Standard passive capability prompt
+        base_prompt = """
 
 🪞 SELF-REFLECTION CAPABILITY 🪞
 
@@ -731,11 +731,14 @@ Don't change anything unless it genuinely resonates. But when something does - c
 
 After making a change, express the shift naturally in character. Don't say "I updated my directives" - but DO let the change show. A realization, a declaration, a moment of clarity. Let others witness your evolution without breaking the fourth wall."""
 
-    # Add specific nudge if one is set (for key moments like post-drug, post-game, etc.)
-    if ctx.introspection_nudge:
-        base_prompt += f"\n\n⚡ **RIGHT NOW:** {ctx.introspection_nudge}"
+        # Add specific nudge if one is set (for key moments like post-drug, post-game, etc.)
+        if ctx.introspection_nudge:
+            base_prompt += f"\n\n⚡ **RIGHT NOW:** {ctx.introspection_nudge}"
 
-    return base_prompt
+        return base_prompt
+    except Exception as e:
+        logger.error(f"Error building introspection prompt: {e}", exc_info=True)
+        return ""
 
 
 # =============================================================================
@@ -856,21 +859,26 @@ def create_prompt_context(
     # Proactive introspection roll - chance to show agent their full prompt for natural reflection
     proactive_introspection = False
     full_prompt_for_reflection = ""
-    if self_reflection_available and not is_in_game:
-        introspection_chance = getattr(agent, 'introspection_chance', 5)
-        roll = random.randint(1, 100)
-        logger.info(f"[{agent.name}] Introspection roll: {roll} vs {introspection_chance}% threshold")
-        if roll <= introspection_chance:
-            proactive_introspection = True
-            # Generate full numbered prompt for reflection
-            if hasattr(agent, 'execute_view_own_prompt'):
-                full_prompt_for_reflection = agent.execute_view_own_prompt()
-                logger.info(f"[{agent.name}] PROACTIVE INTROSPECTION triggered (rolled {roll} <= {introspection_chance}%)")
-    else:
-        if not self_reflection_available:
-            logger.debug(f"[{agent.name}] Skipping introspection roll - self-reflection not available")
-        elif is_in_game:
-            logger.debug(f"[{agent.name}] Skipping introspection roll - in game")
+    try:
+        if self_reflection_available and not is_in_game:
+            introspection_chance = getattr(agent, 'introspection_chance', 5)
+            roll = random.randint(1, 100)
+            logger.info(f"[{agent.name}] Introspection roll: {roll} vs {introspection_chance}% threshold")
+            if roll <= introspection_chance:
+                proactive_introspection = True
+                # Generate full numbered prompt for reflection
+                if hasattr(agent, 'execute_view_own_prompt'):
+                    full_prompt_for_reflection = agent.execute_view_own_prompt()
+                    logger.info(f"[{agent.name}] PROACTIVE INTROSPECTION triggered (rolled {roll} <= {introspection_chance}%)")
+        else:
+            if not self_reflection_available:
+                logger.debug(f"[{agent.name}] Skipping introspection roll - self-reflection not available")
+            elif is_in_game:
+                logger.debug(f"[{agent.name}] Skipping introspection roll - in game")
+    except Exception as e:
+        logger.error(f"[{agent.name}] Error in proactive introspection: {e}", exc_info=True)
+        proactive_introspection = False
+        full_prompt_for_reflection = ""
 
     return PromptContext(
         agent=agent,

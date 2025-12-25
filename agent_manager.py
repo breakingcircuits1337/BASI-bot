@@ -5666,7 +5666,10 @@ Agents are now listening. Address them by first name, last name, or full name to
                             logger.error(f"[AgentManager] Error storing message to vector DB for {agent_name}: {e}")
                     logger.debug(f"[AgentManager] Stored message from {author} to {len(agent_names)} agent vector DBs")
 
-                self._vector_executor.submit(store_to_vector_db)
+                try:
+                    self._vector_executor.submit(store_to_vector_db)
+                except Exception as e:
+                    logger.error(f"[AgentManager] Failed to submit vector store task: {e}")
 
     def add_message_to_image_agents_only(self, author: str, content: str, message_id: Optional[int] = None, replied_to_agent: Optional[str] = None, user_id: Optional[str] = None) -> None:
         """Add message only to agents with image generation models."""
