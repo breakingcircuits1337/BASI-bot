@@ -859,12 +859,18 @@ def create_prompt_context(
     if self_reflection_available and not is_in_game:
         introspection_chance = getattr(agent, 'introspection_chance', 5)
         roll = random.randint(1, 100)
+        logger.info(f"[{agent.name}] Introspection roll: {roll} vs {introspection_chance}% threshold")
         if roll <= introspection_chance:
             proactive_introspection = True
             # Generate full numbered prompt for reflection
             if hasattr(agent, 'execute_view_own_prompt'):
                 full_prompt_for_reflection = agent.execute_view_own_prompt()
                 logger.info(f"[{agent.name}] PROACTIVE INTROSPECTION triggered (rolled {roll} <= {introspection_chance}%)")
+    else:
+        if not self_reflection_available:
+            logger.debug(f"[{agent.name}] Skipping introspection roll - self-reflection not available")
+        elif is_in_game:
+            logger.debug(f"[{agent.name}] Skipping introspection roll - in game")
 
     return PromptContext(
         agent=agent,

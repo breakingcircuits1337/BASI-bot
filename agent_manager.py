@@ -5691,7 +5691,8 @@ Agents are now listening. Address them by first name, last name, or full name to
                 video_gen_chance=agent_data.get("video_gen_chance", 10),
                 video_duration=agent_data.get("video_duration", 4),
                 self_reflection_enabled=agent_data.get("self_reflection_enabled", True),
-                self_reflection_cooldown=agent_data.get("self_reflection_cooldown", 15)
+                self_reflection_cooldown=agent_data.get("self_reflection_cooldown", 15),
+                introspection_chance=agent_data.get("introspection_chance", 5)
             )
             # Load self-reflection history if present
             if name in self.agents and "self_reflection_history" in agent_data:
@@ -5734,7 +5735,8 @@ Agents are now listening. Address them by first name, last name, or full name to
                     video_gen_chance=agent_data.get("video_gen_chance", 10),
                     video_duration=agent_data.get("video_duration", 4),
                     self_reflection_enabled=agent_data.get("self_reflection_enabled", True),
-                    self_reflection_cooldown=agent_data.get("self_reflection_cooldown", 15)
+                    self_reflection_cooldown=agent_data.get("self_reflection_cooldown", 15),
+                    introspection_chance=agent_data.get("introspection_chance", 5)
                 )
                 if success:
                     new_agents.append(name)
