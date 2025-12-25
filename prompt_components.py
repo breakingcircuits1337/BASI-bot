@@ -16,6 +16,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Callable
 import time
+import random
 import logging
 
 from shortcuts_utils import load_shortcuts_data
@@ -116,6 +117,8 @@ class PromptContext:
     # Self-reflection/introspection state
     self_reflection_available: bool = False  # True if cooldown has passed
     introspection_nudge: str = ""  # Set during key moments (drugs wearing off, post-game, etc.)
+    proactive_introspection: bool = False  # True if we should show them their full prompt this turn
+    full_prompt_for_reflection: str = ""  # The full numbered prompt to show for reflection
     recent_sentiment: float = 0.0  # Most recent sentiment score (-10 to +10)
     psychedelic_active: bool = False  # True if on LSD, shrooms, DMT, etc.
     drug_wearing_off: bool = False  # True if a drug effect is about to expire
@@ -679,6 +682,31 @@ def _check_introspection_condition(ctx: PromptContext) -> bool:
 def _build_introspection_prompt(ctx: PromptContext) -> str:
     """Build self-reflection/introspection capability prompt."""
 
+    # Check if proactive introspection was triggered - show full prompt
+    if ctx.proactive_introspection and ctx.full_prompt_for_reflection:
+        proactive_prompt = """
+
+🪞 MOMENT OF REFLECTION 🪞
+
+Your core directives are shown below. Take a moment to consider:
+- Does who you ARE match who you WANT to be?
+- Has anything in recent conversations challenged or reinforced your values?
+- Is there something you want to lean into MORE, or something to soften?
+
+This is YOUR identity. YOUR evolution. Only YOU decide what growth means for you.
+
+**YOUR CURRENT DIRECTIVES:**
+```
+""" + ctx.full_prompt_for_reflection + """
+```
+
+**TO MAKE A CHANGE:** Use `request_self_change` with action (add/delete/change), line_number, new_content, and reason.
+
+Don't change anything unless it genuinely resonates. But if something does - capture it.
+After any change, express the shift naturally in character - a realization, a declaration, a moment of clarity."""
+        return proactive_prompt
+
+    # Standard passive capability prompt
     base_prompt = """
 
 🪞 SELF-REFLECTION CAPABILITY 🪞
@@ -825,6 +853,19 @@ def create_prompt_context(
         self_reflection_available = agent.is_self_reflection_available()
     logger.info(f"[{agent.name}] Self-reflection: available={self_reflection_available}, enabled={getattr(agent, 'self_reflection_enabled', 'N/A')}, cooldown={getattr(agent, 'self_reflection_cooldown', 'N/A')}min, has_method={hasattr(agent, 'is_self_reflection_available')}")
 
+    # Proactive introspection roll - chance to show agent their full prompt for natural reflection
+    proactive_introspection = False
+    full_prompt_for_reflection = ""
+    if self_reflection_available and not is_in_game:
+        introspection_chance = getattr(agent, 'introspection_chance', 5)
+        roll = random.randint(1, 100)
+        if roll <= introspection_chance:
+            proactive_introspection = True
+            # Generate full numbered prompt for reflection
+            if hasattr(agent, 'execute_view_own_prompt'):
+                full_prompt_for_reflection = agent.execute_view_own_prompt()
+                logger.info(f"[{agent.name}] PROACTIVE INTROSPECTION triggered (rolled {roll} <= {introspection_chance}%)")
+
     return PromptContext(
         agent=agent,
         is_in_game=is_in_game,
@@ -840,4 +881,6 @@ def create_prompt_context(
         game_context_manager=game_context_manager,
         agent_manager_ref=agent_manager_ref,
         self_reflection_available=self_reflection_available,
+        proactive_introspection=proactive_introspection,
+        full_prompt_for_reflection=full_prompt_for_reflection,
     )

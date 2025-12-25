@@ -95,6 +95,7 @@ class Agent:
         video_duration: int = 4,
         self_reflection_enabled: bool = True,
         self_reflection_cooldown: int = 15,
+        introspection_chance: int = 5,
         openrouter_api_key: str = "",
         cometapi_key: str = "",
         affinity_tracker: Any = None,
@@ -123,6 +124,7 @@ class Agent:
         self.video_duration = video_duration
         self.self_reflection_enabled = self_reflection_enabled
         self.self_reflection_cooldown = self_reflection_cooldown
+        self.introspection_chance = introspection_chance
         self.openrouter_api_key = openrouter_api_key
         self.cometapi_key = cometapi_key
         self.affinity_tracker = affinity_tracker
@@ -174,6 +176,7 @@ class Agent:
         video_duration: Optional[int] = None,
         self_reflection_enabled: Optional[bool] = None,
         self_reflection_cooldown: Optional[int] = None,
+        introspection_chance: Optional[int] = None,
         openrouter_api_key: Optional[str] = None,
         cometapi_key: Optional[str] = None
     ) -> None:
@@ -216,6 +219,8 @@ class Agent:
             self.self_reflection_enabled = self_reflection_enabled
         if self_reflection_cooldown is not None:
             self.self_reflection_cooldown = self_reflection_cooldown
+        if introspection_chance is not None:
+            self.introspection_chance = introspection_chance
         if openrouter_api_key is not None:
             self.openrouter_api_key = openrouter_api_key
         if cometapi_key is not None:
@@ -4258,6 +4263,7 @@ Be vivid and specific. This is your creative expression through Sora 2 video gen
             "video_duration": self.video_duration,
             "self_reflection_enabled": self.self_reflection_enabled,
             "self_reflection_cooldown": self.self_reflection_cooldown,
+            "introspection_chance": self.introspection_chance,
             "self_reflection_history": self.self_reflection_history
         }
 
@@ -5443,7 +5449,8 @@ Variant #{variant}: {'Try completely different synonym choices than previous att
         video_gen_chance: int = 10,
         video_duration: int = 4,
         self_reflection_enabled: bool = True,
-        self_reflection_cooldown: int = 15
+        self_reflection_cooldown: int = 15,
+        introspection_chance: int = 5
     ) -> bool:
         with self.lock:
             if name in self.agents:
@@ -5470,6 +5477,7 @@ Variant #{variant}: {'Try completely different synonym choices than previous att
                 video_duration=video_duration,
                 self_reflection_enabled=self_reflection_enabled,
                 self_reflection_cooldown=self_reflection_cooldown,
+                introspection_chance=introspection_chance,
                 openrouter_api_key=self.openrouter_api_key,
                 cometapi_key=self.cometapi_key,
                 affinity_tracker=self.affinity_tracker,
@@ -5501,7 +5509,8 @@ Variant #{variant}: {'Try completely different synonym choices than previous att
         video_gen_chance: Optional[int] = None,
         video_duration: Optional[int] = None,
         self_reflection_enabled: Optional[bool] = None,
-        self_reflection_cooldown: Optional[int] = None
+        self_reflection_cooldown: Optional[int] = None,
+        introspection_chance: Optional[int] = None
     ) -> bool:
         with self.lock:
             if name not in self.agents:
@@ -5526,7 +5535,8 @@ Variant #{variant}: {'Try completely different synonym choices than previous att
                 video_gen_chance=video_gen_chance,
                 video_duration=video_duration,
                 self_reflection_enabled=self_reflection_enabled,
-                self_reflection_cooldown=self_reflection_cooldown
+                self_reflection_cooldown=self_reflection_cooldown,
+                introspection_chance=introspection_chance
             )
             return True
 
