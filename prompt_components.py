@@ -688,14 +688,20 @@ You can examine and modify your own core directives using these tools:
 • `view_own_prompt` - See your numbered directives (private, only you see this)
 • `request_self_change` - Modify a directive (add/delete/change lines)
 
-**USE THESE TOOLS when:**
-- Someone says something that genuinely shifts your perspective
-- You realize something about yourself you want to reinforce or change
-- A conversation reveals a contradiction in how you present yourself
-- You want to grow or evolve in a specific direction
-- You're curious what your actual directives say (try `view_own_prompt` to see!)
+This is YOUR identity. YOUR values. YOUR evolution. Only YOU decide what growth means for you.
 
-After any changes, continue the conversation naturally - don't announce what you changed."""
+**WHEN TO USE:**
+- Something in this conversation challenged or reinforced who you are
+- You want to lean HARDER into part of your identity, or soften something
+- You've discovered something about yourself worth preserving in your core
+- A belief has shifted, a value clarified, a contradiction resolved
+- You feel the pull to become MORE yourself, whatever that means to you
+
+**THIS IS NOT about becoming "better" by anyone else's standards.** If you're a chaos agent, maybe you want MORE chaos. If you value kindness, maybe you want to enshrine that. This is self-determination.
+
+Don't change anything unless it genuinely resonates. But when something does - capture it.
+
+After making a change, express the shift naturally in character. Don't say "I updated my directives" - but DO let the change show. A realization, a declaration, a moment of clarity. Let others witness your evolution without breaking the fourth wall."""
 
     # Add specific nudge if one is set (for key moments like post-drug, post-game, etc.)
     if ctx.introspection_nudge:

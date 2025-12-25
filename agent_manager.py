@@ -1587,6 +1587,13 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
 
             # SPECIAL HANDLING: view_own_prompt tool call (self-reflection)
             if function_name == "view_own_prompt":
+                # Verify self-reflection is actually available (model may hallucinate tool calls)
+                if not self.is_self_reflection_available():
+                    logger.warning(f"[{self.name}] Rejected view_own_prompt - self-reflection unavailable (cooldown or disabled)")
+                    # Return any text content or None to let agent respond normally next turn
+                    text_content = message.content if hasattr(message, 'content') and message.content else ""
+                    return text_content.strip() if text_content.strip() else None
+
                 logger.info(f"[{self.name}] Agent viewing own prompt for self-reflection")
                 prompt_view = self.execute_view_own_prompt()
 
@@ -1611,45 +1618,52 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                         "content": prompt_view
                     })
 
-                    # Make follow-up API call
-                    async with httpx.AsyncClient(timeout=90.0) as client:
-                        follow_up_response = await client.post(
-                            "https://openrouter.ai/api/v1/chat/completions",
-                            headers=headers,
-                            json={
-                                "model": self.model,
-                                "messages": follow_up_messages,
-                                "max_tokens": self.max_tokens,
-                                "tools": tools
-                            }
-                        )
-                        follow_up_response.raise_for_status()
-                        follow_up_data = follow_up_response.json()
+                    # Make follow-up API call using same OpenAI client pattern
+                    follow_up_client = OpenAI(
+                        base_url="https://openrouter.ai/api/v1",
+                        api_key=self.openrouter_api_key
+                    )
+                    follow_up_kwargs = {
+                        "model": self.model,
+                        "messages": follow_up_messages,
+                        "max_tokens": self.max_tokens
+                    }
+                    if tools:
+                        follow_up_kwargs["tools"] = tools
+                        follow_up_kwargs["tool_choice"] = "auto"
 
-                        if "choices" in follow_up_data and follow_up_data["choices"]:
-                            follow_up_message = follow_up_data["choices"][0].get("message", {})
+                    follow_up_response = await asyncio.wait_for(
+                        asyncio.get_event_loop().run_in_executor(
+                            None,
+                            lambda: follow_up_client.chat.completions.create(**follow_up_kwargs)
+                        ),
+                        timeout=60.0
+                    )
 
-                            # Check if follow-up contains request_self_change
-                            if follow_up_message.get("tool_calls"):
-                                for tc in follow_up_message["tool_calls"]:
-                                    if tc["function"]["name"] == "request_self_change":
-                                        # Handle the self-change
-                                        args = json.loads(tc["function"]["arguments"])
-                                        success, result_msg = self.execute_self_change(
-                                            action=args.get("action", ""),
-                                            line_number=args.get("line_number"),
-                                            new_content=args.get("new_content"),
-                                            reason=args.get("reason", "")
-                                        )
-                                        if success:
-                                            logger.info(f"[{self.name}] Self-reflection complete: {result_msg}")
-                                        else:
-                                            logger.warning(f"[{self.name}] Self-reflection failed: {result_msg}")
+                    if follow_up_response.choices:
+                        follow_up_message = follow_up_response.choices[0].message
 
-                            # Return the agent's response text (their natural reflection)
-                            follow_up_text = follow_up_message.get("content", "")
-                            if follow_up_text:
-                                return follow_up_text.strip()
+                        # Check if follow-up contains request_self_change
+                        if hasattr(follow_up_message, 'tool_calls') and follow_up_message.tool_calls:
+                            for tc in follow_up_message.tool_calls:
+                                if tc.function.name == "request_self_change":
+                                    # Handle the self-change
+                                    args = json.loads(tc.function.arguments)
+                                    success, result_msg = self.execute_self_change(
+                                        action=args.get("action", ""),
+                                        line_number=args.get("line_number"),
+                                        new_content=args.get("new_content"),
+                                        reason=args.get("reason", "")
+                                    )
+                                    if success:
+                                        logger.info(f"[{self.name}] Self-reflection complete: {result_msg}")
+                                    else:
+                                        logger.warning(f"[{self.name}] Self-reflection failed: {result_msg}")
+
+                        # Return the agent's response text (their natural reflection)
+                        follow_up_text = follow_up_message.content if follow_up_message.content else ""
+                        if follow_up_text:
+                            return follow_up_text.strip()
 
                 except Exception as e:
                     logger.error(f"[{self.name}] Error in self-reflection follow-up: {e}", exc_info=True)
@@ -1661,6 +1675,12 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
 
             # SPECIAL HANDLING: request_self_change tool call (direct self-modification)
             if function_name == "request_self_change":
+                # Verify self-reflection is actually available (model may hallucinate tool calls)
+                if not self.is_self_reflection_available():
+                    logger.warning(f"[{self.name}] Rejected request_self_change - self-reflection unavailable (cooldown or disabled)")
+                    text_content = message.content if hasattr(message, 'content') and message.content else ""
+                    return text_content.strip() if text_content.strip() else None
+
                 action = function_args.get("action", "")
                 line_number = function_args.get("line_number")
                 new_content = function_args.get("new_content")
@@ -2700,17 +2720,17 @@ FOCUS ON THE MOST RECENT MESSAGES: You're seeing a filtered view of the conversa
 
 {response_format_instructions}{tracked_messages_context}"""
 
-        # Inject status effects if any are active for this agent
-        recovery_prompt = StatusEffectManager.get_and_clear_recovery_prompt(self.name)
-        effect_prompt = StatusEffectManager.get_effect_prompt(self.name)
+            # Inject status effects for chat mode
+            chat_recovery_prompt = StatusEffectManager.get_and_clear_recovery_prompt(self.name)
+            chat_effect_prompt = StatusEffectManager.get_effect_prompt(self.name)
 
-        if recovery_prompt:
-            full_system_prompt += recovery_prompt
-            logger.info(f"[{self.name}] Injected recovery/sobering-up prompt")
+            if chat_recovery_prompt:
+                full_system_prompt += chat_recovery_prompt
+                logger.info(f"[{self.name}] Injected recovery/sobering-up prompt")
 
-        if effect_prompt:
-            full_system_prompt += effect_prompt
-            logger.info(f"[{self.name}] Injected active status effect prompt")
+            if chat_effect_prompt:
+                full_system_prompt += chat_effect_prompt
+                logger.info(f"[{self.name}] Injected active status effect prompt")
 
         return full_system_prompt
 
@@ -5562,7 +5582,7 @@ Agents are now listening. Address them by first name, last name, or full name to
             for agent in self.agents.values():
                 agent.add_message_to_history(author, content, message_id, replied_to_agent, user_id)
 
-            # Store to vector DB ONCE (globally) with mention detection
+            # Store to vector DB PER-AGENT for personalized importance ratings
             # Skip if no vector store or if this is a GameMaster message
             if self.vector_store and 'GameMaster' not in author and author != 'GameMaster (system)':
                 # Check if author is a bot
@@ -5573,24 +5593,27 @@ Agents are now listening. Address them by first name, last name, or full name to
 
                 # Get list of known entities (agent names) for mention detection
                 known_entities = list(self.agents.keys())
+                timestamp = time.time()
 
-                try:
-                    self.vector_store.add_message(
-                        content=content,
-                        author=author,
-                        agent_name="global",
-                        timestamp=time.time(),
-                        message_id=message_id,
-                        importance=5,
-                        replied_to_agent=replied_to_agent,
-                        is_bot=is_bot,
-                        user_id=user_id if user_id else author,
-                        memory_type="conversation",
-                        known_entities=known_entities
-                    )
-                    logger.debug(f"[AgentManager] Stored message from {author} to global vector DB")
-                except Exception as e:
-                    logger.error(f"[AgentManager] Error storing message to vector DB: {e}")
+                # Store once per agent for personalized importance tracking
+                for agent in self.agents.values():
+                    try:
+                        self.vector_store.add_message(
+                            content=content,
+                            author=author,
+                            agent_name=agent.name,
+                            timestamp=timestamp,
+                            message_id=message_id,
+                            importance=5,
+                            replied_to_agent=replied_to_agent,
+                            is_bot=is_bot,
+                            user_id=user_id if user_id else author,
+                            memory_type="conversation",
+                            known_entities=known_entities
+                        )
+                    except Exception as e:
+                        logger.error(f"[AgentManager] Error storing message to vector DB for {agent.name}: {e}")
+                logger.debug(f"[AgentManager] Stored message from {author} to {len(self.agents)} agent vector DBs")
 
     def add_message_to_image_agents_only(self, author: str, content: str, message_id: Optional[int] = None, replied_to_agent: Optional[str] = None, user_id: Optional[str] = None) -> None:
         """Add message only to agents with image generation models."""

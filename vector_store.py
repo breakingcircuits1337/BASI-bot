@@ -755,11 +755,11 @@ class VectorStore:
         importance: int
     ) -> bool:
         """
-        Update the importance rating of a specific message for a specific agent.
-        This allows each agent to have their own personalized importance score for the same message.
+        Update the importance rating of a specific message.
+        Note: Messages are stored globally, so importance updates affect the shared score.
 
         Args:
-            agent_name: Which agent is rating this message
+            agent_name: Which agent is rating this message (for logging)
             message_id: Discord message ID
             importance: New importance score (1-10)
 
@@ -767,20 +767,15 @@ class VectorStore:
             True if updated successfully, False otherwise
         """
         try:
-            # Find the message in the vector store
-            conditions = [
-                {"agent_name": agent_name},
-                {"message_id": message_id}
-            ]
-            where_filter = {"$and": conditions}
-
+            # Find the message for this specific agent
             results = self.collection.get(
-                where=where_filter,
+                where={"$and": [{"agent_name": agent_name}, {"message_id": message_id}]},
                 limit=1
             )
 
             if not results['ids'] or len(results['ids']) == 0:
-                logger.warning(f"[VectorStore] Message {message_id} not found for agent {agent_name} to update importance")
+                # This can happen for very recent messages not yet indexed
+                logger.debug(f"[VectorStore] Message {message_id} not found for {agent_name} (may be too recent)")
                 return False
 
             # Get the document ID and metadata
