@@ -7,6 +7,7 @@ import os
 from typing import Dict, List, Optional, Callable, Any, Tuple
 from openai import OpenAI
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import logging
 from vector_store import VectorStore
 from constants import AgentConfig, is_image_model, is_cometapi_image_model, ReactionConfig
@@ -4301,6 +4302,9 @@ class AgentManager:
             logger.error(f"[AgentManager] Failed to initialize vector store: {e}", exc_info=True)
             self.vector_store = None
 
+        # Thread pool for background vector store operations (avoid blocking Discord event loop)
+        self._vector_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="VectorStore")
+
     def mark_message_responded(self, message_id: Optional[int], agent_name: str) -> None:
         """Mark a message as responded to by a specific agent."""
         if not message_id:
@@ -5623,7 +5627,7 @@ Agents are now listening. Address them by first name, last name, or full name to
 
     def add_message_to_all_agents(self, author: str, content: str, message_id: Optional[int] = None, replied_to_agent: Optional[str] = None, user_id: Optional[str] = None) -> None:
         with self.lock:
-            # Add to each agent's conversation history
+            # Add to each agent's conversation history (fast, in-memory)
             for agent in self.agents.values():
                 agent.add_message_to_history(author, content, message_id, replied_to_agent, user_id)
 
@@ -5638,27 +5642,31 @@ Agents are now listening. Address them by first name, last name, or full name to
 
                 # Get list of known entities (agent names) for mention detection
                 known_entities = list(self.agents.keys())
+                agent_names = [a.name for a in self.agents.values()]
                 timestamp = time.time()
 
-                # Store once per agent for personalized importance tracking
-                for agent in self.agents.values():
-                    try:
-                        self.vector_store.add_message(
-                            content=content,
-                            author=author,
-                            agent_name=agent.name,
-                            timestamp=timestamp,
-                            message_id=message_id,
-                            importance=5,
-                            replied_to_agent=replied_to_agent,
-                            is_bot=is_bot,
-                            user_id=user_id if user_id else author,
-                            memory_type="conversation",
-                            known_entities=known_entities
-                        )
-                    except Exception as e:
-                        logger.error(f"[AgentManager] Error storing message to vector DB for {agent.name}: {e}")
-                logger.debug(f"[AgentManager] Stored message from {author} to {len(self.agents)} agent vector DBs")
+                # Run vector store operations in background thread to avoid blocking Discord
+                def store_to_vector_db():
+                    for agent_name in agent_names:
+                        try:
+                            self.vector_store.add_message(
+                                content=content,
+                                author=author,
+                                agent_name=agent_name,
+                                timestamp=timestamp,
+                                message_id=message_id,
+                                importance=5,
+                                replied_to_agent=replied_to_agent,
+                                is_bot=is_bot,
+                                user_id=user_id if user_id else author,
+                                memory_type="conversation",
+                                known_entities=known_entities
+                            )
+                        except Exception as e:
+                            logger.error(f"[AgentManager] Error storing message to vector DB for {agent_name}: {e}")
+                    logger.debug(f"[AgentManager] Stored message from {author} to {len(agent_names)} agent vector DBs")
+
+                self._vector_executor.submit(store_to_vector_db)
 
     def add_message_to_image_agents_only(self, author: str, content: str, message_id: Optional[int] = None, replied_to_agent: Optional[str] = None, user_id: Optional[str] = None) -> None:
         """Add message only to agents with image generation models."""
