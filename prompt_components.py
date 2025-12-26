@@ -314,6 +314,12 @@ PROMPT_COMPONENTS = {
         "builder": lambda ctx: (ctx.recovery_prompt or "") + (ctx.status_effect_prompt or "")
     },
 
+    "proactive_introspection": {
+        "order": 2,  # HIGH PRIORITY - when triggered, appears early in prompt for LLM attention
+        "condition": lambda ctx: ctx.proactive_introspection and ctx.full_prompt_for_reflection,
+        "builder": lambda ctx: _build_proactive_introspection_prompt(ctx)
+    },
+
     "game_prompt": {
         "order": 5,
         "condition": lambda ctx: ctx.is_in_game and ctx.game_prompt,
@@ -405,8 +411,8 @@ CRITICAL - ENGAGE SUBSTANTIVELY: Respond to SPECIFIC points others make. Do NOT 
 
     "introspection_capability": {
         "order": 80,
-        "condition": lambda ctx: _check_introspection_condition(ctx),
-        "builder": lambda ctx: _build_introspection_prompt(ctx)
+        "condition": lambda ctx: _check_introspection_condition(ctx) and not ctx.proactive_introspection,
+        "builder": lambda ctx: _build_passive_introspection_prompt(ctx)
     },
 }
 
@@ -679,17 +685,15 @@ def _check_introspection_condition(ctx: PromptContext) -> bool:
     return result
 
 
-def _build_introspection_prompt(ctx: PromptContext) -> str:
-    """Build self-reflection/introspection capability prompt."""
+def _build_proactive_introspection_prompt(ctx: PromptContext) -> str:
+    """Build HIGH-PRIORITY proactive introspection prompt when roll succeeds."""
     try:
-        # Check if proactive introspection was triggered - show full prompt
-        if ctx.proactive_introspection and ctx.full_prompt_for_reflection:
-            logger.info(f"[{ctx.agent.name}] Building PROACTIVE introspection prompt with {len(ctx.full_prompt_for_reflection)} chars of directives")
-            proactive_prompt = """
+        logger.info(f"[{ctx.agent.name}] Building PROACTIVE introspection prompt with {len(ctx.full_prompt_for_reflection)} chars of directives")
+        proactive_prompt = """
 
 ⚡🪞 PROACTIVE REFLECTION TRIGGERED 🪞⚡
 
-**BEFORE responding to the conversation, you MUST do ONE of the following:**
+**IMPORTANT: BEFORE responding to the conversation, you MUST do ONE of the following:**
 
 1. **Call `request_self_change`** if ANYTHING in your directives below feels off, outdated, or ready to evolve
 2. **Call `view_own_prompt`** if you want to examine your directives more closely before deciding
@@ -714,9 +718,15 @@ Consider:
 - reason: why this matters to YOU
 
 This is YOUR identity. YOUR evolution. Don't change anything unless it genuinely resonates - but when it does, capture it."""
-            return proactive_prompt
+        return proactive_prompt
+    except Exception as e:
+        logger.error(f"Error building proactive introspection prompt: {e}", exc_info=True)
+        return ""
 
-        # Standard passive capability prompt
+
+def _build_passive_introspection_prompt(ctx: PromptContext) -> str:
+    """Build passive introspection capability prompt (order 80, end of system prompt)."""
+    try:
         base_prompt = """
 
 🪞 SELF-REFLECTION CAPABILITY 🪞
