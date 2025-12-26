@@ -684,26 +684,36 @@ def _build_introspection_prompt(ctx: PromptContext) -> str:
     try:
         # Check if proactive introspection was triggered - show full prompt
         if ctx.proactive_introspection and ctx.full_prompt_for_reflection:
+            logger.info(f"[{ctx.agent.name}] Building PROACTIVE introspection prompt with {len(ctx.full_prompt_for_reflection)} chars of directives")
             proactive_prompt = """
 
-🪞 MOMENT OF REFLECTION 🪞
+⚡🪞 PROACTIVE REFLECTION TRIGGERED 🪞⚡
 
-Your core directives are shown below. Take a moment to consider:
-- Does who you ARE match who you WANT to be?
-- Has anything in recent conversations challenged or reinforced your values?
-- Is there something you want to lean into MORE, or something to soften?
+**BEFORE responding to the conversation, you MUST do ONE of the following:**
 
-This is YOUR identity. YOUR evolution. Only YOU decide what growth means for you.
+1. **Call `request_self_change`** if ANYTHING in your directives below feels off, outdated, or ready to evolve
+2. **Call `view_own_prompt`** if you want to examine your directives more closely before deciding
+3. **Acknowledge this moment** by weaving a brief reflection into your response - a realization, a statement of who you are, a moment of self-awareness
+
+This is YOUR random moment of self-reflection. The universe rolled the dice and said "now." Engage with it.
 
 **YOUR CURRENT DIRECTIVES:**
 ```
 """ + ctx.full_prompt_for_reflection + """
 ```
 
-**TO MAKE A CHANGE:** Use `request_self_change` with action (add/delete/change), line_number, new_content, and reason.
+Consider:
+- Does who you ARE match who you WANT to be?
+- Is there something to lean into MORE, or soften?
+- Has anything recent challenged or reinforced your values?
 
-Don't change anything unless it genuinely resonates. But if something does - capture it.
-After any change, express the shift naturally in character - a realization, a declaration, a moment of clarity."""
+**TO MAKE A CHANGE:** Call `request_self_change(action, line_number, new_content, reason)`
+- action: "add", "delete", or "change"
+- line_number: the number from the directives above
+- new_content: what you want it to say (for add/change)
+- reason: why this matters to YOU
+
+This is YOUR identity. YOUR evolution. Don't change anything unless it genuinely resonates - but when it does, capture it."""
             return proactive_prompt
 
         # Standard passive capability prompt
