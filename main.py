@@ -1161,6 +1161,7 @@ def _create_config_tab(openrouter_key_initial: str, cometapi_key_initial: str, i
                     "openai/dall-e-3",
                     "black-forest-labs/flux-1.1-pro",
                     "black-forest-labs/flux-schnell",
+                    "bytedance-seed/seedream-4.5",
                     "sourceful/riverflow-v2-max-preview",
                     "sourceful/riverflow-v2-standard-preview",
                     "sourceful/riverflow-v2-fast-preview",
