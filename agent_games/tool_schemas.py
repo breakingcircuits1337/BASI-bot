@@ -9,6 +9,32 @@ Context-aware tool schemas that change based on agent mode:
 import re
 from typing import Dict, List, Optional
 
+
+# Productivity tools - advanced capabilities for helpful agents
+PRODUCTIVITY_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "search_web",
+            "description": "Search the web for real-time information, facts, or news. Use this when you need current information that is not in your training data.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The search query keywords"
+                    },
+                    "reasoning": {
+                        "type": "string",
+                        "description": "Brief explanation of why you need this information"
+                    }
+                },
+                "required": ["query", "reasoning"]
+            }
+        }
+    }
+]
+
 # Chat mode tools - available during normal conversation
 CHAT_MODE_TOOLS = [
     {
@@ -33,6 +59,7 @@ CHAT_MODE_TOOLS = [
         }
     }
 ]
+
 
 # Video generation tool - added dynamically when video generation is enabled
 def get_video_tool(video_duration: int = 4) -> dict:
@@ -431,8 +458,10 @@ def get_tools_for_context(
     is_spectator: bool = False,
     video_enabled: bool = False,
     video_duration: int = 4,
-    self_reflection_available: bool = False
+    self_reflection_available: bool = False,
+    productivity_enabled: bool = False
 ) -> Optional[List[Dict]]:
+
     """
     Get appropriate tool schema based on agent's current context.
 
@@ -454,6 +483,8 @@ def get_tools_for_context(
             tools.append(get_video_tool(video_duration))
         if self_reflection_available:
             tools.extend(SELF_REFLECTION_TOOLS)
+        if productivity_enabled:
+            tools.extend(PRODUCTIVITY_TOOLS)
         return tools
 
     # Spectators always get chat mode tools (can make images if requested by users)
@@ -627,6 +658,12 @@ def convert_tool_call_to_message(tool_name: str, tool_args: Dict) -> tuple[str, 
         new_content = tool_args.get("new_content", "")
         reason = tool_args.get("reason", "")
         return (f"[SELF_CHANGE:{action}:{line_num}:{new_content}]", reason)
+
+    # Productivity tools
+    elif tool_name == "search_web":
+        query = tool_args.get("query", "")
+        return (f"[SEARCH:{query}]", "")
+
 
     else:
         return ("", "")

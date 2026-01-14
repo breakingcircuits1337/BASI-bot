@@ -13,6 +13,14 @@ import logging
 from vector_store import VectorStore
 from constants import AgentConfig, is_image_model, is_cometapi_image_model, ReactionConfig
 from shortcuts_utils import load_shortcuts_data, load_shortcuts, StatusEffectManager, apply_message_shortcuts, strip_shortcuts_from_message
+import uuid
+from datetime import datetime, timedelta
+
+try:
+    from duckduckgo_search import DDGS
+    SEARCH_AVAILABLE = True
+except ImportError:
+    SEARCH_AVAILABLE = False
 
 # Game context management
 try:
@@ -477,6 +485,30 @@ class Agent:
         except Exception as e:
             logger.error(f"[{self.name}] Error viewing own prompt: {e}")
             return "Error: Could not retrieve directives."
+
+    async def execute_web_search(self, query: str) -> str:
+        """Execute a web search using DuckDuckGo."""
+        if not SEARCH_AVAILABLE:
+            return "Search unavailable: 'duckduckgo-search' package not installed. Ask admin to install it."
+        
+        try:
+            logger.info(f"[{self.name}] Searching DDG for: {query}")
+            # Run in thread to avoid blocking loop
+            results = await asyncio.to_thread(lambda: list(DDGS().text(query, max_results=3)))
+            
+            if not results:
+                return f"No search results found for: {query}"
+            
+            formatted = f"Search Results for '{query}':\n\n"
+            for i, r in enumerate(results, 1):
+                formatted += f"{i}. **{r.get('title', 'Untitled')}**\n"
+                formatted += f"   {r.get('body', 'No description')}\n"
+                formatted += f"   Source: {r.get('href', 'Unknown')}\n\n"
+            
+            return formatted
+        except Exception as e:
+            logger.error(f"[{self.name}] Search failed: {e}")
+            return f"Search failed: {str(e)}"
 
     def execute_self_change(self, action: str, line_number: Optional[int], new_content: Optional[str], reason: str) -> tuple[bool, str]:
         """
@@ -1347,7 +1379,8 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                     is_spectator=False,  # TODO: Detect spectator status
                     video_enabled=self.allow_spontaneous_videos,
                     video_duration=self.video_duration,
-                    self_reflection_available=self_reflect_avail
+                    self_reflection_available=self_reflect_avail,
+                    productivity_enabled=True
                 )
                 if tools:
                     tool_names = [t.get('function', {}).get('name', 'unknown') for t in tools]
@@ -1798,8 +1831,66 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
 
                 # If no text, they might want to express something about their change
                 # Return None and let them speak naturally next turn
+                # If no text, they might want to express something about their change
+                # Return None and let them speak naturally next turn
                 return None
 
+            # SPECIAL HANDLING: search_web tool call
+            if function_name == "search_web":
+                query = function_args.get("query", "")
+                reasoning = function_args.get("reasoning", "")
+                
+                logger.info(f"[{self.name}] Executing web search: {query}")
+                search_result = await self.execute_web_search(query)
+                
+                # Verify if agent also generated text to show user
+                text_content = message.content if hasattr(message, 'content') and message.content else ""
+                
+                # Re-prompt with search results (similar to view_own_prompt pattern)
+                try:
+                    # Make a follow-up call with the search results
+                    follow_up_messages = list(messages)
+                    follow_up_messages.append({
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [{"id": tool_call.id, "type": "function", "function": {"name": "search_web", "arguments": json.dumps(function_args)}}]
+                    })
+                    follow_up_messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": search_result
+                    })
+                    
+                    # Third call - get natural response incorporating search results
+                    follow_up_client = OpenAI(
+                        base_url="https://openrouter.ai/api/v1",
+                        api_key=self.openrouter_api_key
+                    )
+                    
+                    search_response = await asyncio.wait_for(
+                        asyncio.get_event_loop().run_in_executor(
+                            None,
+                            lambda: follow_up_client.chat.completions.create(
+                                model=self.model,
+                                messages=follow_up_messages,
+                                max_tokens=self.max_tokens
+                            )
+                        ),
+                        timeout=60.0
+                    )
+                    
+                    if search_response.choices:
+                        final_text = search_response.choices[0].message.content
+                        if final_text:
+                            return final_text.strip()
+                            
+                except Exception as e:
+                    logger.error(f"[{self.name}] Error in search follow-up: {e}")
+                    if text_content:
+                        return text_content + f"\n\n[System: Search completed: {query}]"
+                
+                return None  # Should have returned above
+            
             # Convert tool call to message format
             try:
                 from agent_games.tool_schemas import convert_tool_call_to_message

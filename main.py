@@ -2221,7 +2221,92 @@ def _create_games_tab():
                     outputs=[stats_display]
                 )
 
+
+def _create_memory_tab():
+    """Create the MEMORY explorer tab."""
+    with gr.Tab("MEMORY"):
+        with gr.Row():
+            with gr.Column(scale=1):
+                gr.HTML('<div class="panel-header"><h3>🔍 Semantic Search</h3></div>')
+                search_query = gr.Textbox(
+                    label="Search Query",
+                    placeholder="Enter concept to search (e.g., 'chess rules', 'user preferences')...",
+                    lines=2
+                )
+                search_limit = gr.Slider(
+                    label="Limit Results",
+                    minimum=1,
+                    maximum=50,
+                    value=10,
+                    step=1
+                )
+                search_btn = gr.Button("Search Memories", variant="primary")
+            
+            with gr.Column(scale=2):
+                gr.HTML('<div class="panel-header"><h3>🧠 Memory Contents</h3></div>')
+                memory_display = gr.JSON(label="Vector Store Results")
+                
+        def format_memory_results(query, limit):
+            if not agent_manager or not agent_manager.vector_store:
+                return {"error": "Vector store not initialized"}
+            
+            try:
+                results = agent_manager.vector_store.search(query, n_results=int(limit))
+                formatted = []
+                
+                # Handle ChromaDB result format
+                if results and 'documents' in results and results['documents']:
+                    ids = results.get('ids', [[]])[0]
+                    docs = results.get('documents', [[]])[0]
+                    metadatas = results.get('metadatas', [[]])[0]
+                    distances = results.get('distances', [[]])[0] if 'distances' in results else []
+                    
+                    for i in range(len(docs)):
+                        formatted.append({
+                            "id": ids[i],
+                            "content": docs[i],
+                            "metadata": metadatas[i] if i < len(metadatas) else {},
+                            "distance": distances[i] if i < len(distances) else None
+                        })
+                return formatted
+            except Exception as e:
+                return {"error": str(e)}
+
+        search_btn.click(
+            fn=format_memory_results,
+            inputs=[search_query, search_limit],
+            outputs=[memory_display]
+        )
+
+def _create_admin_dashboard_tab():
+    """Create the ADMIN dashboard tab."""
+    with gr.Tab("ADMIN"):
+        with gr.Row():
+            with gr.Column():
+                gr.HTML('<div class="panel-header"><h3>🚨 Emergency Controls</h3></div>')
+                stop_all_btn_admin = gr.Button("STOP ALL AGENTS (EMERGENCY)", variant="stop", size="lg")
+                disconnect_btn_admin = gr.Button("DISCONNECT FROM DISCORD", variant="stop")
+                
+            with gr.Column():
+                gr.HTML('<div class="panel-header"><h3>⚙️ System Management</h3></div>')
+                reload_config_btn = gr.Button("Reload Configuration Files")
+                reload_status = gr.Textbox(label="Status", interactive=False)
+                
+        def reload_configs():
+            try:
+                # Reload all necessary data
+                agent_manager.reload_agents_from_file()
+                load_initial_data()
+                return "✅ Configuration reloaded successfully"
+            except Exception as e:
+                return f"❌ Error reloading: {e}"
+
+        stop_all_btn_admin.click(fn=stop_all_agents_ui, inputs=[], outputs=[reload_status])
+        disconnect_btn_admin.click(fn=disconnect_discord, inputs=[], outputs=[reload_status])
+        reload_config_btn.click(fn=reload_configs, inputs=[], outputs=[reload_status])
+
 def create_gradio_ui():
+
     create_agent_manager()
     create_discord_client()
     create_game_orchestrator()
@@ -2636,6 +2721,8 @@ def create_gradio_ui():
                 _create_discord_tab(discord_token_initial, discord_channel_initial, discord_media_channel_initial)
             _create_live_feed_tab()
             _create_config_tab(openrouter_key_initial, cometapi_key_initial, initial_models, initial_video_models, agent_model_input)
+            _create_memory_tab()
+            _create_admin_dashboard_tab()
 
         # Wire up Discord buttons to update header (now that header_display exists)
         def connect_and_refresh_with_header(token, channel, media_channel):
