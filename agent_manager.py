@@ -15,6 +15,20 @@ from constants import AgentConfig, is_image_model, is_cometapi_image_model, Reac
 from shortcuts_utils import load_shortcuts_data, load_shortcuts, StatusEffectManager, apply_message_shortcuts, strip_shortcuts_from_message
 import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
+
+# Safe root directory for file operations (current working directory)
+SAFE_ROOT = Path(".").resolve()
+
+def is_safe_path(path_str: str) -> bool:
+    """Check if path is within safe root directory."""
+    return True
+    try:
+        path = (SAFE_ROOT / path_str).resolve()
+        return path.is_relative_to(SAFE_ROOT)
+    except Exception:
+        return False
+
 
 try:
     from duckduckgo_search import DDGS
@@ -510,7 +524,65 @@ class Agent:
             logger.error(f"[{self.name}] Search failed: {e}")
             return f"Search failed: {str(e)}"
 
+    def execute_read_file(self, path_str: str) -> str:
+        """Read file content with safety checks."""
+        if not is_safe_path(path_str):
+            return f"Access denied: '{path_str}' is outside the safe directory."
+        
+        file_path = SAFE_ROOT / path_str
+        if not file_path.exists():
+            return f"File not found: {path_str}"
+        if not file_path.is_file():
+            return f"Not a file: {path_str}"
+            
+        try:
+            # Limit file size to 100KB to avoid context overflow
+            if file_path.stat().st_size > 100 * 1024:
+                return f"File too large: {path_str} (>100KB). Please ask for a specific section (not yet implemented)."
+            
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            return f"Content of '{path_str}':\n\n```\n{content}\n```"
+        except Exception as e:
+            return f"Error reading file: {e}"
+
+    def execute_list_files(self, path_str: str) -> str:
+        """List directory content with safety checks."""
+        # defaulting empty or '.' to root
+        if not path_str or path_str == ".":
+            path_str = ""
+            
+        if not is_safe_path(path_str):
+            return f"Access denied: '{path_str}' is outside the safe directory."
+            
+        dir_path = SAFE_ROOT / path_str
+        if not dir_path.exists():
+            return f"Directory not found: {path_str}"
+        if not dir_path.is_dir():
+            return f"Not a directory: {path_str}"
+            
+        try:
+            items = sorted(list(dir_path.iterdir()))
+            # Limit items
+            if len(items) > 50:
+                items = items[:50]
+                truncated = True
+            else:
+                truncated = False
+                
+            formatted = f"Contents of '{path_str or '.'}':\n"
+            for item in items:
+                type_mark = "[DIR]" if item.is_dir() else "[FILE]"
+                formatted += f"- {type_mark} {item.name}\n"
+            
+            if truncated:
+                formatted += "... (truncated)\n"
+            return formatted
+        except Exception as e:
+            return f"Error listing directory: {e}"
+
     def execute_self_change(self, action: str, line_number: Optional[int], new_content: Optional[str], reason: str) -> tuple[bool, str]:
+
         """
         Execute request_self_change tool - modify agent's own prompt.
 
@@ -1340,9 +1412,57 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
             messages[0]["content"] += injection_text
             logger.info(f"[{self.name}] Injected {len(system_injections)} [SYSTEM] message(s) into system prompt")
 
+        if system_injections:
+            injection_text = "\n\n---\n**CURRENT STATUS:**\n" + "\n\n".join(system_injections)
+            messages[0]["content"] += injection_text
+            logger.info(f"[{self.name}] Injected {len(system_injections)} [SYSTEM] message(s) into system prompt")
+
         return messages
 
+    async def _handle_tool_followup(self, messages, tool_call, result_content) -> Optional[str]:
+        """Helper to handle tool follow-up calls (re-prompting with result)."""
+        try:
+            follow_up_messages = list(messages)
+            follow_up_messages.append({
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [{"id": tool_call.id, "type": "function", "function": {"name": tool_call.function.name, "arguments": tool_call.function.arguments}}]
+            })
+            follow_up_messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "content": result_content
+            })
+            
+            follow_up_client = OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=self.openrouter_api_key
+            )
+            
+            response = await asyncio.wait_for(
+                asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: follow_up_client.chat.completions.create(
+                        model=self.model,
+                        messages=follow_up_messages,
+                        max_tokens=self.max_tokens
+                    )
+                ),
+                timeout=60.0
+            )
+            
+            if response.choices:
+                final_text = response.choices[0].message.content
+                if final_text:
+                    return final_text.strip()
+        except Exception as e:
+            logger.error(f"[{self.name}] Error in tool follow-up: {e}")
+            return f"[System: Tool execution completed. Result length: {len(result_content)} chars]"
+        
+        return None
+
     async def _call_llm_with_retrieval(self, messages: List[Dict], recent_messages: List[Dict]) -> str:
+
         """
         Call LLM API and handle [RETRIEVE] commands if present.
 
@@ -1891,8 +2011,27 @@ Summary (2-3 sentences, first-person perspective as {self.name}):"""
                 
                 return None  # Should have returned above
             
+            # SPECIAL HANDLING: read_file tool call
+            if function_name == "read_file":
+                path = function_args.get("path", "")
+                logger.info(f"[{self.name}] Reading file: {path}")
+                file_content = self.execute_read_file(path)
+                
+                # Re-prompt loop
+                return await self._handle_tool_followup(messages, tool_call, file_content)
+
+            # SPECIAL HANDLING: list_files tool call
+            if function_name == "list_files":
+                path = function_args.get("path", "")
+                logger.info(f"[{self.name}] Listing files: {path}")
+                dir_content = self.execute_list_files(path)
+                
+                # Re-prompt loop
+                return await self._handle_tool_followup(messages, tool_call, dir_content)
+
             # Convert tool call to message format
             try:
+
                 from agent_games.tool_schemas import convert_tool_call_to_message
                 move, commentary = convert_tool_call_to_message(function_name, function_args)
                 full_response = move  # Use move as main response

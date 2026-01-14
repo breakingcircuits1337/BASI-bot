@@ -32,8 +32,51 @@ PRODUCTIVITY_TOOLS = [
                 "required": ["query", "reasoning"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "Read the contents of a file. Use this to examine code, logs, or data files.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Relative path to the file (e.g., 'data/logs.txt', 'main.py')"
+                    },
+                    "reasoning": {
+                        "type": "string",
+                        "description": "Brief explanation of why you need to read this file"
+                    }
+                },
+                "required": ["path", "reasoning"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_files",
+            "description": "List files and directories in a specific path.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Relative path to list (e.g., '.', 'data/')"
+                    },
+                    "reasoning": {
+                        "type": "string",
+                        "description": "Brief explanation of why you need to list this directory"
+                    }
+                },
+                "required": ["path", "reasoning"]
+            }
+        }
     }
 ]
+
 
 # Chat mode tools - available during normal conversation
 CHAT_MODE_TOOLS = [
@@ -663,6 +706,14 @@ def convert_tool_call_to_message(tool_name: str, tool_args: Dict) -> tuple[str, 
     elif tool_name == "search_web":
         query = tool_args.get("query", "")
         return (f"[SEARCH:{query}]", "")
+
+    elif tool_name == "read_file":
+        path = tool_args.get("path", "")
+        return (f"[READ_FILE:{path}]", "")
+
+    elif tool_name == "list_files":
+        path = tool_args.get("path", "")
+        return (f"[LIST_FILES:{path}]", "")
 
 
     else:
